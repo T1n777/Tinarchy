@@ -1,0 +1,8 @@
+{
+  "name": "Server Dashboard",
+  "short_name": "Dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d13",
+  "theme_color": "#0b0d13"
+}

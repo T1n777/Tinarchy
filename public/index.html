@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <title>Server Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-color: #0b0d13;
+            --card-bg: #141722;
+            --card-hover: #1b1e2a;
+            --text-main: #f1f3f5;
+            --text-muted: #868e96;
+            --primary: #339af0;
+            --online: #40c057;
+            --online-bg: rgba(64, 192, 87, 0.1);
+            --offline: #fa5252;
+            --offline-bg: rgba(250, 82, 82, 0.1);
+            --tor-bg: #211c2e;
+            --tor-border: #3b2c5c;
+            --tor-active: #9c36b5;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 3rem;
+            animation: slideUp 0.5s ease-out 0.1s both;
+        }
+
+        .stat-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background-color: var(--primary);
+            transition: width 0.5s ease-out, background-color 0.3s;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            animation: slideUp 0.5s ease-out 0.2s both;
+        }
+
+        @media (min-width: 640px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (min-width: 1024px) {
+            .grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            background-color: var(--card-hover);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .card.tor-mode {
+            background-color: var(--tor-bg);
+            border-color: var(--tor-border);
+        }
+
+        .card.tor-mode:hover {
+            background-color: #272136;
+        }
+
+        .card.tor-mode::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--tor-active), transparent);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .service-info {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .service-icon {
+            font-size: 2rem;
+            line-height: 1;
+            background: rgba(255,255,255,0.05);
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+        }
+
+        .service-details h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .service-details p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .systemd-name {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .status-badge {
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .status-badge::before {
+            content: '';
+            display: block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .status-badge.online {
+            background-color: var(--online-bg);
+            color: var(--online);
+        }
+
+        .status-badge.online::before {
+            background-color: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+
+        .status-badge.offline {
+            background-color: var(--offline-bg);
+            color: var(--offline);
+        }
+
+        .status-badge.offline::before {
+            background-color: var(--offline);
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .card.tor-mode .card-footer {
+            border-top-color: rgba(156, 54, 181, 0.2);
+        }
+
+        .port {
+            font-family: monospace;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            appearance: none;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn.start {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn.start:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn.stop {
+            background-color: transparent;
+            border: 1px solid rgba(250, 82, 82, 0.5);
+            color: var(--text-main);
+        }
+
+        .btn.stop:hover {
+            background-color: rgba(250, 82, 82, 0.1);
+        }
+
+        .btn.tor-toggle {
+            background-color: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-muted);
+        }
+
+        .btn.tor-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .btn.tor-toggle.active {
+            background-color: var(--tor-active);
+            border-color: var(--tor-active);
+            color: white;
+        }
+        
+        .btn.tor-toggle.active:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: wait;
+        }
+        
+        a.service-link {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        a.service-link:hover {
+            color: var(--primary);
+        }
+        
+        /* Toast Notification */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .toast {
+            background-color: #2c2e3e;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideInRight 0.3s ease-out forwards;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .toast.error {
+            border-left-color: var(--offline);
+        }
+        
+        .toast.success {
+            border-left-color: var(--online);
+        }
+
+        .toast.fade-out {
+            animation: fadeOutRight 0.3s ease-in forwards;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fadeOutRight {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(100%); }
+        }
+    
+        .tor-exit-banner {
+            background-color: var(--tor-bg);
+            border: 1px solid var(--tor-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideUp 0.5s ease-out both;
+        }
+        .tor-exit-banner.active {
+            border-color: var(--tor-active);
+            box-shadow: 0 0 15px rgba(156, 54, 181, 0.2);
+        }
+        .tor-exit-info h2 { font-size: 1.2rem; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; }
+        .tor-exit-info p { color: var(--text-muted); font-size: 0.9rem; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" style="position: relative;">
+            <button onclick="logout()" style="position: absolute; right: 0; top: 0; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Logout</button>
+            <h1 id="sys-hostname">Server <span style="font-size: 1rem; opacity: 0.5;">...</span></h1>
+            <p>
+                <span id="sys-tailscale">IP: ...</span> • 
+                <span id="sys-uptime">Up: ...</span>
+            </p>
+        </div>
+
+        
+        <div class="tor-exit-banner" id="tor-exit-banner">
+            <div class="tor-exit-info">
+                <h2>🧅 Global Tor Exit Node</h2>
+                <p>Route all Tailscale client traffic through the Tor network.</p>
+            </div>
+            <button class="btn tor-toggle" id="tor-exit-btn" onclick="toggleTorExit()">
+                Checking...
+            </button>
+        </div>
+
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>RAM Usage</span>
+                    <span class="stat-value" id="ram-text">...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>Disk Space (/)</span>
+                    <span class="stat-value" id="disk-text">...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span>CPU Load</span>
+                    <span class="stat-value" id="cpu-text">...</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid" id="services-container">
+            <!-- Loading skeleton can go here if needed -->
+        </div>
+    </div>
+    
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        const container = document.getElementById('services-container');
+        const toastContainer = document.getElementById('toast-container');
+        
+        function showToast(message, type = 'default') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = message;
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function fetchSystemStats() {
+            try {
+                const res = await fetch('/api/system');
+                if(res.status === 401) { window.location.href = "/login.html"; return; }
+                if(!res.ok) return;
+                const stats = await res.json();
+                
+                document.getElementById('sys-hostname').innerHTML = `${stats.hostname}`;
+                document.getElementById('sys-tailscale').textContent = `IP: ${stats.tailscale_ip}`;
+                document.getElementById('sys-uptime').textContent = `Up: ${stats.uptime}`;
+                
+                document.getElementById('ram-text').textContent = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
+                const ramBar = document.getElementById('ram-bar');
+                ramBar.style.width = `${stats.ram_percent}%`;
+                ramBar.style.backgroundColor = stats.ram_percent > 85 ? 'var(--offline)' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+                
+                document.getElementById('disk-text').textContent = `${stats.disk_used} / ${stats.disk_total}`;
+                const diskBar = document.getElementById('disk-bar');
+                diskBar.style.width = `${stats.disk_percent}%`;
+                diskBar.style.backgroundColor = stats.disk_percent > 90 ? 'var(--offline)' : 'var(--primary)';
+                
+                document.getElementById('cpu-text').textContent = `${stats.cpu_percent}% (${stats.loadavg[0]})`;
+                const cpuBar = document.getElementById('cpu-bar');
+                cpuBar.style.width = `${stats.cpu_percent}%`;
+                cpuBar.style.backgroundColor = stats.cpu_percent > 80 ? 'var(--offline)' : 'var(--primary)';
+            } catch (err) {
+                console.error("Failed to load system stats", err);
+            }
+        }
+
+        async function fetchServices() {
+            try {
+                const res = await fetch('/api/services');
+                if(res.status === 401) { window.location.href = "/login.html"; return; }
+                if(!res.ok) return;
+                const data = await res.json();
+                renderServices(data);
+            } catch (err) {
+                console.error("Failed to load services", err);
+            }
+        }
+
+        function renderServices(services) {
+            container.innerHTML = '';
+            services.forEach(s => {
+                const isOnline = s.status === 'online';
+                const isSuwayomi = s.id === 'suwayomi';
+                const isTorEnabled = isSuwayomi ? s.torProxyEnabled : false;
+                
+                const card = document.createElement('div');
+                card.className = `card ${isSuwayomi && isOnline && isTorEnabled ? 'tor-mode' : ''}`;
+                
+                let torButtonHTML = '';
+                if (isSuwayomi && isOnline) {
+                    torButtonHTML = `
+                        <button 
+                            class="btn tor-toggle ${isTorEnabled ? 'active' : ''}" 
+                            onclick="toggleTorProxy(${!isTorEnabled}, this)"
+                        >
+                            Tor Proxy: ${isTorEnabled ? 'ON' : 'OFF'}
+                        </button>
+                    `;
+                }
+                
+                const titleHTML = (isOnline && s.port > 0) 
+                    ? `<a href="http://${window.location.hostname}:${s.port}" target="_blank" class="service-link"><h2>${s.name}</h2></a>` 
+                    : `<h2>${s.name}</h2>`;
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="service-info">
+                            <div class="service-icon">${s.icon || '⚙️'}</div>
+                            <div class="service-details">
+                                ${titleHTML}
+                                <p>${s.description}</p>
+                                <div class="systemd-name">${s.systemd}.service</div>
+                            </div>
+                        </div>
+                        <div class="status-badge ${s.status}">${s.status}</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="port">${s.port > 0 ? `Port ${s.port}` : 'No Port'}</div>
+                        ${userRole === 'admin' ? `
+                        <div class="actions">
+                            ${torButtonHTML}
+                            <button 
+                                class="btn ${isOnline ? 'stop' : 'start'}" 
+                                onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
+                            >
+                                ${isOnline ? 'Stop' : 'Start'}
+                            </button>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout');
+                window.location.href = '/login.html';
+            } catch(e) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        async function toggleService(id, action, btnElement, serviceName) {
+            btnElement.disabled = true;
+            const originalText = btnElement.innerText;
+            btnElement.innerText = '...';
+
+            try {
+                const res = await fetch(`/api/services/${id}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                
+                if (res.status === 401) { window.location.href = "/login.html"; return; }
+                if (!res.ok) {
+                    throw new Error(await res.text());
+                }
+                
+                showToast(`Successfully sent ${action} command to ${serviceName}`, 'success');
+                setTimeout(fetchServices, 1000);
+            } catch (err) {
+                showToast(`Failed to ${action} ${serviceName}`, 'error');
+                btnElement.innerText = originalText;
+                btnElement.disabled = false;
+            }
+        }
+        
+        async function toggleTorProxy(enable, btnElement) {
+            btnElement.disabled = true;
+            btnElement.innerText = '...';
+
+            try {
+                const res = await fetch('/api/suwayomi/tor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable })
+                });
+                
+                if (res.status === 401) { window.location.href = "/login.html"; return; }
+                if (!res.ok) throw new Error(await res.text());
+                
+                showToast(`Tor proxy ${enable ? 'enabled' : 'disabled'} for Suwayomi`, 'success');
+                setTimeout(fetchServices, 2000);
+            } catch (err) {
+                showToast(`Failed to toggle Tor proxy`, 'error');
+                btnElement.disabled = false;
+            }
+        }
+
+        
+        let torExitActive = false;
+        let userRole = "guest";
+        
+        async function fetchTorExitStatus() {
+            try {
+                const res = await fetch('/api/system/tor-exit');
+                if(res.status === 401) { window.location.href = "/login.html"; return; }
+                if(!res.ok) return;
+                const data = await res.json();
+                torExitActive = data.active;
+                
+                const btn = document.getElementById('tor-exit-btn');
+                const banner = document.getElementById('tor-exit-banner');
+                
+                if (torExitActive) {
+                    btn.classList.add('active');
+                    btn.innerText = 'Enabled';
+                    banner.classList.add('active');
+                    document.body.style.boxShadow = 'inset 0 0 100px rgba(156, 54, 181, 0.05)';
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerText = 'Disabled';
+                    banner.classList.remove('active');
+                    document.body.style.boxShadow = 'none';
+                }
+                btn.disabled = false;
+            } catch (err) {
+                console.error("Failed to load Tor Exit status", err);
+            }
+        }
+
+        async function toggleTorExit() {
+            const btn = document.getElementById('tor-exit-btn');
+            btn.disabled = true;
+            btn.innerText = '...';
+            
+            const newState = !torExitActive;
+
+            try {
+                const res = await fetch('/api/system/tor-exit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable: newState })
+                });
+                
+                if (res.status === 401) { window.location.href = "/login.html"; return; }
+                if (!res.ok) throw new Error(await res.text());
+                
+                showToast('Tor Exit Node status changed', 'success');
+                setTimeout(fetchTorExitStatus, 1000);
+            } catch (err) {
+                showToast('Failed to toggle Tor Exit Node', 'error');
+                btn.disabled = false;
+            }
+        }
+
+        // Fetch user role
+        async function fetchUserRole() {
+            try {
+                const res = await fetch('/api/me');
+                if (res.status === 401) { window.location.href = "/login.html"; return; }
+                if (res.ok) {
+                    const data = await res.json();
+                    userRole = data.role;
+                    if (userRole !== 'admin') {
+                        document.getElementById('tor-exit-banner').style.display = 'none';
+                        document.querySelector('.stats-bar').style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                console.error('Auth check failed:', e);
+            }
+        }
+        
+        async function initDashboard() {
+            await fetchUserRole();
+            fetchSystemStats();
+            fetchServices();
+            fetchTorExitStatus();
+            
+            setInterval(() => {
+                fetchSystemStats();
+                fetchServices();
+                fetchTorExitStatus();
+            }, 5000);
+        }
+        
+        initDashboard();
+
+    </script>
+</body>
+</html>

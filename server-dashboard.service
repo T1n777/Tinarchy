@@ -1,0 +1,13 @@
+[Unit]
+Description=Server Management Dashboard
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/tin/server-dashboard/server.py
+WorkingDirectory=/home/tin/server-dashboard
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
