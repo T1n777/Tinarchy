@@ -51,14 +51,13 @@ cd /home/tin/server-dashboard
 ```
 
 ### 2. Configure Profiles (Users)
-Authentication is role-based. You can manage users in the `USERS` dictionary at the top of the `server.py` file. Each user must have a `password` and a `role` (`admin` or `guest`):
+Authentication is role-based. To configure passwords securely without tracking them in git, create a `.env` file in the project directory with your passwords:
 
-```python
-USERS = {
-    "tin": {"password": "<ADMIN_PASSWORD>", "role": "admin"},
-    "ice.kimi": {"password": "<GUEST_PASSWORD>", "role": "guest"}
-}
+```bash
+echo "ADMIN_PASSWORD=your_admin_password" >> .env
+echo "GUEST_PASSWORD=your_guest_password" >> .env
 ```
+The users themselves are defined in the `USERS` dictionary at the top of the `server.py` file, which defaults to loading these variables.
 
 ### 3. Make Scripts Executable
 Ensure the Tor exit script has the correct execution permissions so the dashboard can run it:

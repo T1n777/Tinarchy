@@ -9,10 +9,21 @@ import uuid
 import time
 import http.cookies
 
+def load_env():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if '=' in line and not line.startswith('#'):
+                    k, v = line.strip().split('=', 1)
+                    os.environ[k] = v
+
+load_env()
+
 SESSIONS = {}
 USERS = {
-    "tin": {"password": "<ADMIN_PASSWORD>", "role": "admin"},
-    "ice.kimi": {"password": "<GUEST_PASSWORD>", "role": "guest"}
+    "tin": {"password": os.environ.get("ADMIN_PASSWORD", "changeme"), "role": "admin"},
+    "ice.kimi": {"password": os.environ.get("GUEST_PASSWORD", "changeme"), "role": "guest"}
 }
 
 PORT = 8080
