@@ -1,6 +1,6 @@
 # Server Management Dashboard
 
-![Dashboard Banner](https://via.placeholder.com/1000x200/222222/FFFFFF?text=Tinarchy+Server+Dashboard)
+![Dashboard Banner](public/github-header-banner.png)
 
 A lightweight, web-based management dashboard for monitoring system resources and managing self-hosted services on a Linux server.
 
