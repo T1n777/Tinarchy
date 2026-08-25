@@ -358,21 +358,47 @@
             background: rgba(255,255,255,0.1);
             border-color: rgba(255,255,255,0.2);
         }
-        .btn.start { color: var(--online); }
-        .btn.start:hover { border-color: rgba(78,222,163,0.4); background: rgba(78,222,163,0.08); }
-        .btn.stop { color: var(--offline); }
-        .btn.stop:hover { border-color: rgba(255,180,171,0.4); background: rgba(255,180,171,0.08); }
 
-        .btn.tor-toggle {
-            color: var(--text-muted);
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            appearance: none;
+            outline: none;
+            width: 44px;
+            height: 24px;
+            background: rgba(255,180,171,0.08);
+            border: 1px solid rgba(255,180,171,0.4);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+            flex-shrink: 0;
         }
-        .btn.tor-toggle.active {
-            background: rgba(111,0,190,0.3);
-            border-color: var(--tor-border);
-            color: var(--tor-purple);
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background-color: var(--offline);
+            border-radius: 50%;
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.3s;
+            box-shadow: 0 0 8px rgba(255,180,171,0.5);
         }
-        .btn.tor-toggle.active:hover { filter: brightness(1.2); }
-        .btn:disabled { opacity: 0.4; cursor: wait; }
+        .toggle-switch.on {
+            background: rgba(78,222,163,0.08);
+            border-color: rgba(78,222,163,0.4);
+        }
+        .toggle-switch.on::after {
+            background-color: var(--online);
+            transform: translateX(20px);
+            box-shadow: 0 0 8px rgba(78,222,163,0.8);
+        }
+        .toggle-switch:disabled {
+            opacity: 0.5;
+            cursor: wait;
+        }
 
         /* Toast */
         .toast-container {
@@ -531,12 +557,11 @@
             <div class="tor-exit-info">
                 <div class="tor-icon">🧅</div>
                 <div>
-                    <h2>Global Tor Exit Node</h2>
+                    <h2 style="display: flex; align-items: center; gap: 8px;">Global Tor Exit Node <span id="tor-exit-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;"></span></h2>
                     <p>Route all Tailscale client traffic through the Tor network.</p>
                 </div>
             </div>
-            <button class="btn tor-toggle" id="tor-exit-btn" onclick="toggleTorExit()">
-                Checking...
+            <button class="toggle-switch" aria-label="Toggle Tor Exit Node" id="tor-exit-btn" onclick="toggleTorExit()">
             </button>
         </div>
 
@@ -643,12 +668,14 @@
                 let torButtonHTML = '';
                 if (isSuwayomi && isOnline) {
                     torButtonHTML = `
-                        <button
-                            class="btn tor-toggle ${isTorEnabled ? 'active' : ''}"
-                            onclick="toggleTorProxy(${!isTorEnabled}, this)"
-                        >
-                            Tor: ${isTorEnabled ? 'ON' : 'OFF'}
-                        </button>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted)">Tor Proxy</span>
+                            <button
+                                class="toggle-switch ${isTorEnabled ? 'on' : ''}"
+                                aria-label="Toggle Tor Proxy"
+                                onclick="toggleTorProxy(${!isTorEnabled}, this)"
+                            ></button>
+                        </div>
                     `;
                 }
 
@@ -671,12 +698,14 @@
                         ${userRole === 'admin' ? `
                         <div class="actions">
                             ${torButtonHTML}
-                            <button
-                                class="btn ${isOnline ? 'stop' : 'start'}"
-                                onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
-                            >
-                                ${isOnline ? 'Stop' : 'Start'}
-                            </button>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: ${isOnline ? 'var(--online)' : 'var(--offline)'}">${isOnline ? 'On' : 'Off'}</span>
+                                <button
+                                    class="toggle-switch ${isOnline ? 'on' : ''}"
+                                    aria-label="Toggle ${s.name}"
+                                    onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
+                                ></button>
+                            </div>
                         </div>
                         ` : ''}
                     </div>
@@ -753,14 +782,17 @@
 
                 const btn = document.getElementById('tor-exit-btn');
                 const banner = document.getElementById('tor-exit-banner');
+                const label = document.getElementById('tor-exit-label');
 
                 if (torExitActive) {
-                    btn.classList.add('active');
-                    btn.innerText = 'Enabled';
+                    btn.classList.add('on');
+                    label.innerText = 'Enabled';
+                    label.style.color = 'var(--online)';
                     banner.classList.add('active');
                 } else {
-                    btn.classList.remove('active');
-                    btn.innerText = 'Disabled';
+                    btn.classList.remove('on');
+                    label.innerText = 'Disabled';
+                    label.style.color = 'var(--offline)';
                     banner.classList.remove('active');
                 }
                 btn.disabled = false;
@@ -771,8 +803,9 @@
 
         async function toggleTorExit() {
             const btn = document.getElementById('tor-exit-btn');
+            const label = document.getElementById('tor-exit-label');
             btn.disabled = true;
-            btn.innerText = '...';
+            label.innerText = '...';
 
             const newState = !torExitActive;
 
