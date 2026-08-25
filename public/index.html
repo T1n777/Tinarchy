@@ -108,28 +108,65 @@
             padding: 80px 24px 40px;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-            animation: slideUp 0.5s ease-out both;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin: 0 0 0.5rem 0;
-            background: linear-gradient(135deg, var(--primary), #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .header p {
-            color: var(--text-muted);
-            font-size: 1rem;
+        /* Top Nav Pill */
+        .top-nav-wrapper {
+            position: fixed;
+            top: 16px;
+            left: 0;
+            right: 0;
+            z-index: 50;
             display: flex;
             justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+            pointer-events: none;
+        }
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(14, 19, 34, 0.55);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.13);
+            border-radius: 999px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+            gap: 16px;
+            pointer-events: all;
+        }
+        .top-nav .brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: -0.03em;
+        }
+        .top-nav .meta {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .meta-badge {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            padding: 4px 12px;
+            border-radius: 999px;
+        }
+        .logout-btn {
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--primary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px 16px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.08);
         }
 
         /* Stats Row */
@@ -418,15 +455,19 @@
 
     <!-- Ambient Background -->
 
+    <!-- Top Navigation Pill (outside container for true fixed positioning) -->
+    <div class="top-nav-wrapper">
+        <nav class="top-nav">
+            <div class="brand" id="sys-hostname">tinarchy</div>
+            <div class="meta">
+                <span class="meta-badge" id="sys-tailscale">IP: ...</span>
+                <span class="meta-badge" id="sys-uptime">Up: ...</span>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </nav>
+    </div>
+
     <div class="container">
-        <div class="header" style="position: relative;">
-            <button onclick="logout()" style="position: absolute; right: 0; top: 0; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">Logout</button>
-            <h1 id="sys-hostname">Server <span style="font-size: 1rem; opacity: 0.5;">...</span></h1>
-            <p>
-                <span id="sys-tailscale">IP: ...</span> • 
-                <span id="sys-uptime">Up: ...</span>
-            </p>
-        </div>
         <!-- Stats Bar -->
         <div class="stats-bar" id="stats-bar">
             <div class="stat-card glass">
