@@ -180,11 +180,11 @@
 
         /* Tor Banner */
         .tor-exit-banner {
-            background: var(--tor-bg);
+            background: var(--glass);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid var(--tor-border);
-            box-shadow: inset 0 1px 0 0 rgba(214,169,255,0.15);
+            box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.25);
             border-radius: 12px;
             padding: 20px 24px;
             margin-bottom: 24px;
@@ -192,19 +192,20 @@
             justify-content: space-between;
             align-items: center;
             transition: all 0.3s;
+            will-change: transform;
         }
         .tor-exit-banner:hover {
-            box-shadow: 0 8px 32px rgba(111,0,190,0.15), inset 0 1px 0 0 rgba(214,169,255,0.15);
+            background: var(--glass-hover);
         }
         .tor-exit-banner.active {
-            border-color: rgba(214,169,255,0.5);
-            box-shadow: 0 0 20px rgba(111,0,190,0.2), inset 0 1px 0 0 rgba(214,169,255,0.15);
+            border-color: rgba(214,169,255,0.8);
+            box-shadow: 0 0 16px rgba(214,169,255,0.2), inset 0 1px 0 0 rgba(255,255,255,0.08);
         }
         .tor-exit-info { display: flex; align-items: center; gap: 16px; }
         .tor-icon {
             width: 48px; height: 48px;
             border-radius: 50%;
-            background: rgba(111,0,190,0.15);
+            background: rgba(255,255,255,0.04);
             border: 1px solid var(--tor-border);
             display: flex; align-items: center; justify-content: center;
             font-size: 1.5rem; flex-shrink: 0;
