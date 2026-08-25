@@ -186,6 +186,18 @@ Simply remove or add service `id`s from this array to change what guests have ac
 
 ---
 
+## Customizing the Background
+
+You can easily change the wallpaper for both the login screen and the main dashboard. 
+The dashboard looks for an image named `bg.jpg` in the `public/` directory.
+
+To change it, simply replace that file with your own image:
+1. Copy your desired image (e.g., `my_wallpaper.jpg`) into the `public/` directory.
+2. Rename it to `bg.jpg` (overwriting the old one).
+3. Hard refresh your browser (Ctrl+F5) to see the new background!
+
+---
+
 ## Important Notes
 * **Root Privileges**: The dashboard executes system commands via `sudo systemctl` and `sudo iptables`. Running `server.py` as `root` (which the default `server-dashboard.service` does) is required to avoid password prompts for these commands. If you change the service to run as a standard user, you must configure `visudo` to allow passwordless execution for these specific binaries.
 * **Suwayomi Integration**: The Suwayomi Tor integration hardcodes the path to the configuration file as `/var/lib/suwayomi/.local/share/Tachidesk/server.conf`. If your Tachidesk installation is located elsewhere, you must update this path in the `/api/suwayomi/tor` route in `server.py`.
