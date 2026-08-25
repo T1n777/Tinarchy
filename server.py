@@ -56,7 +56,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
 
     def do_GET(self):
-        if self.path == '/login.html':
+        # Allow login page and static assets to load without auth
+        public_paths = ('/login.html', '/bg.jpg')
+        if self.path in public_paths or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2')):
             super().do_GET()
             return
             

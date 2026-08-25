@@ -3,72 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Server Login</title>
+    <title>Tinarchy Dashboard</title>
     <style>
-        :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --text: #f8fafc;
-            --primary: #3b82f6;
-            --border: #334155;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, system-ui, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .login-card {
-            background: var(--surface);
-            padding: 2rem;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            width: 100%;
-            max-width: 320px;
-            text-align: center;
-        }
-        h2 { margin-top: 0; }
-        input, select {
-            width: 100%;
-            padding: 0.75rem;
-            margin: 0.5rem 0 1rem 0;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 1rem;
-        }
-        button {
-            width: 100%;
-            padding: 0.75rem;
-            background: var(--primary);
             color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1rem;
         }
-        button:hover { opacity: 0.9; }
-        .error { color: #ef4444; margin-bottom: 1rem; display: none; }
+
+        .wallpaper {
+            position: fixed;
+            inset: 0;
+            background: url('/bg.jpg') no-repeat center center;
+            background-size: cover;
+            z-index: 0;
+        }
+
+        .wallpaper::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .login-card {
+            position: relative;
+            z-index: 10;
+            width: 340px;
+            padding: 2.5rem 2rem 2rem;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom-color: rgba(255, 255, 255, 0.08);
+            border-right-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 12px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25);
+        }
+
+        .card-logo { font-size: 2rem; margin-bottom: 0.5rem; }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.25rem;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 2rem;
+        }
+
+        label {
+            display: block;
+            text-align: left;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.4rem;
+            margin-top: 1rem;
+        }
+
+        label:first-of-type { margin-top: 0; }
+
+        select, input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: white;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s, background 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        select option { background: #1e293b; color: white; }
+
+        .select-wrapper { position: relative; }
+        .select-wrapper::after {
+            content: '▾';
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.5);
+            pointer-events: none;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.13);
+        }
+
+        input::placeholder { color: rgba(255,255,255,0.3); }
+
+        .error {
+            background: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.35);
+            color: #fca5a5;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            display: none;
+            text-align: left;
+        }
+
+        button {
+            margin-top: 1.5rem;
+            width: 100%;
+            padding: 0.85rem;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: white;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.22);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        button:active { transform: translateY(0); }
     </style>
 </head>
 <body>
+    <div class="wallpaper"></div>
     <div class="login-card">
-        <h2>Tinarchy Dashboard Login</h2>
-        <div class="error" id="error">Invalid password</div>
+        <h2>Tinarchy Dashboard</h2>
+        <p class="subtitle">Sign in to continue</p>
+        <div class="error" id="error">Invalid username or password</div>
         <form id="login-form">
-            <select id="username" required>
-                <option value="tin">tin</option>
-                <option value="ice.kimi">ice.kimi</option>
-            </select>
-            <input type="password" id="password" placeholder="Password" required autofocus>
-            <button type="submit">Login</button>
+            <label for="username">Account</label>
+            <div class="select-wrapper">
+                <select id="username" required>
+                    <option value="tin">tin</option>
+                    <option value="ice.kimi">ice.kimi</option>
+                </select>
+            </div>
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required autofocus>
+            <button type="submit">Sign In</button>
         </form>
     </div>
     <script>
@@ -76,6 +176,8 @@
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const errEl = document.getElementById('error');
+            errEl.style.display = 'none';
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,7 +186,7 @@
             if (res.ok) {
                 window.location.href = '/';
             } else {
-                document.getElementById('error').style.display = 'block';
+                errEl.style.display = 'block';
             }
         });
     </script>
