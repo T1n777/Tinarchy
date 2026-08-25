@@ -186,15 +186,18 @@ Simply remove or add service `id`s from this array to change what guests have ac
 
 ---
 
-## Customizing the Background
+## Customizing the Background (Login & Dashboard)
 
-You can easily change the wallpaper for both the login screen and the main dashboard. 
-The dashboard looks for an image named `bg.jpg` in the `public/` directory.
+The login screen and the main dashboard share the exact same background image. To customize this wallpaper, you just need to replace the default file with your own image.
 
-To change it, simply replace that file with your own image:
-1. Copy your desired image (e.g., `my_wallpaper.jpg`) into the `public/` directory.
-2. Rename it to `bg.jpg` (overwriting the old one).
-3. Hard refresh your browser (Ctrl+F5) to see the new background!
+Follow these simple steps:
+1. Find the image you want to use (must be a `.jpg` or `.png` file).
+2. Move your image into the `public/` folder located at `/home/tin/server-dashboard/public/`.
+3. Delete the existing `bg.jpg` file in that folder (if there is one).
+4. Rename your new image file to exactly `bg.jpg` (even if it was originally a PNG, the dashboard expects this filename).
+5. Open your dashboard in the browser and perform a **Hard Refresh** (`Ctrl + F5` on Windows/Linux, or `Cmd + Shift + R` on Mac) to bypass the browser cache and see your new wallpaper!
+
+*Note: If you select the "Solid Dark (Performance)" theme in the dashboard settings, the wallpaper will be hidden to save resources.*
 
 ---
 
