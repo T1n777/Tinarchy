@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: var(--font-family, 'Inter', -apple-system, system-ui, sans-serif);
             height: 100vh;
             width: 100vw;
             overflow: hidden;
@@ -172,10 +172,32 @@
         </form>
     </div>
     <script>
-        // Apply saved login page wallpaper from localStorage
+        // Apply saved login settings from localStorage
         (function() {
+            const root = document.documentElement;
+            // Wallpaper
             const wp = localStorage.getItem('login-wallpaper');
-            if (wp) document.documentElement.style.setProperty('--login-wp-url', `url('${wp}')`);
+            if (wp) root.style.setProperty('--login-wp-url', `url('${wp}')`);
+            
+            // Color
+            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            let primaryColor = '';
+            if (colorMode === 'manual') {
+                primaryColor = localStorage.getItem('dashboard-manual-color');
+            } else {
+                primaryColor = localStorage.getItem('dashboard-auto-color');
+            }
+            if (primaryColor) root.style.setProperty('--primary', primaryColor);
+            
+            // Font
+            const font = localStorage.getItem('dashboard-font');
+            if (font && font !== 'Inter') {
+                root.style.setProperty('--font-family', `"${font}", -apple-system, system-ui, sans-serif`);
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+                document.head.appendChild(link);
+            }
         })();
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {

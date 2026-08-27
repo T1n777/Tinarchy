@@ -31,7 +31,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            font-family: var(--font-family, 'Inter', -apple-system, system-ui, sans-serif);
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
@@ -681,13 +681,35 @@
         document.body.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-select') && (document.getElementById('theme-select').value = savedTheme);
 
-        // Wallpaper + blur from localStorage
-        (function applyWallpaperSettings() {
+        // Wallpaper, font, and color from localStorage
+        (function applyAppearanceSettings() {
+            const root = document.documentElement;
+            
+            // Wallpaper + Blur
             const wp = localStorage.getItem('dashboard-wallpaper');
             const blur = localStorage.getItem('dashboard-blur') || '6';
-            const root = document.documentElement;
             if (wp) root.style.setProperty('--wp-url', `url('${wp}')`);
             root.style.setProperty('--wp-blur', `${blur}px`);
+            
+            // Color
+            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            let primaryColor = '';
+            if (colorMode === 'manual') {
+                primaryColor = localStorage.getItem('dashboard-manual-color');
+            } else {
+                primaryColor = localStorage.getItem('dashboard-auto-color');
+            }
+            if (primaryColor) root.style.setProperty('--primary', primaryColor);
+            
+            // Font
+            const font = localStorage.getItem('dashboard-font');
+            if (font && font !== 'Inter') {
+                root.style.setProperty('--font-family', `"${font}", -apple-system, system-ui, sans-serif`);
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+                document.head.appendChild(link);
+            }
         })();
 
         // In ultra mode, block Google Fonts from loading by removing the link tag
