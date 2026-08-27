@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Settings — Tinarchy</title>
+    <style>
+        :root {
+            --ui-translucency: 0.6;
+            --ui-blur: 32px;
+            --ui-saturate: 180%;
+            --glass-rgb: 14, 19, 34;
+            --glass: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency)));
+            --glass-hover: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.1));
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-border-hover: rgba(255, 255, 255, 0.25);
+            --shadow-inner: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            --shadow-outer: 0 12px 40px rgba(0, 0, 0, 0.35);
+            --text: #dee1f7;
+            --text-muted: #8c909f;
+            --online: #4edea3;
+            --offline: #ffb4ab;
+            --danger: #ff6b6b;
+            --danger-bg: rgba(255,107,107,0.1);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: var(--font-family, 'Inter', -apple-system, system-ui, sans-serif); color:var(--text); min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased; }
+
+        .wallpaper { position:fixed; inset:-20px; background:var(--wp-url, url('/dashboard-bg.jpg')) no-repeat center center; background-size:cover; filter:blur(var(--wp-blur,6px)); z-index:-2; transform:translateZ(0); }
+        .wallpaper-tint { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:-1; pointer-events:none; }
+
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-inner), var(--shadow-outer);
+            border-radius: 20px;
+        }
+
+        .container { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:0 24px 60px; }
+
+        .top-nav-wrapper { position:sticky; top:16px; z-index:50; display:flex; justify-content:center; margin:16px -24px 32px; pointer-events:none; }
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
+            gap: 16px;
+            pointer-events: all;
+            width: calc(100% - 32px);
+            max-width: 1100px;
+        }
+        .top-nav .brand { font-size:1.3rem; font-weight:700; color:var(--primary); letter-spacing:-0.03em; }
+        .nav-back { font-family:inherit; font-size:0.9rem; font-weight:600; color:var(--text-muted); background:none; border:none; cursor:pointer; padding:6px 16px; border-radius:8px; transition:all 0.2s; text-decoration:none; display:flex; align-items:center; gap:6px; }
+        .nav-back:hover { background:rgba(255,255,255,0.08); color:var(--text); }
+
+        .page-header { margin-bottom:28px; }
+        .page-header h1 { font-size:2rem; font-weight:700; letter-spacing:-0.04em; margin-bottom:4px; }
+        .page-header p { font-size:0.9rem; color:var(--text-muted); }
+
+        .settings-layout { display:grid; grid-template-columns:200px 1fr; gap:20px; align-items:start; }
+        @media(max-width:680px){ .settings-layout { grid-template-columns:1fr; } }
+
+        .sidebar { border-radius:14px; padding:8px; position:sticky; top:90px; }
+        .tab-btn { width:100%; text-align:left; background:none; border:none; border-radius:8px; padding:10px 14px; font-family:inherit; font-size:0.88rem; font-weight:500; color:var(--text-muted); cursor:pointer; transition:all 0.18s; display:flex; align-items:center; gap:10px; margin-bottom:2px; }
+        .tab-btn:hover:not(:disabled) { background:rgba(255,255,255,0.06); color:var(--text); }
+        .tab-btn.active { background:rgba(255,255,255,0.1); color:var(--primary); font-weight:600; }
+        .tab-btn:disabled { opacity:0.35; cursor:default; }
+        .tab-icon { font-size:1rem; width:20px; text-align:center; }
+
+        .content-panel { border-radius:20px; padding:28px; }
+        .section-header { font-size:1.1rem; font-weight:700; letter-spacing:-0.02em; margin-bottom:6px; }
+        .section-sub { font-size:0.82rem; color:var(--text-muted); margin-bottom:24px; }
+        .divider { border:none; border-top:1px solid var(--glass-border); margin:28px 0; }
+
+        .tab-pane { display:none; }
+        .tab-pane.active { display:block; }
+
+        .user-list { display:flex; flex-direction:column; gap:12px; }
+        .user-card { border-radius:12px; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); transition:background 0.2s; }
+        .user-card:hover { background:rgba(255,255,255,0.05); }
+        .user-info { display:flex; align-items:center; gap:14px; }
+        .user-avatar { width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); display:flex; align-items:center; justify-content:center; font-size:1.1rem; font-weight:700; color:var(--primary); text-transform:uppercase; }
+        .user-name { font-size:0.95rem; font-weight:600; }
+        .user-meta { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
+        .role-badge { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; padding:3px 10px; border-radius:999px; border:1px solid; }
+        .role-badge.admin { color:var(--primary); border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.06); }
+        .role-badge.guest { color:var(--text-muted); border-color:rgba(255,255,255,0.08); background:rgba(255,255,255,0.02); }
+        .user-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+
+        .toggle-switch { position:relative; appearance:none; outline:none; width:44px; height:24px; background:rgba(255,180,171,0.08); border:1px solid rgba(255,180,171,0.4); border-radius:24px; cursor:pointer; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow:inset 0 1px 2px rgba(0,0,0,0.2); flex-shrink:0; }
+        .toggle-switch::after { content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; background-color:var(--offline); border-radius:50%; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1),background-color 0.3s; box-shadow:0 0 8px rgba(255,180,171,0.5); }
+        .toggle-switch.on { background:rgba(78,222,163,0.08); border-color:rgba(78,222,163,0.4); }
+        .toggle-switch.on::after { background-color:var(--online); transform:translateX(20px); box-shadow:0 0 8px rgba(78,222,163,0.8); }
+        .toggle-switch:disabled { opacity:0.4; cursor:not-allowed; }
+
+        .btn {
+            appearance: none;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-inner), 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .btn:hover { background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.2); }
+        .btn.danger { border-color:rgba(255,107,107,0.3); background:var(--danger-bg); color:var(--danger); }
+        .btn.danger:hover { background:rgba(255,107,107,0.2); border-color:rgba(255,107,107,0.5); }
+
+        .session-pill { display:inline-flex; align-items:center; gap:5px; font-size:0.72rem; font-weight:600; padding:3px 9px; border-radius:999px; background:rgba(78,222,163,0.08); border:1px solid rgba(78,222,163,0.25); color:var(--online); }
+
+        .toast-container { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; gap:8px; z-index:200; }
+        .toast { background:var(--glass); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); color:white; padding:12px 20px; border-radius:10px; border:1px solid var(--glass-border); box-shadow:0 4px 16px rgba(0,0,0,0.3); font-size:0.85rem; font-weight:500; animation:slideInRight 0.3s ease-out; }
+        .toast.success { border-color:rgba(78,222,163,0.4); }
+        .toast.error { border-color:rgba(255,180,171,0.4); }
+        .toast.fade-out { animation:fadeOutRight 0.3s ease-in forwards; }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(100%)} to{opacity:1;transform:translateX(0)} }
+        @keyframes fadeOutRight { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(100%)} }
+
+        body[data-theme="solid"] { --bg:#0b0d13; --glass:#141722; --glass-hover:#1b1e2a; --glass-border:rgba(255,255,255,0.05); background-color:var(--bg); }
+        body[data-theme="solid"] .wallpaper, body[data-theme="solid"] .wallpaper-tint { display:none; }
+        body[data-theme="solid"] .glass, body[data-theme="solid"] .top-nav, body[data-theme="solid"] .content-panel, body[data-theme="solid"] .sidebar, body[data-theme="solid"] .toast { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; box-shadow:none!important; background:var(--glass)!important; }
+
+        body[data-theme="ultra"] { --bg:#0d0d0d; --glass:#181818; --glass-hover:#202020; --glass-border:#2a2a2a; --text:#e0e0e0; --text-muted:#888; --online:#5cba82; --offline:#d9706a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif!important; background-color:var(--bg)!important; }
+        body[data-theme="ultra"] .wallpaper, body[data-theme="ultra"] .wallpaper-tint { display:none!important; }
+        body[data-theme="ultra"] *, body[data-theme="ultra"] *::before, body[data-theme="ultra"] *::after { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; box-shadow:none!important; transition:none!important; animation:none!important; }
+        body[data-theme="ultra"] .glass, body[data-theme="ultra"] .top-nav, body[data-theme="ultra"] .content-panel, body[data-theme="ultra"] .sidebar, body[data-theme="ultra"] .toast { background:var(--glass)!important; border:1px solid var(--glass-border)!important; border-radius:10px!important; }
+        body[data-theme="ultra"] .top-nav { background:#1c1c1c!important; }
+        body[data-theme="ultra"] .toggle-switch { background:#2a2a2a!important; border-color:#444!important; }
+        body[data-theme="ultra"] .toggle-switch.on { background:#1e3a2a!important; border-color:#3a7a56!important; }
+        body[data-theme="ultra"] .toggle-switch::after { background-color:#888!important; }
+        body[data-theme="ultra"] .toggle-switch.on::after { background-color:var(--online)!important; }
+        body[data-theme="ultra"] .btn { background:#252525!important; border:1px solid #333!important; }
+
+        .theme-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+        @media(max-width:680px){ .theme-cards { grid-template-columns:1fr; } }
+        .theme-card { border:2px solid var(--glass-border); border-radius:12px; padding:12px; cursor:pointer; transition:border-color 0.2s, background 0.2s; background:rgba(255,255,255,0.02); display:flex; flex-direction:column; gap:10px; position:relative; }
+        .theme-card:hover { border-color:rgba(255,255,255,0.25); background:rgba(255,255,255,0.04); }
+        .theme-card.selected { border-color:var(--primary); background:rgba(255,255,255,0.06); }
+        .theme-preview { height:70px; border-radius:8px; overflow:hidden; }
+        .glass-preview { background:linear-gradient(135deg,rgba(14,19,34,0.6) 0%,rgba(30,40,80,0.5) 100%); border:1px solid rgba(255,255,255,0.1); position:relative; }
+        .glass-preview::after { content:''; position:absolute; inset:0; background:url('/dashboard-bg.jpg') center/cover; opacity:0.4; }
+        .solid-preview { background:linear-gradient(135deg,#141722 0%,#1b1e2a 100%); border:1px solid rgba(255,255,255,0.05); }
+        .ultra-preview { background:linear-gradient(135deg,#0d0d0d 0%,#181818 100%); border:1px solid #2a2a2a; }
+        .theme-card-label { display:flex; flex-direction:column; gap:2px; }
+        .theme-card-label strong { font-size:0.85rem; font-weight:600; }
+        .theme-card-label span { font-size:0.72rem; color:var(--text-muted); }
+        .theme-check { position:absolute; top:10px; right:12px; color:var(--primary); font-size:0.9rem; font-weight:700; opacity:0; transition:opacity 0.2s; }
+        .theme-card.selected .theme-check { opacity:1; }
+
+        .blur-row { display:flex; align-items:center; gap:12px; margin-top:4px; }
+        .blur-label { font-size:0.75rem; color:var(--text-muted); white-space:nowrap; }
+        .blur-value { font-size:0.78rem; font-weight:600; color:var(--primary); min-width:32px; }
+        .slider { flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:4px; background:rgba(255,255,255,0.1); outline:none; cursor:pointer; }
+        .slider::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--primary); cursor:pointer; border:2px solid rgba(0,0,0,0.3); box-shadow:0 0 6px rgba(255,255,255,0.3); }
+        .slider::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:var(--primary); cursor:pointer; border:2px solid rgba(0,0,0,0.3); }
+        .slider:disabled { opacity:0.35; cursor:default; }
+
+        .wp-group-label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin:20px 0 8px; }
+        .wp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+        .wp-thumb { position:relative; border-radius:10px; overflow:hidden; cursor:pointer; border:2px solid transparent; transition:border-color 0.2s,transform 0.15s; aspect-ratio:16/9; }
+        .wp-thumb:hover { border-color:rgba(255,255,255,0.4); transform:scale(1.03); }
+        .wp-thumb.selected { border-color:var(--primary); }
+        .wp-thumb img { width:100%; height:100%; object-fit:cover; display:block; loading:lazy; }
+        .wp-thumb-check { position:absolute; top:5px; right:6px; background:var(--primary); color:#000; border-radius:50%; width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; opacity:0; transition:opacity 0.2s; }
+        .wp-thumb.selected .wp-thumb-check { opacity:1; }
+
+        .apply-target-row { display:flex; align-items:center; gap:12px; margin:12px 0 16px; flex-wrap:wrap; }
+        .apply-target-label { font-size:0.82rem; color:var(--text-muted); white-space:nowrap; }
+        .target-pills { display:flex; gap:6px; }
+        .target-pill { padding:6px 14px; border-radius:999px; font-size:0.78rem; font-weight:600; cursor:pointer; border:1px solid var(--glass-border); background:rgba(255,255,255,0.04); color:var(--text-muted); transition:all 0.18s; font-family:inherit; }
+        .target-pill:hover { border-color:rgba(255,255,255,0.25); color:var(--text); }
+        .target-pill.active { background:rgba(255,255,255,0.12); border-color:var(--primary); color:var(--primary); }
+
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.08); border-radius:3px; }
+        ::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.15); }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="wallpaper-tint"></div>
+
+    <div class="container">
+        <div class="top-nav-wrapper">
+            <nav class="top-nav">
+                <span class="brand">⚙️ Settings</span>
+                <a href="/index.html" class="nav-back">← Dashboard</a>
+            </nav>
+        </div>
+
+        <div class="page-header">
+            <h1>Settings</h1>
+            <p>Manage your dashboard, users, and appearance.</p>
+        </div>
+
+        <div class="settings-layout">
+            <aside class="sidebar glass">
+                <button class="tab-btn active" onclick="switchTab('users', this)">
+                    <span class="tab-icon">👥</span> Users
+                </button>
+                <button class="tab-btn" onclick="switchTab('appearance', this)">
+                    <span class="tab-icon">🎨</span> Appearance
+                </button>
+                <button class="tab-btn" disabled title="Coming soon">
+                    <span class="tab-icon">🖥️</span> Display
+                </button>
+            </aside>
+
+            <main class="content-panel glass">
+                <!-- Users Tab -->
+                <div id="tab-users" class="tab-pane active">
+                    <div class="section-header">User Management</div>
+                    <p class="section-sub">All accounts with access to this dashboard. Admins can revoke guest sessions.</p>
+                    <div class="user-list" id="user-list">
+                        <div style="color:var(--text-muted);font-size:0.85rem;">Loading…</div>
+                    </div>
+                </div>
+
+                <!-- Appearance Tab -->
+                <div id="tab-appearance" class="tab-pane">
+                    <div class="section-header">Theme</div>
+                    <p class="section-sub">Choose a visual style for this device. Saved locally.</p>
+                    <div class="theme-cards" id="theme-cards">
+                        <div class="theme-card" data-theme="glass" onclick="selectTheme('glass', this)">
+                            <div class="theme-preview glass-preview"></div>
+                            <div class="theme-card-label">
+                                <strong>Liquid Glass</strong>
+                                <span>Aesthetic · Blurred wallpaper</span>
+                            </div>
+                            <div class="theme-check">✓</div>
+                        </div>
+                        <div class="theme-card" data-theme="solid" onclick="selectTheme('solid', this)">
+                            <div class="theme-preview solid-preview"></div>
+                            <div class="theme-card-label">
+                                <strong>Solid Dark</strong>
+                                <span>Balanced · No blur</span>
+                            </div>
+                            <div class="theme-check">✓</div>
+                        </div>
+                        <div class="theme-card" data-theme="ultra" onclick="selectTheme('ultra', this)">
+                            <div class="theme-preview ultra-preview"></div>
+                            <div class="theme-card-label">
+                                <strong>Ultra Performance</strong>
+                                <span>Barebones · Max speed</span>
+                            </div>
+                            <div class="theme-check">✓</div>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-header">Accent Color</div>
+                    <p class="section-sub">Choose a primary accent color. Auto extracts the best color from your dashboard wallpaper.</p>
+                    <div style="display:flex; gap:16px; margin-bottom:12px; align-items:center;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem;">
+                            <input type="radio" name="color_mode" value="auto" id="color-mode-auto" onchange="changeColorMode('auto')"> 
+                            Auto (Wallpaper)
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem;">
+                            <input type="radio" name="color_mode" value="manual" id="color-mode-manual" onchange="changeColorMode('manual')"> 
+                            Manual
+                        </label>
+                    </div>
+                    <div id="manual-color-wrap" style="display:none; align-items:center; gap:12px;">
+                        <input type="color" id="manual-color-picker" value="#ffffff" onchange="changeManualColor(this.value)" style="background:transparent; border:none; cursor:pointer; width:40px; height:40px; padding:0; border-radius:8px;">
+                        <span style="font-size:0.85rem; color:var(--text-muted);" id="manual-color-hex">#ffffff</span>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-header">Typography</div>
+                    <p class="section-sub">Change the font family for the dashboard and login page.</p>
+                    <select id="font-select" onchange="changeFont(this.value)" style="background:rgba(255,255,255,0.05); color:var(--text); border:1px solid var(--glass-border); padding:8px 12px; border-radius:8px; font-family:inherit; outline:none; cursor:pointer;">
+                        <option value="Inter" style="color:#000">Inter (Default)</option>
+                        <option value="Roboto" style="color:#000">Roboto</option>
+                        <option value="Poppins" style="color:#000">Poppins</option>
+                        <option value="JetBrains Mono" style="color:#000">JetBrains Mono</option>
+                        <option value="Playfair Display" style="color:#000">Playfair Display</option>
+                        <option value="Montserrat" style="color:#000">Montserrat</option>
+                    </select>
+
+                    <hr class="divider">
+                    
+                    <div class="section-header">Glass Translucency</div>
+                    <p class="section-sub">Adjust the Apple-like liquid glass effect. 0% = Solid, 100% = Clear. Disabled in Solid Dark and Ultra themes.</p>
+                    <div class="blur-row">
+                        <span class="blur-label">0%</span>
+                        <input type="range" id="translucency-slider" min="0" max="100" step="1" value="60"
+                               class="slider" oninput="previewTranslucency(this.value)" onchange="saveTranslucency(this.value)">
+                        <span class="blur-label">100%</span>
+                        <span class="blur-value" id="translucency-value-label">60%</span>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-header">Wallpaper Blur</div>
+                    <p class="section-sub">Controls how much the background is blurred. 0 = sharp, 20 = very blurry. Disabled in Solid Dark and Ultra themes.</p>
+                    <div class="blur-row">
+                        <span class="blur-label">0px</span>
+                        <input type="range" id="blur-slider" min="0" max="20" step="1" value="6"
+                               class="slider" oninput="previewBlur(this.value)" onchange="saveBlur(this.value)">
+                        <span class="blur-label">20px</span>
+                        <span class="blur-value" id="blur-value-label">6px</span>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-header">Wallpaper</div>
+                    <p class="section-sub">Click any wallpaper to apply it. First choose where to apply it.</p>
+                    <div class="apply-target-row">
+                        <span class="apply-target-label">Apply to:</span>
+                        <div class="target-pills">
+                            <button class="target-pill active" data-target="dashboard" onclick="setTarget('dashboard', this)">Dashboard</button>
+                            <button class="target-pill" data-target="login" onclick="setTarget('login', this)">Login Page</button>
+                            <button class="target-pill" data-target="both" onclick="setTarget('both', this)">Both</button>
+                        </div>
+                    </div>
+                    <div id="wallpaper-grid-wrap">
+                        <div style="color:var(--text-muted);font-size:0.85rem;">Loading wallpapers…</div>
+                    </div>
+                </div>
+
+                <!-- Display Tab (placeholder) -->
+                <div id="tab-display" class="tab-pane">
+                    <div class="section-header">Display</div>
+                    <p class="section-sub">Coming soon — fonts, layout, and performance options.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script>
+        // ─── Appearance init ───
+        (function applyAppearanceSettings() {
+            const root = document.documentElement;
+            // Wallpaper + Blur
+            const wp = localStorage.getItem('dashboard-wallpaper');
+            const blur = localStorage.getItem('dashboard-blur') || '6';
+            if (wp) root.style.setProperty('--wp-url', `url('${wp}')`);
+            root.style.setProperty('--wp-blur', `${blur}px`);
+            
+            // Glass Translucency
+            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const t = parseInt(transRaw, 10) / 100;
+            root.style.setProperty('--ui-translucency', t);
+            if (t <= 0) {
+                root.style.setProperty('--ui-blur', '0px');
+                root.style.setProperty('--ui-saturate', '100%');
+            } else {
+                root.style.setProperty('--ui-blur', '32px');
+                root.style.setProperty('--ui-saturate', '180%');
+            }
+            
+            // Color
+            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            let primaryColor = '';
+            if (colorMode === 'manual') {
+                primaryColor = localStorage.getItem('dashboard-manual-color');
+            } else {
+                primaryColor = localStorage.getItem('dashboard-auto-color');
+            }
+            if (primaryColor) root.style.setProperty('--primary', primaryColor);
+            
+            // Font
+            const font = localStorage.getItem('dashboard-font') || 'Inter';
+            if (font !== 'Inter') {
+                root.style.setProperty('--font-family', `"${font}", -apple-system, system-ui, sans-serif`);
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+                document.head.appendChild(link);
+            }
+        })();
+
+        async function init() {
+            const res = await fetch('/api/me');
+            if (res.status === 401) { window.location.href = '/login.html'; return; }
+            loadUsers();
+            initAppearance();
+        }
+
+        function switchTab(name, btn) {
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function showToast(msg, type = 'default') {
+            const tc = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            t.textContent = msg;
+            tc.appendChild(t);
+            setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 300); }, 3000);
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                if (res.status === 401) { window.location.href = '/login.html'; return; }
+                if (res.status === 403) {
+                    document.getElementById('user-list').innerHTML =
+                        '<p style="color:var(--text-muted);font-size:0.85rem;">You do not have permission to view users.</p>';
+                    return;
+                }
+                const users = await res.json();
+                renderUsers(users);
+            } catch {
+                document.getElementById('user-list').innerHTML =
+                    '<p style="color:var(--offline);font-size:0.85rem;">Failed to load users.</p>';
+            }
+        }
+
+        function renderUsers(users) {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            users.forEach(u => {
+                const initials = u.username.replace('.', ' ').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                const sessionsHTML = u.active_sessions > 0
+                    ? `<span class="session-pill">● ${u.active_sessions} active</span>`
+                    : `<span style="color:var(--text-muted);font-size:0.78rem;">No active sessions</span>`;
+                card.innerHTML = `
+                    <div class="user-info">
+                        <div class="user-avatar">${initials}</div>
+                        <div>
+                            <div class="user-name">${u.username}</div>
+                            <div class="user-meta">${sessionsHTML}</div>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <span class="role-badge ${u.role}">${u.role}</span>
+                        ${u.role !== 'admin' && u.active_sessions > 0
+                            ? `<button class="btn danger" onclick="revokeUserSessions('${u.username}', this)">Revoke Sessions</button>`
+                            : ''}
+                    </div>`;
+                list.appendChild(card);
+            });
+        }
+
+        async function revokeUserSessions(username, btn) {
+            btn.disabled = true;
+            btn.textContent = '…';
+            try {
+                const res = await fetch(`/api/users/${username}/revoke`, { method: 'POST' });
+                if (!res.ok) throw new Error();
+                showToast(`Sessions revoked for ${username}`, 'success');
+                setTimeout(loadUsers, 500);
+            } catch {
+                showToast('Failed to revoke sessions', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Revoke Sessions';
+            }
+        }
+
+        function initAppearance() {
+            const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.theme === currentTheme);
+            });
+
+            const glassOnly = currentTheme === 'glass';
+            
+            // Translucency slider
+            const transVal = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const transSlider = document.getElementById('translucency-slider');
+            const transLabel = document.getElementById('translucency-value-label');
+            transSlider.value = transVal;
+            transLabel.textContent = transVal + '%';
+            transSlider.disabled = !glassOnly;
+
+            // Blur slider
+            const blurVal = localStorage.getItem('dashboard-blur') || '6';
+            const slider = document.getElementById('blur-slider');
+            const label = document.getElementById('blur-value-label');
+            slider.value = blurVal;
+            label.textContent = blurVal + 'px';
+            slider.disabled = !glassOnly;
+            
+            // Color and Font
+            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            document.getElementById(`color-mode-${colorMode}`).checked = true;
+            if (colorMode === 'manual') {
+                document.getElementById('manual-color-wrap').style.display = 'flex';
+                const manCol = localStorage.getItem('dashboard-manual-color') || '#ffffff';
+                document.getElementById('manual-color-picker').value = manCol;
+                document.getElementById('manual-color-hex').textContent = manCol;
+            }
+            
+            const font = localStorage.getItem('dashboard-font') || 'Inter';
+            document.getElementById('font-select').value = font;
+
+            // Load wallpaper grid
+            loadWallpapers();
+        }
+
+        function selectTheme(name, cardEl) {
+            document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+            cardEl.classList.add('selected');
+            localStorage.setItem('dashboard-theme', name);
+            document.body.setAttribute('data-theme', name);
+            
+            // Enable/disable sliders
+            document.getElementById('blur-slider').disabled = (name !== 'glass');
+            document.getElementById('translucency-slider').disabled = (name !== 'glass');
+            showToast(`Theme set to "${cardEl.querySelector('strong').textContent}"`, 'success');
+        }
+
+        function previewBlur(val) {
+            document.getElementById('blur-value-label').textContent = val + 'px';
+            document.documentElement.style.setProperty('--wp-blur', val + 'px');
+        }
+
+        function saveBlur(val) {
+            localStorage.setItem('dashboard-blur', val);
+            previewBlur(val);
+        }
+        
+        function previewTranslucency(val) {
+            document.getElementById('translucency-value-label').textContent = val + '%';
+            const t = val / 100;
+            document.documentElement.style.setProperty('--ui-translucency', t);
+            if (t <= 0) {
+                document.documentElement.style.setProperty('--ui-blur', '0px');
+                document.documentElement.style.setProperty('--ui-saturate', '100%');
+            } else {
+                document.documentElement.style.setProperty('--ui-blur', '32px');
+                document.documentElement.style.setProperty('--ui-saturate', '180%');
+            }
+        }
+
+        function saveTranslucency(val) {
+            localStorage.setItem('dashboard-glass-translucency', val);
+            previewTranslucency(val);
+        }
+
+        function changeColorMode(mode) {
+            localStorage.setItem('dashboard-color-mode', mode);
+            if (mode === 'manual') {
+                document.getElementById('manual-color-wrap').style.display = 'flex';
+                const manCol = localStorage.getItem('dashboard-manual-color') || '#ffffff';
+                document.documentElement.style.setProperty('--primary', manCol);
+            } else {
+                document.getElementById('manual-color-wrap').style.display = 'none';
+                const autoCol = localStorage.getItem('dashboard-auto-color');
+                if (autoCol) document.documentElement.style.setProperty('--primary', autoCol);
+                else recalculateAutoColor();
+            }
+        }
+        
+        function changeManualColor(val) {
+            localStorage.setItem('dashboard-manual-color', val);
+            document.getElementById('manual-color-hex').textContent = val;
+            document.documentElement.style.setProperty('--primary', val);
+        }
+        
+        function changeFont(val) {
+            localStorage.setItem('dashboard-font', val);
+            if (val !== 'Inter') {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${val.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
+                document.head.appendChild(link);
+                document.documentElement.style.setProperty('--font-family', `"${val}", -apple-system, system-ui, sans-serif`);
+            } else {
+                document.documentElement.style.setProperty('--font-family', `'Inter', -apple-system, system-ui, sans-serif`);
+            }
+            showToast(`Font set to ${val}`, 'success');
+        }
+        
+        function recalculateAutoColor() {
+            const mode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            const wp = localStorage.getItem('dashboard-wallpaper');
+            if (mode !== 'auto' || !wp) return;
+            
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                canvas.width = 64;
+                canvas.height = 64;
+                ctx.drawImage(img, 0, 0, 64, 64);
+                const data = ctx.getImageData(0, 0, 64, 64).data;
+
+                let maxScore = -9999;
+                let bestR = 255, bestG = 255, bestB = 255;
+
+                for (let i = 0; i < data.length; i += 16) {
+                    const r = data[i], g = data[i+1], b = data[i+2];
+                    const max = Math.max(r, g, b) / 255;
+                    const min = Math.min(r, g, b) / 255;
+                    const l = (max + min) / 2;
+                    const s = max === min ? 0 : (l > 0.5 ? (max - min) / (2.0 - max - min) : (max - min) / (max + min));
+
+                    let score = s * 100;
+                    if (l < 0.2) score -= 80;
+                    if (l > 0.8) score -= 50;
+
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestR = r; bestG = g; bestB = b;
+                    }
+                }
+
+                if (maxScore <= -50) { bestR = 255; bestG = 255; bestB = 255; }
+
+                const lum = (0.299*bestR + 0.587*bestG + 0.114*bestB)/255;
+                if (lum < 0.5) {
+                    bestR = Math.min(255, bestR + 50);
+                    bestG = Math.min(255, bestG + 50);
+                    bestB = Math.min(255, bestB + 50);
+                }
+
+                const hex = "#" + (1 << 24 | bestR << 16 | bestG << 8 | bestB).toString(16).slice(1);
+                localStorage.setItem('dashboard-auto-color', hex);
+                document.documentElement.style.setProperty('--primary', hex);
+            };
+            img.src = wp;
+        }
+
+        let wpTarget = 'dashboard';
+        function setTarget(target, btn) {
+            wpTarget = target;
+            document.querySelectorAll('.target-pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const currentWp = localStorage.getItem(wpTarget === 'login' ? 'login-wallpaper' : 'dashboard-wallpaper') || '';
+            document.querySelectorAll('.wp-thumb').forEach(t => {
+                t.classList.toggle('selected', t.dataset.url === currentWp);
+            });
+        }
+
+        async function loadWallpapers() {
+            const wrap = document.getElementById('wallpaper-grid-wrap');
+            try {
+                const res = await fetch('/api/wallpapers');
+                if (!res.ok) throw new Error();
+                const wallpapers = await res.json();
+                renderWallpapers(wallpapers, wrap);
+            } catch {
+                wrap.innerHTML = '<p style="color:var(--offline);font-size:0.85rem;">Failed to load wallpapers.</p>';
+            }
+        }
+
+        function renderWallpapers(wallpapers, wrap) {
+            const currentDash = localStorage.getItem('dashboard-wallpaper') || '';
+            const groups = {};
+            wallpapers.forEach(w => {
+                if (!groups[w.theme]) groups[w.theme] = [];
+                groups[w.theme].push(w);
+            });
+
+            wrap.innerHTML = '';
+            Object.entries(groups).forEach(([groupName, items]) => {
+                const label = document.createElement('div');
+                label.className = 'wp-group-label';
+                label.textContent = groupName;
+                wrap.appendChild(label);
+
+                const grid = document.createElement('div');
+                grid.className = 'wp-grid';
+                items.forEach(w => {
+                    const name = w.file.split('--').pop().replace(/\.\w+$/, '').replace(/-/g, ' ');
+                    const thumb = document.createElement('div');
+                    thumb.className = 'wp-thumb' + (currentDash === w.url ? ' selected' : '');
+                    thumb.dataset.url = w.url;
+                    thumb.title = name;
+                    thumb.innerHTML = `<img src="${w.url}" loading="lazy" alt="${name}"><div class="wp-thumb-check">✓</div>`;
+                    thumb.onclick = () => selectWallpaper(w.url, thumb);
+                    grid.appendChild(thumb);
+                });
+                wrap.appendChild(grid);
+            });
+        }
+
+        function selectWallpaper(url, thumbEl) {
+            document.querySelectorAll('.wp-thumb').forEach(t => t.classList.remove('selected'));
+            thumbEl.classList.add('selected');
+
+            if (wpTarget === 'dashboard' || wpTarget === 'both') {
+                localStorage.setItem('dashboard-wallpaper', url);
+                document.documentElement.style.setProperty('--wp-url', `url('${url}')`);
+            }
+            if (wpTarget === 'login' || wpTarget === 'both') {
+                localStorage.setItem('login-wallpaper', url);
+            }
+
+            if (wpTarget === 'dashboard' || wpTarget === 'both') recalculateAutoColor();
+            const targetLabel = wpTarget === 'both' ? 'Dashboard + Login' : (wpTarget === 'login' ? 'Login Page' : 'Dashboard');
+            showToast(`Wallpaper applied to ${targetLabel}`, 'success');
+        }
+
+        init();
+    </script>
+</body>
+</html>
