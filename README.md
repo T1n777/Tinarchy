@@ -202,6 +202,16 @@ To add your own wallpapers to the gallery:
 
 ---
 
+## 🖌️ Appearance Customization (UI Engine)
+
+You can deeply customize the visual appearance of your dashboard via the **Settings** page. All changes are saved locally to your device via `localStorage`.
+
+* **Font Selection**: Choose from various built-in Google Fonts (Inter, Roboto, Poppins, etc.) to completely change the typography of the dashboard.
+* **Color Schemes**: Pick an automatic accent color or manually select your own hex color. This applies to toggle switches, progress bars, and glowing elements.
+* **Liquid Glass Engine**: Adjust the translucency slider to control the transparency of the dashboard UI elements. Turning it all the way down removes the background blur entirely, improving rendering performance on older devices.
+
+---
+
 ## Important Notes
 * **Root Privileges**: The dashboard executes system commands via `sudo systemctl` and `sudo iptables`. Running `server.py` as `root` (which the default `server-dashboard.service` does) is required to avoid password prompts for these commands. If you change the service to run as a standard user, you must configure `visudo` to allow passwordless execution for these specific binaries.
 * **Suwayomi Integration**: The Suwayomi Tor integration hardcodes the path to the configuration file as `/var/lib/suwayomi/.local/share/Tachidesk/server.conf`. If your Tachidesk installation is located elsewhere, you must update this path in the `/api/suwayomi/tor` route in `server.py`.
