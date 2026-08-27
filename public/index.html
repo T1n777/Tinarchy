@@ -12,6 +12,17 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
+            --ui-translucency: 0.6;
+            --ui-blur: 32px;
+            --ui-saturate: 180%;
+            --glass-rgb: 14, 19, 34;
+            --glass: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency)));
+            --glass-hover: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.1));
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-border-hover: rgba(255, 255, 255, 0.25);
+            --shadow-inner: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            --shadow-outer: 0 12px 40px rgba(0, 0, 0, 0.35);
+
             --bg: #0a0f1e;
             --glass: rgba(14, 19, 34, 0.4);
             --glass-hover: rgba(14, 19, 34, 0.6);
@@ -57,13 +68,13 @@
         }
 
         /* Glass Utilities */
-        .glass {
+                .glass {
             background: var(--glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
             border: 1px solid var(--glass-border);
-            box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.25);
-            will-change: transform;
+            box-shadow: var(--shadow-inner), var(--shadow-outer);
+            border-radius: 20px;
         }
         .glass:hover {
             background: var(--glass-hover);
@@ -89,19 +100,21 @@
             margin: 16px -24px 24px;
             pointer-events: none;
         }
-        .top-nav {
+                .top-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 20px;
-            background: rgba(14, 19, 34, 0.55);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255,255,255,0.13);
+            padding: 12px 24px;
+            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
             border-radius: 999px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
             gap: 16px;
             pointer-events: all;
+            width: calc(100% - 32px);
+            max-width: 1100px;
         }
         .top-nav .brand {
             font-size: 1.5rem;
@@ -338,21 +351,21 @@
 
         .actions { display: flex; gap: 8px; }
 
-        .btn {
+                .btn {
             appearance: none;
-            border: none;
-            border-radius: 8px;
-            padding: 7px 16px;
-            font-size: 0.7rem;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 0.8rem;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             font-family: inherit;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
             backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-inner), 0 2px 8px rgba(0, 0, 0, 0.15);
         }
         .btn:hover {
             background: rgba(255,255,255,0.1);
@@ -523,9 +536,21 @@
         }
 
         /* Flat nav bar */
-        body[data-theme="ultra"] .top-nav {
-            border-radius: 8px !important;
-            background: #1c1c1c !important;
+        body[data-theme="ultra"]         .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
+            gap: 16px;
+            pointer-events: all;
+            width: calc(100% - 32px);
+            max-width: 1100px;
         }
 
         /* Remove glow from status dots and progress bar */
@@ -547,9 +572,21 @@
         body[data-theme="ultra"] .toggle-switch.on::after { background-color: var(--online) !important; }
 
         /* Flat buttons */
-        body[data-theme="ultra"] .btn {
-            background: #252525 !important;
-            border: 1px solid #333 !important;
+        body[data-theme="ultra"]         .btn {
+            appearance: none;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: inherit;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: var(--shadow-inner), 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         /* Flat progress bar */
@@ -570,19 +607,21 @@
                 -webkit-backdrop-filter: blur(10px);
                 box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.08), 0 4px 16px rgba(0,0,0,0.2);
             }
-            .top-nav {
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-            }
-            /* Remove expensive blur from tiny buttons on mobile */
-            .btn {
-                backdrop-filter: none;
-                -webkit-backdrop-filter: none;
-                background: rgba(255,255,255,0.08);
-            }
-            .stats-bar { grid-template-columns: 1fr; }
-            .top-nav .meta { display: none; }
-            .tor-exit-banner { flex-direction: column; align-items: flex-start; gap: 12px; }
+                    .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
+            border-radius: 999px;
+            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
+            gap: 16px;
+            pointer-events: all;
+            width: calc(100% - 32px);
+            max-width: 1100px;
         }
 
         /* Scrollbar */
@@ -676,12 +715,12 @@
     </div>
 
     <script>
-        // Theme Initialization
+                // Theme Initialization
         const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
         document.body.setAttribute('data-theme', savedTheme);
         document.getElementById('theme-select') && (document.getElementById('theme-select').value = savedTheme);
 
-        // Wallpaper, font, and color from localStorage
+        // Wallpaper, blur, font, and color from localStorage
         (function applyAppearanceSettings() {
             const root = document.documentElement;
             
@@ -690,6 +729,18 @@
             const blur = localStorage.getItem('dashboard-blur') || '6';
             if (wp) root.style.setProperty('--wp-url', `url('${wp}')`);
             root.style.setProperty('--wp-blur', `${blur}px`);
+            
+            // Glass Translucency
+            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const t = parseInt(transRaw, 10) / 100;
+            root.style.setProperty('--ui-translucency', t);
+            if (t <= 0) {
+                root.style.setProperty('--ui-blur', '0px');
+                root.style.setProperty('--ui-saturate', '100%');
+            } else {
+                root.style.setProperty('--ui-blur', '32px');
+                root.style.setProperty('--ui-saturate', '180%');
+            }
             
             // Color
             const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';

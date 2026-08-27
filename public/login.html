@@ -35,19 +35,20 @@
             background: rgba(0, 0, 0, 0.25);
         }
 
-        .login-card {
+                .login-card {
             position: relative;
             z-index: 10;
-            width: 340px;
-            padding: 2.5rem 2rem 2rem;
+            width: 100%;
+            max-width: 360px;
+            padding: 40px;
+            
+            background: rgba(var(--glass-rgb), calc((1 - var(--ui-translucency)) * 0.5));
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            border: 1px solid var(--glass-border);
             border-radius: 24px;
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(24px) saturate(180%);
-            -webkit-backdrop-filter: blur(24px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-bottom-color: rgba(255, 255, 255, 0.08);
-            border-right-color: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.07), 0 12px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25);
+            box-shadow: var(--shadow-inner), var(--shadow-outer);
+            color: white;
         }
 
         .card-logo { font-size: 2rem; margin-bottom: 0.5rem; }
@@ -172,12 +173,24 @@
         </form>
     </div>
     <script>
-        // Apply saved login settings from localStorage
+                // Apply saved login settings from localStorage
         (function() {
             const root = document.documentElement;
             // Wallpaper
             const wp = localStorage.getItem('login-wallpaper');
             if (wp) root.style.setProperty('--login-wp-url', `url('${wp}')`);
+            
+            // Glass Translucency
+            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const t = parseInt(transRaw, 10) / 100;
+            root.style.setProperty('--ui-translucency', t);
+            if (t <= 0) {
+                root.style.setProperty('--ui-blur', '0px');
+                root.style.setProperty('--ui-saturate', '100%');
+            } else {
+                root.style.setProperty('--ui-blur', '32px');
+                root.style.setProperty('--ui-saturate', '180%');
+            }
             
             // Color
             const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
