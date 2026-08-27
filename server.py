@@ -29,12 +29,15 @@ USERS = {
 PORT = 8080
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 
+GUEST_SERVICES = ['filebrowser', 'navidrome']
+
 SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
+    {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': 8096, 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
     {'id': 'navidrome-tin', 'name': 'Navidrome (Tin)', 'port': 4534, 'systemd': 'navidrome-tin', 'icon': '🎵', 'description': 'Private music server'},
     {'id': 'navidrome', 'name': 'Navidrome (Kimi)', 'port': 4533, 'systemd': 'navidrome', 'icon': '🎵', 'description': 'Shared music server'},
     {'id': 'tor', 'name': 'Tor Proxy', 'port': 9050, 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
-    {'id': 'filebrowser', 'name': 'Network Storage', 'port': 8081, 'systemd': 'filebrowser', 'icon': '📂', 'description': 'Web-based file manager'},
+    {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'sshd', 'name': 'SSH Server', 'port': 22, 'systemd': 'sshd', 'icon': '🔑', 'description': 'Secure shell access'},
     {'id': 'terminal', 'name': 'Web Terminal', 'port': 7681, 'systemd': 'web-terminal', 'icon': '🖥️', 'description': 'In-browser command line access'},
 ]
@@ -82,7 +85,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             results = []
             role = session['role']
             for s in SERVICES:
-                if role == 'guest' and s['id'] not in ['filebrowser', 'navidrome']:
+                if role == 'guest' and s['id'] not in GUEST_SERVICES:
                     continue
                 status_obj = s.copy()
                 try:
@@ -236,16 +239,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'{"error": "Unauthorized"}')
             return
 
-
-
-        if session['role'] != 'admin':
-            self.send_response(403)
-            self.end_headers()
-            self.wfile.write(b'{"error": "Forbidden"}')
-            return
-
         if self.path.startswith('/api/services/') and self.path.endswith('/toggle'):
             service_id = self.path.split('/')[3]
+            
+            # Check role permission
+            if session['role'] == 'guest' and service_id not in GUEST_SERVICES:
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden"}')
+                return
+
             service = next((s for s in SERVICES if s['id'] == service_id), None)
             
             if not service:
@@ -273,40 +276,47 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
 
-        elif self.path == '/api/suwayomi/tor':
-            enable = data.get('enable', False)
-            search = 'server.socksProxyEnabled = false' if enable else 'server.socksProxyEnabled = true'
-            replace = 'server.socksProxyEnabled = true' if enable else 'server.socksProxyEnabled = false'
-            
-            try:
-                cmd = f"sudo sed -i 's/{search}/{replace}/' /var/lib/suwayomi/.local/share/Tachidesk/server.conf && sudo systemctl restart suwayomi-server"
-                subprocess.run(cmd, shell=True, check=True)
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
+        elif self.path in ['/api/suwayomi/tor', '/api/system/tor-exit']:
+            if session['role'] != 'admin':
+                self.send_response(403)
                 self.end_headers()
-                self.wfile.write(b'{"success": true}')
-            except subprocess.CalledProcessError as e:
-                self.send_response(500)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+                self.wfile.write(b'{"error": "Forbidden"}')
+                return
 
-        elif self.path == '/api/system/tor-exit':
-            enable = data.get('enable', False)
-            action = 'start' if enable else 'stop'
-            
-            try:
-                cmd = f"sudo /home/tin/server-dashboard/tor_exit_node.sh {action}"
-                subprocess.run(cmd, shell=True, check=True)
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(b'{"success": true}')
-            except subprocess.CalledProcessError as e:
-                self.send_response(500)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            if self.path == '/api/suwayomi/tor':
+                enable = data.get('enable', False)
+                search = 'server.socksProxyEnabled = false' if enable else 'server.socksProxyEnabled = true'
+                replace = 'server.socksProxyEnabled = true' if enable else 'server.socksProxyEnabled = false'
+                
+                try:
+                    cmd = f"sudo sed -i 's/{search}/{replace}/' /var/lib/suwayomi/.local/share/Tachidesk/server.conf && sudo systemctl restart suwayomi-server"
+                    subprocess.run(cmd, shell=True, check=True)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"success": true}')
+                except subprocess.CalledProcessError as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+            elif self.path == '/api/system/tor-exit':
+                enable = data.get('enable', False)
+                action = 'start' if enable else 'stop'
+                
+                try:
+                    cmd = f"sudo /home/tin/server-dashboard/tor_exit_node.sh {action}"
+                    subprocess.run(cmd, shell=True, check=True)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"success": true}')
+                except subprocess.CalledProcessError as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
 
         else:
             self.send_response(404)
