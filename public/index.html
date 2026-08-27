@@ -41,10 +41,10 @@
         /* Wallpaper background */
         .wallpaper {
             position: fixed;
-            inset: -20px; /* Expand slightly to hide blurred edges */
-            background: url('/dashboard-bg.jpg') no-repeat center center;
+            inset: -20px;
+            background: var(--wp-url, url('/dashboard-bg.jpg')) no-repeat center center;
             background-size: cover;
-            filter: blur(6px); /* GPU cached blur, much faster */
+            filter: blur(var(--wp-blur, 6px));
             z-index: -2;
             transform: translateZ(0);
         }
@@ -478,6 +478,90 @@
         }
         body[data-theme="solid"] .ambient-orb { display: none; }
 
+        /* ─── Ultra Performance Mode ─── */
+        /* Goal: zero GPU strain — no blur, no shadows, no transitions,
+           no web fonts, no wallpaper, minimal repaints. Looks clean but barebones. */
+        body[data-theme="ultra"] {
+            --bg: #0d0d0d;
+            --glass: #181818;
+            --glass-hover: #202020;
+            --glass-border: #2a2a2a;
+            --glass-border-hover: #333;
+            --text: #e0e0e0;
+            --text-muted: #888;
+            --primary: #7eb8f7;
+            --primary-solid: #4a90d9;
+            --online: #5cba82;
+            --offline: #d9706a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+            background-color: var(--bg) !important;
+        }
+        /* Kill wallpaper & tint entirely */
+        body[data-theme="ultra"] .wallpaper,
+        body[data-theme="ultra"] .wallpaper-tint { display: none !important; }
+
+        /* Kill all backdrop-filter, box-shadow, transition, animation */
+        body[data-theme="ultra"] *,
+        body[data-theme="ultra"] *::before,
+        body[data-theme="ultra"] *::after {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
+            transition: none !important;
+            animation: none !important;
+            text-shadow: none !important;
+        }
+
+        /* Flat solid surfaces */
+        body[data-theme="ultra"] .glass,
+        body[data-theme="ultra"] .top-nav,
+        body[data-theme="ultra"] .tor-exit-banner,
+        body[data-theme="ultra"] .toast {
+            background: var(--glass) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 10px !important;
+        }
+
+        /* Flat nav bar */
+        body[data-theme="ultra"] .top-nav {
+            border-radius: 8px !important;
+            background: #1c1c1c !important;
+        }
+
+        /* Remove glow from status dots and progress bar */
+        body[data-theme="ultra"] .status-badge.online::before,
+        body[data-theme="ultra"] .status-badge.offline::before,
+        body[data-theme="ultra"] .toggle-switch::after,
+        body[data-theme="ultra"] .progress-fill { box-shadow: none !important; }
+
+        /* Flat toggle switch */
+        body[data-theme="ultra"] .toggle-switch {
+            background: #2a2a2a !important;
+            border-color: #444 !important;
+        }
+        body[data-theme="ultra"] .toggle-switch.on {
+            background: #1e3a2a !important;
+            border-color: #3a7a56 !important;
+        }
+        body[data-theme="ultra"] .toggle-switch::after { background-color: #888 !important; }
+        body[data-theme="ultra"] .toggle-switch.on::after { background-color: var(--online) !important; }
+
+        /* Flat buttons */
+        body[data-theme="ultra"] .btn {
+            background: #252525 !important;
+            border: 1px solid #333 !important;
+        }
+
+        /* Flat progress bar */
+        body[data-theme="ultra"] .progress-fill {
+            background: var(--primary) !important;
+        }
+
+        /* Flat toast */
+        body[data-theme="ultra"] .toast {
+            background: #1c1c1c !important;
+        }
+
         /* Responsive */
         @media (max-width: 640px) {
             /* Reduce blur and shadow on mobile to ease GPU load */
@@ -523,7 +607,7 @@
                     <span class="meta-badge" id="sys-uptime">Up: ...</span>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="logout-btn" onclick="document.getElementById('settings-modal').style.display='flex'">Settings</button>
+                    <button class="logout-btn" onclick="window.location.href='/settings.html'">Settings</button>
                     <button class="logout-btn" onclick="logout()">Logout</button>
                 </div>
             </nav>
@@ -581,11 +665,12 @@
                 <select id="theme-select" class="theme-select" onchange="setTheme(this.value)">
                     <option value="glass">Liquid Glass (Aesthetic)</option>
                     <option value="solid">Solid Dark (Performance)</option>
+                    <option value="ultra">Ultra Performance (Barebones)</option>
                 </select>
                 <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">Saved locally to this device.</p>
             </div>
             <div style="text-align: right; margin-top: 24px;">
-                <button class="btn" onclick="document.getElementById('settings-modal').style.display='none'">Close</button>
+                <button class="btn" onclick="document.getElementById('settings-modal').style.display='none'" style="color: white;">Close</button>
             </div>
         </div>
     </div>
@@ -594,11 +679,28 @@
         // Theme Initialization
         const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
         document.body.setAttribute('data-theme', savedTheme);
-        document.getElementById('theme-select').value = savedTheme;
+        document.getElementById('theme-select') && (document.getElementById('theme-select').value = savedTheme);
+
+        // Wallpaper + blur from localStorage
+        (function applyWallpaperSettings() {
+            const wp = localStorage.getItem('dashboard-wallpaper');
+            const blur = localStorage.getItem('dashboard-blur') || '6';
+            const root = document.documentElement;
+            if (wp) root.style.setProperty('--wp-url', `url('${wp}')`);
+            root.style.setProperty('--wp-blur', `${blur}px`);
+        })();
+
+        // In ultra mode, block Google Fonts from loading by removing the link tag
+        if (savedTheme === 'ultra') {
+            const fontLink = document.querySelector('link[href*="fonts.googleapis"]');
+            if (fontLink) fontLink.remove();
+        }
 
         function setTheme(themeName) {
             document.body.setAttribute('data-theme', themeName);
             localStorage.setItem('dashboard-theme', themeName);
+            // Reload to apply/remove font link cleanly
+            window.location.reload();
         }
 
         const container = document.getElementById('services-container');
@@ -697,7 +799,6 @@
                     </div>
                     <div class="card-footer">
                         <div class="port">${s.port > 0 ? `Port ${s.port}` : ''}</div>
-                        ${userRole === 'admin' ? `
                         <div class="actions">
                             ${torButtonHTML}
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -709,7 +810,6 @@
                                 ></button>
                             </div>
                         </div>
-                        ` : ''}
                     </div>
                 `;
                 container.appendChild(card);
@@ -852,11 +952,14 @@
             fetchServices();
             fetchTorExitStatus();
 
+            // Ultra mode: poll every 15s to minimise server & client load
+            // All other themes: poll every 5s for near-realtime updates
+            const pollInterval = (savedTheme === 'ultra') ? 15000 : 5000;
             setInterval(() => {
                 fetchSystemStats();
                 fetchServices();
                 fetchTorExitStatus();
-            }, 5000);
+            }, pollInterval);
         }
 
         initDashboard();

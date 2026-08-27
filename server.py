@@ -61,7 +61,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # Allow login page and static assets to load without auth
         public_paths = ('/login.html', '/bg.jpg')
-        if self.path in public_paths or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2')):
+        if self.path in public_paths or self.path.startswith('/Wallpapers/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2')):
             super().do_GET()
             return
             
@@ -109,8 +109,41 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({"role": session['role']}).encode())
+            self.wfile.write(json.dumps({"role": session['role'], "username": session['username']}).encode())
+
+        elif self.path == '/api/users':
+            if session['role'] != 'admin':
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden"}')
+                return
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            result = []
+            for uname, udata in USERS.items():
+                active = sum(1 for s in SESSIONS.values()
+                             if s.get('username') == uname and time.time() < s['expiry'])
+                result.append({
+                    'username': uname,
+                    'role': udata['role'],
+                    'active_sessions': active
+                })
+            self.wfile.write(json.dumps(result).encode())
             
+        elif self.path == '/api/wallpapers':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            wp_dir = os.path.join(PUBLIC_DIR, 'Wallpapers')
+            wallpapers = []
+            if os.path.isdir(wp_dir):
+                for f in sorted(os.listdir(wp_dir)):
+                    if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                        theme = f.split('--')[0].replace('-', ' ').title() if '--' in f else 'Custom'
+                        wallpapers.append({'file': f, 'url': f'/Wallpapers/{f}', 'theme': theme})
+            self.wfile.write(json.dumps(wallpapers).encode())
+
         elif self.path == '/api/logout':
             cookie_header = self.headers.get('Cookie')
             if cookie_header:
@@ -220,7 +253,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             password = data.get('password')
             if username in USERS and USERS[username]['password'] == password:
                 token = str(uuid.uuid4())
-                SESSIONS[token] = {"expiry": time.time() + 86400, "role": USERS[username]['role']}
+                SESSIONS[token] = {"expiry": time.time() + 86400, "role": USERS[username]['role'], "username": username}
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Set-Cookie', f'session={token}; Max-Age=86400; Path=/')
@@ -239,7 +272,32 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'{"error": "Unauthorized"}')
             return
 
-        if self.path.startswith('/api/services/') and self.path.endswith('/toggle'):
+        if re.match(r'^/api/users/[^/]+/revoke$', self.path):
+            if session['role'] != 'admin':
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden"}')
+                return
+            target_user = self.path.split('/')[3]
+            if target_user not in USERS:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b'{"error": "User not found"}')
+                return
+            if USERS[target_user]['role'] == 'admin':
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Cannot revoke admin sessions"}')
+                return
+            tokens_to_remove = [t for t, s in SESSIONS.items() if s.get('username') == target_user]
+            for t in tokens_to_remove:
+                del SESSIONS[t]
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "revoked": len(tokens_to_remove)}).encode())
+
+        elif self.path.startswith('/api/services/') and self.path.endswith('/toggle'):
             service_id = self.path.split('/')[3]
             
             # Check role permission

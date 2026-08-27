@@ -21,7 +21,7 @@
         .wallpaper {
             position: fixed;
             inset: 0;
-            background: url('/bg.jpg') no-repeat center center;
+            background: var(--login-wp-url, url('/bg.jpg')) no-repeat center center;
             background-size: cover;
             z-index: 0;
         }
@@ -172,6 +172,12 @@
         </form>
     </div>
     <script>
+        // Apply saved login page wallpaper from localStorage
+        (function() {
+            const wp = localStorage.getItem('login-wallpaper');
+            if (wp) document.documentElement.style.setProperty('--login-wp-url', `url('${wp}')`);
+        })();
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value;
