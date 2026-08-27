@@ -207,7 +207,7 @@ To add your own wallpapers to the gallery:
 You can deeply customize the visual appearance of your dashboard via the **Settings** page. All changes are saved locally to your device via `localStorage`.
 
 * **Font Selection**: Choose from various built-in Google Fonts (Inter, Roboto, Poppins, etc.) to completely change the typography of the dashboard.
-* **Color Schemes**: Pick an automatic accent color or manually select your own hex color. This applies to toggle switches, progress bars, and glowing elements.
+* **Color Schemes**: Pick an automatic accent color or manually select your own hex color. This applies to toggle switches, progress bars, and glowing elements. *Note: In "Solid Dark" and "Ultra" performance themes, the automatic color defaults to fixed theme colors to ensure readability.*
 * **Liquid Glass Engine**: Adjust the translucency slider to control the transparency of the dashboard UI elements. Turning it all the way down removes the background blur entirely, improving rendering performance on older devices.
 
 ---
