@@ -176,13 +176,12 @@ You can configure different user accounts with `admin` or `guest` roles to restr
 ### 2. Restricting Services for Guest Profiles
 By default, `guest` users cannot see system resource bars (CPU/RAM/Disk) or the Tor Exit Node toggle. They are also restricted from interacting with services except those explicitly whitelisted.
 
-To control which services a `guest` profile can see and toggle on their dashboard, locate the `/api/services` route inside `server.py` and modify the allowed list in this block:
+To control which services a `guest` profile can see and toggle on their dashboard, locate the `GUEST_SERVICES` list near the top of `server.py`:
 
 ```python
-if role == 'guest' and s['id'] not in ['filebrowser', 'navidrome']:
-    continue
+GUEST_SERVICES = ['filebrowser', 'navidrome']
 ```
-Simply remove or add service `id`s from this array to change what guests have access to.
+Simply remove or add service `id`s to this list to change what guests have access to.
 
 ---
 
