@@ -12,6 +12,8 @@ A lightweight, web-based management dashboard for monitoring system resources an
 * **Tor Proxy Toggle**: Enable or disable Tor proxy routing for Suwayomi (Tachidesk).
 * **Tor Exit Node Routing**: Route all your server's Tailscale traffic through the Tor network dynamically using `iptables`.
 * **Role-Based Access Control**: Support for multiple profiles with `admin` and `guest` permissions to restrict access to sensitive controls.
+* **Session Management**: Admins can view active users and instantly revoke guest sessions directly from the UI.
+* **Wallpaper Gallery & Themes**: Customize login and dashboard wallpapers directly from the Settings menu. Includes standard glass themes and extreme performance ("Solid" / "Ultra") modes.
 
 ---
 
@@ -185,20 +187,18 @@ Simply remove or add service `id`s to this list to change what guests have acces
 
 ---
 
-## Customizing the Background (Login & Dashboard)
+## 🎨 Customizing the Background (Wallpaper Gallery)
 
-The login screen and the main dashboard use **separate** background images. You can customize them by placing your own images in the `public/` directory with the correct filenames.
+The dashboard features a built-in wallpaper gallery accessible from the **Settings** modal! 
+You can dynamically set different wallpapers for your login screen and your main dashboard.
 
-* **Login Screen Wallpaper:** Uses the file `bg.jpg`
-* **Dashboard Wallpaper:** Uses the file `dashboard-bg.jpg`
+To add your own wallpapers to the gallery:
+1. Create a folder named `Wallpapers` inside the `public/` directory (i.e., `/home/tin/server-dashboard/public/Wallpapers/`).
+2. Drop any `.jpg`, `.jpeg`, `.png`, or `.webp` images into this folder.
+3. *(Optional)* To categorize your images in the settings dropdown, prefix the filename with a theme name and a double dash, e.g., `synthwave--neon-city.jpg` or `nature--forest.png`.
+4. Open the dashboard, click **Settings**, and pick your new wallpapers from the list!
 
-Follow these simple steps to change them:
-1. Move your desired images (must be `.jpg` or `.png`) into the `/home/tin/server-dashboard/public/` folder.
-2. Rename the image you want for the login screen to exactly `bg.jpg`.
-3. Rename the image you want for the dashboard to exactly `dashboard-bg.jpg`.
-4. Open your dashboard in the browser and perform a **Hard Refresh** (`Ctrl + F5` on Windows/Linux, or `Cmd + Shift + R` on Mac) to bypass the browser cache and see your new wallpapers!
-
-*Note: If you select the "Solid Dark (Performance)" theme in the dashboard settings, the dashboard wallpaper will be hidden to save resources.*
+*Note: If you select the "Solid Dark" or "Ultra" performance themes in the dashboard settings, wallpapers will be hidden to reduce GPU load.*
 
 ---
 
