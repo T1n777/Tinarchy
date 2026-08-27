@@ -187,7 +187,7 @@ Simply remove or add service `id`s to this list to change what guests have acces
 
 ---
 
-## 🎨 Customizing the Background (Wallpaper Gallery)
+## Customizing the Background (Wallpaper Gallery)
 
 The dashboard features a built-in wallpaper gallery accessible from the **Settings** modal! 
 You can dynamically set different wallpapers for your login screen and your main dashboard.
@@ -202,7 +202,7 @@ To add your own wallpapers to the gallery:
 
 ---
 
-## 🖌️ Appearance Customization (UI Engine)
+## Appearance Customization (UI Engine)
 
 You can deeply customize the visual appearance of your dashboard via the **Settings** page. All changes are saved locally to your device via `localStorage`.
 
