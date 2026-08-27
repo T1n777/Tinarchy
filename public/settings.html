@@ -351,6 +351,7 @@
     <script>
         // ─── Appearance init ───
         (function applyAppearanceSettings() {
+            document.body.setAttribute("data-theme", localStorage.getItem("dashboard-theme") || "glass");
             const root = document.documentElement;
             // Wallpaper + Blur
             const wp = localStorage.getItem('dashboard-wallpaper');
@@ -376,7 +377,10 @@
             if (colorMode === 'manual') {
                 primaryColor = localStorage.getItem('dashboard-manual-color');
             } else {
-                primaryColor = localStorage.getItem('dashboard-auto-color');
+                const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
+                if (currentTheme === 'solid') primaryColor = '#adc6ff';
+                else if (currentTheme === 'ultra') primaryColor = '#7eb8f7';
+                else primaryColor = localStorage.getItem('dashboard-auto-color');
             }
             if (primaryColor) root.style.setProperty('--primary', primaryColor);
             
@@ -524,6 +528,16 @@
             // Enable/disable sliders
             document.getElementById('blur-slider').disabled = (name !== 'glass');
             document.getElementById('translucency-slider').disabled = (name !== 'glass');
+
+            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
+            if (colorMode === 'auto') {
+                let p = '';
+                if (name === 'solid') p = '#adc6ff';
+                else if (name === 'ultra') p = '#7eb8f7';
+                else p = localStorage.getItem('dashboard-auto-color');
+                if (p) document.documentElement.style.setProperty('--primary', p);
+            }
+
             showToast(`Theme set to "${cardEl.querySelector('strong').textContent}"`, 'success');
         }
 
@@ -563,9 +577,16 @@
                 document.documentElement.style.setProperty('--primary', manCol);
             } else {
                 document.getElementById('manual-color-wrap').style.display = 'none';
-                const autoCol = localStorage.getItem('dashboard-auto-color');
-                if (autoCol) document.documentElement.style.setProperty('--primary', autoCol);
-                else recalculateAutoColor();
+                const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
+                let p = '';
+                if (currentTheme === 'solid') p = '#adc6ff';
+                else if (currentTheme === 'ultra') p = '#7eb8f7';
+                else {
+                    const autoCol = localStorage.getItem('dashboard-auto-color');
+                    if (autoCol) p = autoCol;
+                    else { recalculateAutoColor(); return; }
+                }
+                if (p) document.documentElement.style.setProperty('--primary', p);
             }
         }
         
@@ -635,7 +656,7 @@
 
                 const hex = "#" + (1 << 24 | bestR << 16 | bestG << 8 | bestB).toString(16).slice(1);
                 localStorage.setItem('dashboard-auto-color', hex);
-                document.documentElement.style.setProperty('--primary', hex);
+                if ((localStorage.getItem('dashboard-theme') || 'glass') === 'glass') { document.documentElement.style.setProperty('--primary', hex); }
             };
             img.src = wp;
         }

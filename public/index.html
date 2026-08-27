@@ -473,9 +473,7 @@
             --glass-hover: #1b1e2a;
             --glass-border: rgba(255,255,255,0.02);
             --tor-bg: #1a1525;
-            --primary: #adc6ff;
-            --primary-solid: #4d8eff;
-            background-color: var(--bg);
+                        background-color: var(--bg);
         }
         body[data-theme="solid"] .wallpaper,
         body[data-theme="solid"] .wallpaper-tint {
@@ -502,9 +500,7 @@
             --glass-border-hover: #333;
             --text: #e0e0e0;
             --text-muted: #888;
-            --primary: #7eb8f7;
-            --primary-solid: #4a90d9;
-            --online: #5cba82;
+                        --online: #5cba82;
             --offline: #d9706a;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
             background-color: var(--bg) !important;
@@ -748,7 +744,10 @@
             if (colorMode === 'manual') {
                 primaryColor = localStorage.getItem('dashboard-manual-color');
             } else {
-                primaryColor = localStorage.getItem('dashboard-auto-color');
+                const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
+                if (currentTheme === 'solid') primaryColor = '#adc6ff';
+                else if (currentTheme === 'ultra') primaryColor = '#7eb8f7';
+                else primaryColor = localStorage.getItem('dashboard-auto-color');
             }
             if (primaryColor) root.style.setProperty('--primary', primaryColor);
             

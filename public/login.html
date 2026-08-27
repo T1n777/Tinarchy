@@ -175,6 +175,7 @@
     <script>
                 // Apply saved login settings from localStorage
         (function() {
+            document.body.setAttribute('data-theme', localStorage.getItem('dashboard-theme') || 'glass');
             const root = document.documentElement;
             // Wallpaper
             const wp = localStorage.getItem('login-wallpaper');
@@ -198,7 +199,10 @@
             if (colorMode === 'manual') {
                 primaryColor = localStorage.getItem('dashboard-manual-color');
             } else {
-                primaryColor = localStorage.getItem('dashboard-auto-color');
+                const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
+                if (currentTheme === 'solid') primaryColor = '#adc6ff';
+                else if (currentTheme === 'ultra') primaryColor = '#7eb8f7';
+                else primaryColor = localStorage.getItem('dashboard-auto-color');
             }
             if (primaryColor) root.style.setProperty('--primary', primaryColor);
             
