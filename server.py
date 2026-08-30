@@ -252,6 +252,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             username = data.get('username')
             password = data.get('password')
             if username in USERS and USERS[username]['password'] == password:
+                # 1. If they re-login from the same browser, delete the old orphaned token
+                cookie_header = self.headers.get('Cookie')
+                if cookie_header:
+                    import http.cookies
+                    cookies = http.cookies.SimpleCookie(cookie_header)
+                    if 'session' in cookies:
+                        old_token = cookies['session'].value
+                        if old_token in SESSIONS:
+                            del SESSIONS[old_token]
+                            
+                # 2. Cap maximum concurrent sessions to 5 per user to prevent inflation
+                user_sessions = [k for k, v in SESSIONS.items() if v.get('username') == username]
+                if len(user_sessions) >= 5:
+                    user_sessions.sort(key=lambda k: SESSIONS[k]['expiry'])
+                    for k in user_sessions[:-4]:
+                        del SESSIONS[k]
+                        
                 token = str(uuid.uuid4())
                 SESSIONS[token] = {"expiry": time.time() + 86400, "role": USERS[username]['role'], "username": username}
                 self.send_response(200)
