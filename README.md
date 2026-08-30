@@ -185,6 +185,9 @@ GUEST_SERVICES = ['filebrowser', 'navidrome']
 ```
 Simply remove or add service `id`s to this list to change what guests have access to.
 
+### 3. Session Limits
+For security and performance, each user account is limited to a maximum of 5 concurrent active sessions. If a user logs in from a 6th device, their oldest session is automatically revoked.
+
 ---
 
 ## Customizing the Background (Wallpaper Gallery)
