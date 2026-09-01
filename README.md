@@ -1,141 +1,111 @@
-# Server Management Dashboard
+# Tinarchy Server Dashboard
 
-![Dashboard Banner](public/github-header-banner.png)
-
-A lightweight, web-based management dashboard for monitoring system resources and managing self-hosted services on a Linux server.
-
----
-
-## Features
-* **Live System Monitoring**: View real-time CPU usage, RAM availability, Disk usage, Uptime, Hostname, and Tailscale IP via a clean web interface.
-* **Service Management**: Easily start, stop, and check the status of various systemd services with a single click.
-* **Tor Proxy Toggle**: Enable or disable Tor proxy routing for Suwayomi (Tachidesk).
-* **Tor Exit Node Routing**: Route all your server's Tailscale traffic through the Tor network dynamically using `iptables`.
-* **Role-Based Access Control**: Support for multiple profiles with `admin` and `guest` permissions to restrict access to sensitive controls.
-* **Session Management**: Admins can view active users and instantly revoke guest sessions directly from the UI.
-* **Wallpaper Gallery & Themes**: Customize login and dashboard wallpapers directly from the Settings menu. Includes standard glass themes and extreme performance ("Solid" / "Ultra") modes.
-
----
-
-## Dependencies
-
-To use all features of the dashboard, ensure your Linux system has the following installed:
-
-### Core Requirements
-* **Python 3**: For running the web server backend (`server.py`).
-* **systemd**: For managing the dashboard daemon itself, and for interacting with the services you wish to manage.
-* **iptables & ip6tables**: Required by the `tor_exit_node.sh` script to manage network routing for the Tor Exit Node feature.
-* **tailscale**: Required for reading the VPN IP address and routing traffic via the `tailscale0` network interface.
-
-### Custom Service Management
-The dashboard is a flexible framework that can monitor and manage **any systemd service**. It does not require any specific services to function out-of-the-box. 
-
-However, this specific configuration is currently pre-loaded with the following services as examples:
-* `suwayomi-server` (Manga library)
-* `navidrome` (Music server)
-* `tor` (Anonymity proxy)
-* `filebrowser` (Web-based file manager)
-* `sshd` (SSH access)
-* `web-terminal` (Browser terminal)
-
-*(You can freely remove these or add your own in `server.py`!)*
-
----
+A powerful, customizable, and role-based server dashboard designed to manage services, track system resources, and route traffic through a Tor exit node.
 
 ## Setup and Installation
 
-### 1. Clone the Repository
-Clone the repository into your home directory. **Note:** The included systemd service file expects the repository to be located at `/home/tin/server-dashboard`. If you place it elsewhere or have a different username, you must update the paths in `server-dashboard.service` and `server.py`.
+Follow these detailed steps to properly install and configure the server dashboard on your system.
 
+### 1. Clone the Repository
+First, you need to download the source code to your machine. The provided systemd service file assumes that you are installing the repository in the `/home/tin/server-dashboard` directory. If your username is different or you choose a different path, you must manually update the paths in both `server-dashboard.service` and `server.py` before proceeding.
+
+Run the following commands in your terminal:
 ```bash
 git clone https://github.com/T1n777/Tinarchy.git /home/tin/server-dashboard
 cd /home/tin/server-dashboard
 ```
 
 ### 2. Configure Profiles (Users)
-Authentication is role-based. To configure passwords securely without tracking them in git, create a `.env` file in the project directory with your passwords:
+The dashboard uses a role-based authentication system. Passwords should be stored securely and never committed to version control. You will create a `.env` file in the project directory to store your credentials as environment variables.
 
+Run these commands to create and populate your `.env` file. Replace `your_admin_password` and `your_guest_password` with secure passwords of your choosing:
 ```bash
 echo "ADMIN_PASSWORD=your_admin_password" >> .env
 echo "GUEST_PASSWORD=your_guest_password" >> .env
 ```
-The users themselves are defined in the `USERS` dictionary at the top of the `server.py` file, which defaults to loading these variables.
+The application loads these environment variables into the `USERS` dictionary at the top of the `server.py` file to authenticate users upon login.
 
 ### 3. Make Scripts Executable
-Ensure the Tor exit script has the correct execution permissions so the dashboard can run it:
+The dashboard requires execution permissions for certain shell scripts to function correctly. Specifically, the script responsible for managing the Tor exit node routing must be executable.
+
+Run the following command in the project directory:
 ```bash
 chmod +x tor_exit_node.sh
 ```
 
 ### 4. Install as a Systemd Service
-To keep the dashboard running in the background and ensure it starts automatically on system boot, install the provided systemd service file:
+To ensure the dashboard runs continuously in the background and automatically restarts if the server reboots, you must install the included systemd service file.
 
+Execute the following commands sequentially:
 ```bash
-# Copy the service file to the systemd directory
+# 1. Copy the service file to the systemd system directory
 sudo cp server-dashboard.service /etc/systemd/system/
 
-# Reload systemd to recognize the new service
+# 2. Reload the systemd daemon so it recognizes the newly added service
 sudo systemctl daemon-reload
 
-# Enable the service to start on boot
+# 3. Enable the service so it starts automatically on system boot
 sudo systemctl enable server-dashboard.service
 
-# Start the service immediately
+# 4. Start the service immediately without needing to reboot
 sudo systemctl start server-dashboard.service
 ```
 
 ---
 
-## Usage
+## Usage Guide
 
-1. Open your web browser and navigate to `http://<your-server-ip>:8080` (or your Tailscale IP on port 8080).
-2. Select your username from the dropdown and log in using your configured password.
-3. **Dashboard Interface**:
-   * **Admin Users**: Can view live system resource charts, network stats, toggle the Tor Exit Node, and manage all services.
-   * **Guest Users**: Are presented with a restricted view. System resource bars and network routing toggles are hidden, and they can only interact with explicitly whitelisted services.
+Once the installation is complete, you can access the dashboard from any device on your network.
+
+1. **Access the Dashboard:** Open your preferred web browser and enter your server's IP address followed by port `8080` (for example, `http://192.168.1.50:8080`). If you are using Tailscale, you can use your Tailscale IP address.
+2. **Log In:** On the login screen, select your username from the dropdown menu and enter the password you configured in the `.env` file.
+3. **Understand the Interface:**
+   * **Admin Users:** Administrators have full access. They can view real-time system resource metrics (CPU, RAM, Disk usage), monitor network traffic, toggle the Tor Exit Node routing, and manage all configured services.
+   * **Guest Users:** Guests have a strictly limited view. The system resource bars, network statistics, and Tor routing controls are completely hidden. Furthermore, guests can only interact with services that have been explicitly whitelisted by an administrator.
 
 ---
 
 ## Adding New Services to the Dashboard
 
-You can easily configure new services (like a Minecraft server, Docker container, etc.) to be monitored and managed by the dashboard.
+The dashboard is designed to be easily extensible. You can add any service (such as a Minecraft server, a Docker container, or a custom application) to the dashboard as long as it is managed by systemd.
 
-1. **Ensure the service is managed by systemd** (e.g., `my-service.service`).
-2. **Open `server.py`** in a text editor.
-3. Locate the `SERVICES` list near the top of the file.
-4. **Add a new dictionary** representing your service to the list. For example, to add Filebrowser:
-
+### Step-by-Step Instructions:
+1. **Verify Systemd Management:** Ensure the service you want to add is currently managed by systemd (for example, you should be able to run `sudo systemctl status my-service.service`).
+2. **Edit the Configuration:** Open the `server.py` file in your preferred text editor (such as `nano` or `vim`).
+3. **Locate the Services List:** Find the list named `SERVICES` located near the top of the file.
+4. **Append the New Service:** Add a new dictionary object representing your service to this list. Ensure you use the exact systemd service name. 
+   
+   Here is an example of adding Filebrowser:
    ```python
    SERVICES = [
-       ...
+       # ... existing services ...
        {
-           'id': 'filebrowser',            # A unique identifier for the frontend
-           'name': 'Network Storage',      # Display name on the dashboard
-           'port': 8081,                   # Port the service runs on (for reference)
-           'systemd': 'filebrowser',       # The exact name of the systemd service unit
-           'icon': '[folder]',             # An icon representation to display on the card
-           'description': 'Web-based file manager'
+           'id': 'filebrowser',            # A unique string identifier used by the frontend
+           'name': 'Network Storage',      # The display name that will appear on the dashboard card
+           'port': 8081,                   # The port the service runs on (used for display reference)
+           'systemd': 'filebrowser',       # The exact name of the systemd service unit (without .service)
+           'icon': '',                     # Leave blank or add an SVG/HTML icon representation
+           'description': 'Web-based file manager' # A short description of what the service does
        },
    ]
    ```
-5. **Restart the dashboard service** to apply your changes:
+5. **Apply the Changes:** Save your changes to `server.py` and restart the dashboard service to load the new configuration:
    ```bash
    sudo systemctl restart server-dashboard.service
    ```
 
 ---
 
-## Setting up Multiple Instances of a Service (e.g., Navidrome)
+## Setting up Multiple Instances of a Service
 
-Some services, like Navidrome, only allow pointing to a single data or music folder per instance. If different users have different tastes and need separate folders, you can create multiple instances of the service and manage them individually through the dashboard.
+Certain applications, like Navidrome, only support a single data or media directory per instance. If you have multiple users who require their own separate libraries or configurations, you can run multiple instances of the same application and manage them independently through the dashboard.
 
-1. **Create multiple systemd service files**:
-   Duplicate the service's systemd file and rename it for each user (e.g., `navidrome-tin.service` and `navidrome.service`).
-2. **Configure separate environments**:
-   Edit each new service file to use different ports (e.g., `4533` and `4534`), and point them to different configuration, data, and media directories.
-3. **Register them in the Dashboard**:
-   Add each instance as a separate entry in the `SERVICES` list in `server.py`, ensuring the `systemd` name matches the exact filename (without `.service`):
+### Step-by-Step Instructions:
+1. **Duplicate the Systemd Service:** Create a copy of the application's systemd service file for the new user. Rename it to distinguish it (for example, `navidrome-tin.service` and `navidrome-kimi.service`).
+2. **Configure Unique Environments:** Edit each systemd service file to ensure they do not conflict. This typically involves changing the listening port (e.g., `4533` for one, `4534` for the other) and specifying different paths for their data, configuration, and media directories.
+3. **Register Instances in the Dashboard:** Open `server.py` and add each instance as a separate entry within the `SERVICES` list. The `systemd` key must precisely match the respective filename.
 
+   Example configuration:
    ```python
    SERVICES = [
        {
@@ -143,79 +113,82 @@ Some services, like Navidrome, only allow pointing to a single data or music fol
            'name': 'Navidrome (Tin)',
            'port': 4534,
            'systemd': 'navidrome-tin',
-           'icon': '[music]',
-           'description': 'Private music server'
+           'icon': '',
+           'description': 'Private music server for Tin'
        },
        {
-           'id': 'navidrome',
+           'id': 'navidrome-kimi',
            'name': 'Navidrome (Kimi)',
            'port': 4533,
-           'systemd': 'navidrome',
-           'icon': '[music]',
-           'description': 'Shared music server'
+           'systemd': 'navidrome-kimi',
+           'icon': '',
+           'description': 'Shared music server for Kimi'
        }
    ]
    ```
-4. Modify the `/api/services` guest restriction logic in `server.py` if you want to restrict a specific instance to only specific users.
+4. **Adjust Guest Restrictions (Optional):** If you wish to hide a specific instance from guest users, ensure its `id` is not included in the `GUEST_SERVICES` list in `server.py`.
 
 ---
 
 ## Managing User Profiles and Permissions
 
-You can configure different user accounts with `admin` or `guest` roles to restrict access to sensitive system controls.
+The dashboard relies on the `USERS` dictionary and the `GUEST_SERVICES` list in `server.py` to enforce security and access control.
 
-### 1. Adding a New User
-1. Add the new user to the `USERS` dictionary in `server.py` with their `password` and `role`.
-2. To allow the new user to log in via the frontend, you must also add their username to the dropdown list in `public/login.html`:
+### 1. Adding a New User Account
+To grant a new person access to the dashboard:
+1. Open `server.py` and locate the `USERS` dictionary.
+2. Add a new entry defining their username, linking it to a password environment variable, and assigning a role (`admin` or `guest`).
+3. Open `public/login.html` and locate the `<select id="username" required>` element.
+4. Add a new `<option>` tag for the new user so their name appears in the login dropdown menu.
    ```html
    <select id="username" required>
        <option value="tin">tin</option>
        <option value="ice.kimi">ice.kimi</option>
-       <option value="new_user">new_user</option> <!-- Add new users here -->
+       <option value="new_user">new_user</option> <!-- newly added user -->
    </select>
    ```
 
 ### 2. Restricting Services for Guest Profiles
-By default, `guest` users cannot see system resource bars (CPU/RAM/Disk) or the Tor Exit Node toggle. They are also restricted from interacting with services except those explicitly whitelisted.
+Guest accounts are heavily restricted by default. They cannot view system metrics or interact with the Tor routing. Furthermore, they can only see and interact with services that are explicitly whitelisted.
 
-To control which services a `guest` profile can see and toggle on their dashboard, locate the `GUEST_SERVICES` list near the top of `server.py`:
-
-```python
-GUEST_SERVICES = ['filebrowser', 'navidrome']
-```
-Simply remove or add service `id`s to this list to change what guests have access to.
+To configure the whitelist:
+1. Open `server.py` and locate the `GUEST_SERVICES` list near the top of the file.
+   ```python
+   GUEST_SERVICES = ['filebrowser', 'navidrome']
+   ```
+2. Add or remove the `id` of any service (matching the `id` defined in the `SERVICES` list) to alter what a guest user is permitted to see and control.
 
 ### 3. Session Limits
-For security and performance, each user account is limited to a maximum of 5 concurrent active sessions. If a user logs in from a 6th device, their oldest session is automatically revoked.
+To ensure optimal performance and security, the backend enforces a strict session limit. Each user account is permitted a maximum of 5 concurrent active sessions across different devices or browsers. If a user successfully logs in from a 6th device, the backend will automatically identify and revoke their oldest active session.
 
 ---
 
 ## Customizing the Background (Wallpaper Gallery)
 
-The dashboard features a built-in wallpaper gallery accessible from the **Settings** modal! 
-You can dynamically set different wallpapers for your login screen and your main dashboard.
+The dashboard includes a dynamic wallpaper gallery system, allowing you to personalize the appearance of both the login screen and the main dashboard view directly from the Settings modal.
 
-To add your own wallpapers to the gallery:
-1. Create a folder named `Wallpapers` inside the `public/` directory (i.e., `/home/tin/server-dashboard/public/Wallpapers/`).
-2. Drop any `.jpg`, `.jpeg`, `.png`, or `.webp` images into this folder.
-3. *(Optional)* To categorize your images in the settings dropdown, prefix the filename with a theme name and a double dash, e.g., `synthwave--neon-city.jpg` or `nature--forest.png`.
-4. Open the dashboard, click **Settings**, and pick your new wallpapers from the list!
+### Step-by-Step Instructions to Add Wallpapers:
+1. **Locate the Directory:** Ensure a directory named `Wallpapers` exists inside the `public/` folder. The full path should be `/home/tin/server-dashboard/public/Wallpapers/`. If it does not exist, create it.
+2. **Add Images:** Move or copy your desired image files into this directory. The system supports standard web image formats: `.jpg`, `.jpeg`, `.png`, and `.webp`.
+3. **Categorize Images (Optional):** To organize your wallpapers into logical groups within the settings dropdown menu, you can prefix the filename with a category name followed by a double dash. For example, renaming a file to `synthwave--neon-city.jpg` will place it under a "synthwave" category.
+4. **Apply Wallpapers:** Open your dashboard in a web browser, navigate to the Settings page, and select your new wallpapers from the dropdown lists.
 
-*Note: If you select the "Solid Dark" or "Ultra" performance themes in the dashboard settings, wallpapers will be hidden to reduce GPU load.*
+*Performance Note: If you choose the "Solid Dark" or "Ultra" performance themes in the appearance settings, background wallpapers will be intentionally disabled to conserve GPU resources and improve rendering speed on lower-end devices.*
 
 ---
 
 ## Appearance Customization (UI Engine)
 
-You can deeply customize the visual appearance of your dashboard via the **Settings** page. All changes are saved locally to your device via `localStorage`.
+The dashboard features a robust UI engine that allows for deep visual customization without touching the code. You can access these options via the **Settings** page. All configuration choices are saved locally in your browser's `localStorage`.
 
-* **Font Selection**: Choose from various built-in Google Fonts (Inter, Roboto, Poppins, etc.) to completely change the typography of the dashboard.
-* **Color Schemes**: Pick an automatic accent color or manually select your own hex color. This applies to toggle switches, progress bars, and glowing elements. *Note: In "Solid Dark" and "Ultra" performance themes, the automatic color defaults to fixed theme colors to ensure readability.*
-* **Liquid Glass Engine**: Adjust the translucency slider to control the transparency of the dashboard UI elements. Turning it all the way down removes the background blur entirely, improving rendering performance on older devices.
+* **Font Selection:** The engine includes several bundled Google Fonts (such as Inter, Roboto, and Poppins). Selecting a new font will immediately update the typography across the entire dashboard interface.
+* **Color Schemes:** You can choose to have the dashboard automatically extract and apply an accent color based on your current wallpaper, or you can manually define a specific hex color code. This accent color is applied to interactive elements like toggle switches and progress bars. *Note: When utilizing the "Solid Dark" or "Ultra" performance themes, the automatic color option will default to a pre-defined, high-contrast theme color to guarantee text readability.*
+* **Liquid Glass Engine:** When using the default glass theme, you can manipulate the translucency slider to adjust the opacity of the dashboard cards and navigation bars. Dragging the slider all the way down will completely disable the CSS backdrop blur effect, which significantly improves scrolling and rendering performance on older hardware.
 
 ---
 
-## Important Notes
-* **Root Privileges**: The dashboard executes system commands via `sudo systemctl` and `sudo iptables`. Running `server.py` as `root` (which the default `server-dashboard.service` does) is required to avoid password prompts for these commands. If you change the service to run as a standard user, you must configure `visudo` to allow passwordless execution for these specific binaries.
-* **Suwayomi Integration**: The Suwayomi Tor integration hardcodes the path to the configuration file as `/var/lib/suwayomi/.local/share/Tachidesk/server.conf`. If your Tachidesk installation is located elsewhere, you must update this path in the `/api/suwayomi/tor` route in `server.py`.
-* **Port Configuration**: By default, the web server listens on port `8080`. This can be changed by editing the `PORT = 8080` variable in `server.py`.
+## Important Technical Notes
+
+* **Root Privileges:** The dashboard backend heavily relies on executing system-level commands using `sudo systemctl` (for service management) and `sudo iptables` (for Tor routing). Because the provided `server-dashboard.service` file runs the python script as the `root` user, these commands execute silently. However, if you modify the service to run under a standard user account, the application will break unless you explicitly configure the `/etc/sudoers` file (using `visudo`) to allow that specific user to execute those exact binaries without being prompted for a password.
+* **Suwayomi Integration:** The integration for routing Suwayomi traffic through Tor utilizes a hardcoded configuration path: `/var/lib/suwayomi/.local/share/Tachidesk/server.conf`. If your Tachidesk instance is installed in a non-standard location or under a different user directory, you must manually edit this file path within the `/api/suwayomi/tor` routing logic found in `server.py`.
+* **Port Configuration:** Out of the box, the dashboard's web server binds to and listens on port `8080`. If this conflicts with another service on your machine, you can change it by modifying the `PORT = 8080` variable near the bottom of `server.py` and restarting the dashboard service.
