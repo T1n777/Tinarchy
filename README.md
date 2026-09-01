@@ -1,5 +1,7 @@
 # Tinarchy Server Dashboard
 
+![Dashboard Banner](public/github-header-banner.png)
+
 A powerful, customizable, and role-based server dashboard designed to manage services, track system resources, and route traffic through a Tor exit node.
 
 ## Setup and Installation
