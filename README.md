@@ -71,7 +71,7 @@ Once the installation is complete, you can access the dashboard from any device 
 
 The dashboard is designed to be easily extensible. You can add any service (such as a Minecraft server, a Docker container, or a custom application) to the dashboard as long as it is managed by systemd.
 
-### Step-by-Step Instructions:
+### Instructions:
 1. **Verify Systemd Management:** Ensure the service you want to add is currently managed by systemd (for example, you should be able to run `sudo systemctl status my-service.service`).
 2. **Edit the Configuration:** Open the `server.py` file in your preferred text editor (such as `nano` or `vim`).
 3. **Locate the Services List:** Find the list named `SERVICES` located near the top of the file.
@@ -102,7 +102,7 @@ The dashboard is designed to be easily extensible. You can add any service (such
 
 Certain applications, like Navidrome, only support a single data or media directory per instance. If you have multiple users who require their own separate libraries or configurations, you can run multiple instances of the same application and manage them independently through the dashboard.
 
-### Step-by-Step Instructions:
+### Instructions:
 1. **Duplicate the Systemd Service:** Create a copy of the application's systemd service file for the new user. Rename it to distinguish it (for example, `navidrome-tin.service` and `navidrome-kimi.service`).
 2. **Configure Unique Environments:** Edit each systemd service file to ensure they do not conflict. This typically involves changing the listening port (e.g., `4533` for one, `4534` for the other) and specifying different paths for their data, configuration, and media directories.
 3. **Register Instances in the Dashboard:** Open `server.py` and add each instance as a separate entry within the `SERVICES` list. The `systemd` key must precisely match the respective filename.
@@ -169,7 +169,7 @@ To ensure optimal performance and security, the backend enforces a strict sessio
 
 The dashboard includes a dynamic wallpaper gallery system, allowing you to personalize the appearance of both the login screen and the main dashboard view directly from the Settings modal.
 
-### Step-by-Step Instructions to Add Wallpapers:
+### Instructions to Add Wallpapers:
 1. **Locate the Directory:** Ensure a directory named `Wallpapers` exists inside the `public/` folder. The full path should be `/home/tin/server-dashboard/public/Wallpapers/`. If it does not exist, create it.
 2. **Add Images:** Move or copy your desired image files into this directory. The system supports standard web image formats: `.jpg`, `.jpeg`, `.png`, and `.webp`.
 3. **Categorize Images (Optional):** To organize your wallpapers into logical groups within the settings dropdown menu, you can prefix the filename with a category name followed by a double dash. For example, renaming a file to `synthwave--neon-city.jpg` will place it under a "synthwave" category.
