@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Tinarchy Drive Sync Engine
+# Synchronizes and updates $HOME/drive/ folders, symlinks, permissions, and FileBrowser index.
+
+LOCK_DIR="/run/tinarchy-drive"
+mkdir -p "$LOCK_DIR" 2>/dev/null || true
+chmod 777 "$LOCK_DIR" 2>/dev/null || true
+
+LOCK_FILE="$LOCK_DIR/sync.lock"
+TIMESTAMP_FILE="$LOCK_DIR/sync-last"
+DEBOUNCE_SECONDS=10
+
+# 1. Debounce check
+CURRENT_TIME=$(date +%s)
+if [ -f "$TIMESTAMP_FILE" ]; then
+    LAST_TIME=$(cat "$TIMESTAMP_FILE" 2>/dev/null || echo 0)
+    DIFF=$((CURRENT_TIME - LAST_TIME))
+    if [ "$DIFF" -ge 0 ] && [ "$DIFF" -lt "$DEBOUNCE_SECONDS" ]; then
+        exit 0
+    fi
+fi
+
+# Acquire lock
+touch "$LOCK_FILE" 2>/dev/null || true
+chmod 666 "$LOCK_FILE" 2>/dev/null || true
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    exit 0
+fi
+
+echo "$CURRENT_TIME" > "$TIMESTAMP_FILE" 2>/dev/null || true
+chmod 666 "$TIMESTAMP_FILE" 2>/dev/null || true
+
+DRIVE_DIR="/home/pineapple/drive"
+
+# 2. Verify and repair symlinks
+[ -d "/home/pineapple/Wall" ] && ln -sfn /home/pineapple/Wall "$DRIVE_DIR/Wallpapers"
+[ -d "/var/lib/suwayomi/downloads" ] && ln -sfn /var/lib/suwayomi/downloads "$DRIVE_DIR/Media/Manga"
+mkdir -p "$DRIVE_DIR/notes" "$DRIVE_DIR/shared/backups" "$DRIVE_DIR/Media/Movies" "$DRIVE_DIR/Media/Shows" "$DRIVE_DIR/Media/Music"
+
+# 3. Trigger server database snapshot
+if [ -x "/home/pineapple/scripts/backup-server-databases.sh" ]; then
+    /home/pineapple/scripts/backup-server-databases.sh >/dev/null 2>&1 || true
+fi
+
+# 4. Signal FileBrowser
+touch "$DRIVE_DIR"
+[ -f "$DRIVE_DIR/.filebrowser.db" ] && touch "$DRIVE_DIR/.filebrowser.db"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Tinarchy Drive Sync completed successfully."

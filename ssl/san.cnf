@@ -1,0 +1,28 @@
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+x509_extensions = v3_req
+
+[dn]
+C = IN
+ST = KA
+L = Bangalore
+O = Tinarchy
+OU = Server
+CN = pineapple-station
+
+[v3_req]
+subjectAltName = @alt_names
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[alt_names]
+DNS.1 = pineapple-station
+DNS.2 = pineapple-station.taildb42a2.ts.net
+DNS.3 = localhost
+IP.1 = 100.112.193.54
+IP.2 = 10.14.143.130
+IP.3 = 127.0.0.1

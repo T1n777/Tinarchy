@@ -7,75 +7,228 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
-    <title>Tinarchy Dashboard</title>
+    <title>Dashboard</title>
+
+    <script>
+        // ─── Universal Zero-Network Wallpaper & Pywal Engine ───
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        async function saveLocalWallpaper(blob, key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(blob, key);
+            } catch(e) {}
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#69B4C3';
+            const fg = pywal.special?.foreground || '#d3d7d8';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', '#9da7b3');
+            root.style.setProperty('--glass-border', pColor + '30');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = `url('${mediaUrl}')`;
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', `url('${mediaUrl}')`);
+            }
+        }
+
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            document.body && document.body.setAttribute('data-theme', savedTheme);
+
+            try {
+                const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                applyThemeAndColors(root, pywal);
+            } catch(e) {}
+
+            // Crisp 6px default blur
+            const blur = localStorage.getItem('dashboard-blur') || '6';
+            root.style.setProperty('--wp-blur', `${blur}px`);
+            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const t = parseInt(transRaw, 10) / 100;
+            root.style.setProperty('--ui-translucency', t);
+            root.style.setProperty('--ui-blur', t <= 0 ? '0px' : '20px');
+            root.style.setProperty('--ui-saturate', '180%');
+
+            const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+            const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+
+            if (isVideo && wpUrl) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, true));
+                } else {
+                    applyMediaToBackground(wpUrl, true);
+                }
+            } else {
+                const cachedBlob = await getLocalWallpaper('active_wallpaper');
+                if (cachedBlob) {
+                    const blobUrl = URL.createObjectURL(cachedBlob);
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(blobUrl, false));
+                    } else {
+                        applyMediaToBackground(blobUrl, false);
+                    }
+                } else if (wpUrl) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, false));
+                    } else {
+                        applyMediaToBackground(wpUrl, false);
+                    }
+                }
+            }
+        })();
+    </script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-        :root {
-            --ui-translucency: 0.6;
-            --ui-blur: 32px;
-            --ui-saturate: 180%;
-            --glass-rgb: 14, 19, 34;
-            --glass: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency)));
-            --glass-hover: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.1));
-            --glass-border: rgba(255, 255, 255, 0.15);
-            --glass-border-hover: rgba(255, 255, 255, 0.25);
-            --shadow-inner: inset 0 1px 1px rgba(255, 255, 255, 0.15);
-            --shadow-outer: 0 12px 40px rgba(0, 0, 0, 0.35);
-
+        :root, body[data-theme="glass"] {
             --bg: #0a0f1e;
-            --glass: rgba(14, 19, 34, 0.4);
-            --glass-hover: rgba(14, 19, 34, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --glass-border-hover: rgba(255, 255, 255, 0.2);
+            --glass-rgb: 14, 19, 34;
+            --ui-translucency: 0.6;
+            --ui-blur: 24px;
+            --ui-saturate: 180%;
+            --glass: rgba(14, 19, 34, 0.65);
+            --glass-hover: rgba(22, 28, 44, 0.85);
+            --glass-border: rgba(105, 180, 195, 0.25);
+            --glass-border-hover: rgba(105, 180, 195, 0.55);
+            --shadow-inner: inset 0 1px 1px rgba(255, 255, 255, 0.16);
+            --shadow-outer: 0 12px 40px rgba(0, 0, 0, 0.45);
+            --card-shadow: var(--shadow-inner), var(--shadow-outer);
+
             --text: #dee1f7;
             --text-muted: #8c909f;
-            --primary: #ffffff; /* White */
-            --primary-solid: #ffffff;
+            --primary: #69B4C3;
+            --primary-hover: #7fc3d1;
+            --primary-glow: rgba(105, 180, 195, 0.35);
+            --accent-gold: #AE9E5C;
             --online: #4edea3;
             --offline: #ffb4ab;
             --tor-purple: #ddb7ff;
-            --tor-bg: rgba(111, 0, 190, 0.1);
-            --tor-border: rgba(214, 169, 255, 0.3);
+            --tor-bg: rgba(111, 0, 190, 0.15);
+            --tor-border: rgba(214, 169, 255, 0.35);
+
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --wp-blur: 6px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: var(--font-family, 'Inter', -apple-system, system-ui, sans-serif);
+            font-family: var(--font-family);
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
         }
 
-        /* Wallpaper background */
+        /* Razor-sharp Wallpaper Background */
         .wallpaper {
             position: fixed;
             inset: -20px;
             background: var(--wp-url, url('/dashboard-bg.jpg')) no-repeat center center;
             background-size: cover;
-            filter: blur(var(--wp-blur, 6px));
+            filter: blur(var(--wp-blur));
             z-index: -2;
             transform: translateZ(0);
+            transition: filter 0.2s ease;
         }
+
+        .wallpaper-video {
+            position: fixed;
+            inset: -20px;
+            width: calc(100vw + 40px);
+            height: calc(100vh + 40px);
+            object-fit: cover;
+            filter: blur(var(--wp-blur));
+            z-index: -2;
+            transform: translateZ(0);
+            pointer-events: none;
+        }
+
         .wallpaper-tint {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.45);
+            background: rgba(0, 0, 0, 0.42);
             z-index: -1;
             pointer-events: none;
         }
 
-        /* Glass Utilities */
-                .glass {
+        /* Razor-sharp Glass System */
+        .glass {
             background: var(--glass);
             backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
             -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
             border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-inner), var(--shadow-outer);
-            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            border-radius: 18px;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
+
         .glass:hover {
             background: var(--glass-hover);
             border-color: var(--glass-border-hover);
@@ -85,9 +238,21 @@
         .container {
             position: relative;
             z-index: 1;
-            max-width: 1200px;
+            max-width: 1240px;
             margin: 0 auto;
             padding: 0 24px 40px;
+        }
+
+        /* Universal Text Selection (Pywal Accented) */
+        ::selection {
+            background: var(--primary);
+            color: #0b0f14;
+            text-shadow: none;
+        }
+        ::-moz-selection {
+            background: var(--primary);
+            color: #0b0f14;
+            text-shadow: none;
         }
 
         /* Top Nav Pill */
@@ -100,146 +265,251 @@
             margin: 16px -24px 24px;
             pointer-events: none;
         }
-                .top-nav {
+
+        .top-nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 6px 24px;
-            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
-            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
-            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            padding: 8px 24px;
+            background: rgba(var(--glass-rgb), 0.75);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: 999px;
-            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
-            gap: 32px;
+            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.35);
+            gap: 28px;
             pointer-events: all;
-            width: fit-content; max-width: calc(100% - 32px);
+            width: fit-content;
+            max-width: calc(100% - 32px);
         }
+
         .top-nav .brand {
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: var(--primary);
-            letter-spacing: -0.03em;
+            font-size: 1.18rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
         }
+
+        .pulse-beacon {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--online);
+            box-shadow: 0 0 10px var(--online);
+            display: inline-block;
+        }
+
         .top-nav .meta {
             display: flex;
             gap: 8px;
             align-items: center;
         }
+
         .meta-badge {
             font-size: 0.8rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            padding: 2px 10px;
-            border-radius: 999px;
-        }
-        .logout-btn {
-            font-family: inherit;
-            font-size: 0.9rem;
             font-weight: 600;
-            color: var(--primary);
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px 12px;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-        .logout-btn:hover {
-            background: rgba(255,255,255,0.08);
+            font-family: var(--font-mono);
+            color: #e6edf3;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 3px 12px;
+            border-radius: 999px;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
         }
 
-        /* Stats Row */
+        .nav-btn {
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+            padding: 5px 14px;
+            border-radius: 100px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .nav-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #0b0f14;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px var(--primary-glow);
+            text-shadow: none;
+        }
+
+        .drive-sync-tile {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .drive-sync-val {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .drive-sync-sub {
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            color: #a3b3c2;
+        }
+
+        .drive-sync-btn {
+            width: 100%;
+            padding: 5px 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 4px;
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-family: inherit;
+        }
+
+        .drive-sync-btn:hover {
+            background: var(--primary);
+            color: #0b0f14;
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px var(--primary-glow);
+            transform: translateY(-1px);
+        }
+
+        .drive-sync-btn:active {
+            transform: scale(0.96);
+        }
+
+        .drive-sync-btn.syncing .sync-icon {
+            display: inline-block;
+            animation: spinSync 0.8s linear infinite;
+        }
+
+        @keyframes spinSync {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* ─── Stats Bar ─── */
         .stats-bar {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             gap: 16px;
             margin: 24px 0;
         }
+
         .stat-card {
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s;
+            border-radius: 16px;
+            padding: 18px 20px;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
         }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow), 0 0 16px var(--primary-glow);
+            border-color: var(--primary);
+        }
+
         .stat-card .stat-label {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
         }
+
         .stat-card .stat-value {
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: var(--primary);
+            font-size: 1.15rem;
+            font-weight: 800;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
             margin-bottom: 10px;
         }
+
         .progress-bar {
             width: 100%;
-            height: 3px;
-            background: rgba(255,255,255,0.08);
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 999px;
             overflow: hidden;
         }
+
         .progress-fill {
             height: 100%;
-            border-radius: 999px;
             background: var(--primary);
-            box-shadow: 0 0 8px var(--primary);
-            transition: width 0.8s ease-out;
+            border-radius: 999px;
+            transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* Tor Banner */
+        /* ─── Tor Exit Banner ─── */
         .tor-exit-banner {
-            background: var(--glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--tor-border);
-            box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.25);
-            border-radius: 12px;
-            padding: 20px 24px;
+            border-radius: 16px;
+            padding: 18px 24px;
             margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: var(--tor-bg);
+            border: 1px solid var(--tor-border);
             transition: all 0.3s;
-            will-change: transform;
         }
+
         .tor-exit-banner:hover {
-            background: var(--glass-hover);
+            border-color: var(--tor-purple);
+            box-shadow: 0 0 20px rgba(214, 169, 255, 0.25);
         }
-        .tor-exit-banner.active {
-            border-color: rgba(214,169,255,0.8);
-            box-shadow: 0 0 16px rgba(214,169,255,0.2), inset 0 1px 0 0 rgba(255,255,255,0.08);
-        }
+
         .tor-exit-info { display: flex; align-items: center; gap: 16px; }
+
         .tor-icon {
-            width: 48px; height: 48px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.04);
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.06);
             border: 1px solid var(--tor-border);
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.15rem; flex-shrink: 0;
+            font-size: 1.3rem; flex-shrink: 0;
         }
+
         .tor-exit-info h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.05rem;
+            font-weight: 700;
             color: var(--tor-purple);
             margin-bottom: 2px;
         }
+
         .tor-exit-info p {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: var(--text-muted);
         }
 
-        /* Services Grid */
+        /* ─── Services Grid ─── */
         .section-title {
             font-size: 1.25rem;
-            font-weight: 600;
+            font-weight: 800;
             margin-bottom: 20px;
             color: var(--text);
+            letter-spacing: -0.02em;
         }
+
         .grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -249,531 +519,424 @@
         @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
         .card {
-            border-radius: 16px;
-            padding: 20px;
+            border-radius: 18px;
+            padding: 22px;
             display: flex;
             flex-direction: column;
-            transition: all 0.3s;
+            justify-content: space-between;
+            min-height: 180px;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .card:hover {
+            border-color: var(--primary) !important;
+            box-shadow: var(--card-shadow), 0 0 20px var(--primary-glow);
+            transform: translateY(-2px);
         }
 
         .card-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 12px;
         }
 
         .service-icon {
-            width: 48px; height: 48px;
+            font-size: 1.6rem;
+            width: 44px;
+            height: 44px;
             border-radius: 12px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.15rem;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .status-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 3px 10px;
+            border-radius: 100px;
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 0.65rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 2px 10px;
-            border-radius: 4px;
-            border: 1px solid rgba(255,255,255,0.05);
         }
+
         .status-badge::before {
             content: '';
-            width: 7px; height: 7px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
         }
+
         .status-badge.online {
             color: var(--online);
-            background: rgba(78,222,163,0.08);
+            background: rgba(78, 222, 163, 0.12);
+            border: 1px solid rgba(78, 222, 163, 0.3);
         }
         .status-badge.online::before {
             background: var(--online);
-            box-shadow: 0 0 8px rgba(78,222,163,0.8);
+            box-shadow: 0 0 8px var(--online);
         }
+
         .status-badge.offline {
             color: var(--offline);
-            background: rgba(255,180,171,0.08);
-            border-color: rgba(255,180,171,0.15);
+            background: rgba(255, 180, 171, 0.12);
+            border: 1px solid rgba(255, 180, 171, 0.3);
         }
         .status-badge.offline::before {
             background: var(--offline);
-            box-shadow: 0 0 6px rgba(255,180,171,0.5);
         }
 
-        .service-details {
-            margin-top: 12px;
-        }
         .service-details h2 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin-bottom: 2px;
-        }
-        .service-details p {
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            margin-bottom: 2px;
-        }
-        .service-details .systemd-name {
-            font-family: monospace;
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.2);
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+            color: var(--text);
         }
 
-        a.service-link {
-            color: inherit;
+        .service-link {
             text-decoration: none;
-            transition: color 0.2s;
+            color: inherit;
         }
-        a.service-link:hover { color: var(--primary); }
+
+        .service-link:hover h2 {
+            color: var(--primary);
+        }
+
+        .service-details p {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .systemd-name {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.4);
+            margin-bottom: 14px;
+        }
 
         .card-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: auto;
-            padding-top: 16px;
+            padding-top: 14px;
             border-top: 1px solid rgba(255,255,255,0.06);
         }
 
         .port {
-            font-family: monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
-            color: var(--text-muted);
-        }
-
-        .actions { display: flex; gap: 8px; }
-
-                .btn {
-            appearance: none;
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 8px 16px;
-            font-size: 0.8rem;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: inherit;
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            box-shadow: var(--shadow-inner), 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-        .btn:hover {
-            background: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.2);
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            letter-spacing: 0.02em;
         }
 
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            appearance: none;
-            outline: none;
-            width: 44px;
-            height: 24px;
-            background: rgba(255,180,171,0.08);
-            border: 1px solid rgba(255,180,171,0.4);
-            border-radius: 24px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
-            flex-shrink: 0;
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
+
+        /* ─── Tactile Organic Toggle Switch with Fluid Physics ─── */
+        .toggle-switch {
+            width: 46px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid var(--glass-border);
+            border-radius: 100px;
+            cursor: pointer;
+            position: relative;
+            outline: none;
+            transition: background 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        border-color 0.3s ease,
+                        box-shadow 0.3s ease,
+                        transform 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .toggle-switch:active {
+            transform: scale(0.92);
+        }
+
         .toggle-switch::after {
             content: '';
             position: absolute;
             top: 2px;
             left: 2px;
-            width: 18px;
-            height: 18px;
-            background-color: var(--offline);
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), background-color 0.3s;
-            box-shadow: 0 0 8px rgba(255,180,171,0.5);
+            background: #ffffff;
+            transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        background 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
         }
+
         .toggle-switch.on {
-            background: rgba(78,222,163,0.08);
-            border-color: rgba(78,222,163,0.4);
+            background: var(--online);
+            border-color: var(--online);
+            box-shadow: 0 0 12px rgba(78, 222, 163, 0.35);
         }
+
         .toggle-switch.on::after {
-            background-color: var(--online);
             transform: translateX(20px);
-            box-shadow: 0 0 8px rgba(78,222,163,0.8);
+            background: #0a0f1e;
         }
-        .toggle-switch:disabled {
-            opacity: 0.5;
+
+        /* Fluid Transitional / Spin-up State */
+        .toggle-switch.transitioning {
+            background: rgba(252, 196, 25, 0.35) !important;
+            border-color: #fcc419 !important;
+            box-shadow: 0 0 15px rgba(252, 196, 25, 0.45) !important;
             cursor: wait;
+        }
+
+        .toggle-switch.transitioning::after {
+            animation: pulseThumb 0.8s infinite alternate ease-in-out;
+            background: #fcc419 !important;
+        }
+
+        @keyframes pulseThumb {
+            from { transform: translateX(8px) scale(0.85); opacity: 0.8; }
+            to { transform: translateX(12px) scale(1.1); opacity: 1; }
+        }
+
+        @keyframes cardWake {
+            0% { border-color: rgba(78, 222, 163, 0.2); box-shadow: var(--card-shadow); }
+            50% { border-color: var(--online); box-shadow: var(--card-shadow), 0 0 28px rgba(78, 222, 163, 0.45); }
+            100% { border-color: var(--glass-border); box-shadow: var(--card-shadow); }
+        }
+
+        .card.wake-up {
+            animation: cardWake 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .status-badge.transitioning {
+            color: #fcc419;
+            background: rgba(252, 196, 25, 0.15);
+            border-color: rgba(252, 196, 25, 0.4);
+            animation: pulseBadge 0.9s infinite alternate;
+        }
+
+        .status-badge.transitioning::before {
+            background: #fcc419;
+            box-shadow: 0 0 8px #fcc419;
+        }
+
+        @keyframes pulseBadge {
+            from { opacity: 0.65; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1.03); }
+        }
+
+        /* ─── Tailnet Devices Ribbon ─── */
+        .tailnet-drawer {
+            border-radius: 18px;
+            padding: 18px 22px;
+            margin-top: 28px;
+        }
+
+        .drawer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .drawer-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .devices-ribbon {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .device-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-family: var(--font-mono);
         }
 
         /* Toast */
         .toast-container {
             position: fixed;
-            bottom: 24px; right: 24px;
-            display: flex; flex-direction: column; gap: 8px;
-            z-index: 100;
-        }
-        .toast {
-            background: var(--glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 10px;
-            border: 1px solid var(--glass-border);
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-            font-size: 0.85rem; font-weight: 500;
-            animation: slideInRight 0.3s ease-out;
-        }
-        .toast.success { border-color: rgba(78,222,163,0.4); }
-        .toast.error { border-color: rgba(255,180,171,0.4); }
-        .toast.fade-out { animation: fadeOutRight 0.3s ease-in forwards; }
-
-        @keyframes slideInRight {
-            from { opacity: 0; transform: translateX(100%); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes fadeOutRight {
-            from { opacity: 1; transform: translateX(0); }
-            to { opacity: 0; transform: translateX(100%); }
-        }
-
-        /* Settings Modal */
-        .settings-overlay {
-            position: fixed; inset: 0; z-index: 100;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            display: flex; align-items: center; justify-content: center;
-        }
-        .settings-card {
-            width: 90%; max-width: 400px;
-            padding: 24px; border-radius: 16px;
-        }
-        .theme-select {
-            width: 100%; padding: 10px 12px;
-            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-            color: white; border-radius: 8px; margin-top: 8px;
-            font-family: inherit; font-size: 0.9rem;
-        }
-        .theme-select option { background: #0a0f1e; }
-        .setting-group label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
-
-        /* Solid Dark Theme Override */
-        body[data-theme="solid"] {
-            --bg: #0b0d13;
-            --glass: #141722;
-            --glass-hover: #1b1e2a;
-            --glass-border: rgba(255,255,255,0.02);
-            --tor-bg: #1a1525;
-                        background-color: var(--bg);
-        }
-        body[data-theme="solid"] .wallpaper,
-        body[data-theme="solid"] .wallpaper-tint {
-            display: none;
-        }
-        body[data-theme="solid"] .glass,
-        body[data-theme="solid"] .top-nav,
-        body[data-theme="solid"] .tor-exit-banner,
-        body[data-theme="solid"] .toast {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            box-shadow: none !important;
-        }
-        body[data-theme="solid"] .ambient-orb { display: none; }
-
-        /* ─── Ultra Performance Mode ─── */
-        /* Goal: zero GPU strain — no blur, no shadows, no transitions,
-           no web fonts, no wallpaper, minimal repaints. Looks clean but barebones. */
-        body[data-theme="ultra"] {
-            --bg: #0d0d0d;
-            --glass: #181818;
-            --glass-hover: #202020;
-            --glass-border: #2a2a2a;
-            --glass-border-hover: #333;
-            --text: #e0e0e0;
-            --text-muted: #888;
-                        --online: #5cba82;
-            --offline: #d9706a;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
-            background-color: var(--bg) !important;
-        }
-        /* Kill wallpaper & tint entirely */
-        body[data-theme="ultra"] .wallpaper,
-        body[data-theme="ultra"] .wallpaper-tint { display: none !important; }
-
-        /* Kill all backdrop-filter, box-shadow, transition, animation */
-        body[data-theme="ultra"] *,
-        body[data-theme="ultra"] *::before,
-        body[data-theme="ultra"] *::after {
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-            box-shadow: none !important;
-            transition: none !important;
-            animation: none !important;
-            text-shadow: none !important;
-        }
-
-        /* Flat solid surfaces */
-        body[data-theme="ultra"] .glass,
-        body[data-theme="ultra"] .top-nav,
-        body[data-theme="ultra"] .tor-exit-banner,
-        body[data-theme="ultra"] .toast {
-            background: var(--glass) !important;
-            border: 1px solid var(--glass-border) !important;
-            border-radius: 10px !important;
-        }
-
-        /* Flat nav bar */
-        body[data-theme="ultra"]         .top-nav {
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 24px;
-            background: rgba(var(--glass-rgb), calc(1 - var(--ui-translucency) + 0.15));
-            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
-            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
-            border: 1px solid var(--glass-border);
-            border-radius: 999px;
-            box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.25);
-            gap: 32px;
-            pointer-events: all;
-            width: fit-content; max-width: calc(100% - 32px);
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
         }
 
-        /* Remove glow from status dots and progress bar */
-        body[data-theme="ultra"] .status-badge.online::before,
-        body[data-theme="ultra"] .status-badge.offline::before,
-        body[data-theme="ultra"] .toggle-switch::after,
-        body[data-theme="ultra"] .progress-fill { box-shadow: none !important; }
-
-        /* Flat toggle switch */
-        body[data-theme="ultra"] .toggle-switch {
-            background: #2a2a2a !important;
-            border-color: #444 !important;
-        }
-        body[data-theme="ultra"] .toggle-switch.on {
-            background: #1e3a2a !important;
-            border-color: #3a7a56 !important;
-        }
-        body[data-theme="ultra"] .toggle-switch::after { background-color: #888 !important; }
-        body[data-theme="ultra"] .toggle-switch.on::after { background-color: var(--online) !important; }
-
-        /* Flat buttons */
-        body[data-theme="ultra"]         .btn {
-            appearance: none;
-            border: 1px solid var(--glass-border);
+        .toast {
+            padding: 12px 20px;
             border-radius: 12px;
-            padding: 8px 16px;
-            font-size: 0.8rem;
+            font-size: 0.86rem;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: inherit;
-            background: rgba(255, 255, 255, 0.05);
             color: var(--text);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            box-shadow: var(--shadow-inner), 0 2px 8px rgba(0, 0, 0, 0.15);
+            background: rgba(14, 19, 34, 0.9);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+            transition: opacity 0.3s, transform 0.3s;
         }
 
-        /* Flat progress bar */
-        body[data-theme="ultra"] .progress-fill {
-            background: var(--primary) !important;
-        }
-
-        /* Flat toast */
-        body[data-theme="ultra"] .toast {
-            background: #1c1c1c !important;
-        }
+        .toast.success { border-color: var(--online); color: var(--online); }
+        .toast.error { border-color: var(--offline); color: var(--offline); }
 
         /* Responsive */
         @media (max-width: 640px) {
-            /* Reduce blur and shadow on mobile to ease GPU load */
-            .glass, .tor-exit-banner, .toast {
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-                box-shadow: inset 0 1px 0 0 rgba(255,255,255,0.08), 0 4px 16px rgba(0,0,0,0.2);
-            }
-            .top-nav {
-                width: 100% !important;
-                max-width: calc(100% - 16px) !important;
-                padding: 6px 16px !important;
-                gap: 0 !important;
-            }
-            .top-nav .meta {
-                display: none !important;
-            }
-            .top-nav .brand {
-                font-size: 1.1rem !important;
-            }
-            .logout-btn {
-                padding: 4px 10px !important;
-                font-size: 0.85rem !important;
-            }
+            .container { padding: 0 16px 40px; }
+            .top-nav { width: 100% !important; max-width: 100% !important; border-radius: 16px; padding: 8px 16px; gap: 0; }
+            .top-nav .meta { display: none; }
         }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
     </style>
 </head>
 <body>
-    <!-- Wallpaper -->
-    <div class="wallpaper"></div>
+    <div class="wallpaper"><video class="wallpaper-video" autoplay loop muted playsinline style="display:none;"></video></div>
     <div class="wallpaper-tint"></div>
 
     <div class="container">
         <!-- Top Navigation Pill -->
         <div class="top-nav-wrapper">
             <nav class="top-nav">
-                <div class="brand" id="sys-hostname">tinarchy</div>
+                <div class="brand">
+                    <span>🍍</span>
+                    <span id="sys-hostname">pinedash</span>
+                    <span class="pulse-beacon"></span>
+                </div>
                 <div class="meta">
                     <span class="meta-badge" id="sys-tailscale">IP: ...</span>
                     <span class="meta-badge" id="sys-uptime">Up: ...</span>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="logout-btn" onclick="window.location.href='/settings.html'">Settings</button>
-                    <button class="logout-btn" onclick="logout()">Logout</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div id="nav-user-pill" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 3px 12px 3px 4px; border-radius: 999px; border: 1px solid var(--glass-border);">
+                        <div id="nav-user-avatar" style="width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.75rem; overflow:hidden;">Y</div>
+                        <span id="nav-user-name" style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Yashwanth Karthik</span>
+                        <span id="nav-user-role" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #AE9E5C; letter-spacing:0.04em;">👑 Owner</span>
+                    </div>
+                    <a href="/settings.html" class="nav-btn">Settings</a>
+                    <button class="nav-btn" onclick="fetchSystemStats(true)">Refresh</button>
                 </div>
             </nav>
         </div>
 
         <!-- Stats Bar -->
         <div class="stats-bar" id="stats-bar">
+            <!-- CPU Temp -->
             <div class="stat-card glass">
-                <div class="stat-label">RAM</div>
-                <div class="stat-value" id="ram-text">...</div>
+                <div class="stat-label">CPU Temp</div>
+                <div class="stat-value" id="temp-text">--°C</div>
                 <div class="progress-bar">
-                    <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+                    <div class="progress-fill" id="temp-bar" style="width: 0%"></div>
                 </div>
             </div>
+
+            <!-- CPU Load -->
             <div class="stat-card glass">
-                <div class="stat-label">Disk</div>
-                <div class="stat-value" id="disk-text">...</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
-                </div>
-            </div>
-            <div class="stat-card glass">
-                <div class="stat-label">CPU</div>
+                <div class="stat-label">CPU Load</div>
                 <div class="stat-value" id="cpu-text">...</div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
                 </div>
             </div>
+
+            <!-- RAM -->
+            <div class="stat-card glass">
+                <div class="stat-label">RAM Memory</div>
+                <div class="stat-value" id="ram-text">...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Disk -->
+            <div class="stat-card glass">
+                <div class="stat-label">Storage SSD</div>
+                <div class="stat-value" id="disk-text">...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Drive Storage & Sync -->
+            <div class="stat-card glass drive-sync-tile" id="drive-sync-card">
+                <div class="stat-label">Drive Sync</div>
+                <div class="stat-value drive-sync-val">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                        <span class="pulse-beacon" id="drive-sync-beacon" style="background:#2ecc71; box-shadow:0 0 8px #2ecc71; width:7px; height:7px;"></span>
+                        <span id="drive-sync-text">Synced</span>
+                    </span>
+                    <span class="drive-sync-sub" id="drive-sync-time">Just now</span>
+                </div>
+                <button class="drive-sync-btn" id="manual-sync-btn" onclick="triggerManualSync(this)" title="Sync $HOME/drive/ folders & index now">
+                    <span class="sync-icon">⚡</span> <span id="sync-btn-label">Sync Now</span>
+                </button>
+            </div>
         </div>
 
         <!-- Tor Exit Banner -->
-        <div class="tor-exit-banner" id="tor-exit-banner">
+        <div class="tor-exit-banner glass" id="tor-exit-banner">
             <div class="tor-exit-info">
                 <div class="tor-icon">🧅</div>
                 <div>
-                    <h2 style="display: flex; align-items: center; gap: 8px;">Global Tor Exit Node <span id="tor-exit-label" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;"></span></h2>
-                    <p>Route all Tailscale client traffic through the Tor network.</p>
+                    <h2>Global Tor Exit Node <span id="tor-exit-label" style="font-size: 0.72rem; text-transform: uppercase;"></span></h2>
+                    <p>Route all Tailscale client traffic through the Tor onion network.</p>
                 </div>
             </div>
             <button class="toggle-switch" aria-label="Toggle Tor Exit Node" id="tor-exit-btn" onclick="toggleTorExit()">
             </button>
         </div>
 
-        <!-- Services -->
+        <!-- Services Grid -->
+        <h2 class="section-title">Server Applications</h2>
         <div class="grid" id="services-container"></div>
-    </div>
 
-    <div class="toast-container" id="toast-container"></div>
-
-    <div class="settings-overlay" id="settings-modal" style="display: none;">
-        <div class="settings-card glass">
-            <h2 class="section-title" style="margin-bottom: 16px;">Device Settings</h2>
-            <div class="setting-group">
-                <label>Theme</label>
-                <select id="theme-select" class="theme-select" onchange="setTheme(this.value)">
-                    <option value="glass">Liquid Glass (Aesthetic)</option>
-                    <option value="solid">Solid Dark (Performance)</option>
-                    <option value="ultra">Ultra Performance (Barebones)</option>
-                </select>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">Saved locally to this device.</p>
+        <!-- Tailnet Devices Ribbon -->
+        <div class="tailnet-drawer glass" id="tailnet-drawer">
+            <div class="drawer-header">
+                <div class="drawer-title">
+                    <span>🌐 Connected Tailnet Devices</span>
+                    <span class="pulse-beacon"></span>
+                </div>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Encrypted Mesh</span>
             </div>
-            <div style="text-align: right; margin-top: 24px;">
-                <button class="btn" onclick="document.getElementById('settings-modal').style.display='none'" style="color: white;">Close</button>
+            <div class="devices-ribbon" id="devices-ribbon">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Discovering mesh peers…</div>
             </div>
         </div>
     </div>
 
+    <div class="toast-container" id="toast-container"></div>
+
     <script>
-                // Theme Initialization
-        const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
-        document.body.setAttribute('data-theme', savedTheme);
-        document.getElementById('theme-select') && (document.getElementById('theme-select').value = savedTheme);
-
-        // Wallpaper, blur, font, and color from localStorage
-        (function applyAppearanceSettings() {
-            const root = document.documentElement;
-            
-            // Wallpaper + Blur
-            const wp = localStorage.getItem('dashboard-wallpaper');
-            const blur = localStorage.getItem('dashboard-blur') || '6';
-            if (wp) root.style.setProperty('--wp-url', `url('${wp}')`);
-            root.style.setProperty('--wp-blur', `${blur}px`);
-            
-            // Glass Translucency
-            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
-            const t = parseInt(transRaw, 10) / 100;
-            root.style.setProperty('--ui-translucency', t);
-            if (t <= 0) {
-                root.style.setProperty('--ui-blur', '0px');
-                root.style.setProperty('--ui-saturate', '100%');
-            } else {
-                root.style.setProperty('--ui-blur', '32px');
-                root.style.setProperty('--ui-saturate', '180%');
-            }
-            
-            // Color
-            const colorMode = localStorage.getItem('dashboard-color-mode') || 'auto';
-            let primaryColor = '';
-            if (colorMode === 'manual') {
-                primaryColor = localStorage.getItem('dashboard-manual-color');
-            } else {
-                const currentTheme = localStorage.getItem('dashboard-theme') || 'glass';
-                if (currentTheme === 'solid') primaryColor = '#adc6ff';
-                else if (currentTheme === 'ultra') primaryColor = '#7eb8f7';
-                else primaryColor = localStorage.getItem('dashboard-auto-color');
-            }
-            if (primaryColor) root.style.setProperty('--primary', primaryColor);
-            
-            // Font
-            const font = localStorage.getItem('dashboard-font');
-            if (font && font !== 'Inter') {
-                root.style.setProperty('--font-family', `"${font}", -apple-system, system-ui, sans-serif`);
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`;
-                document.head.appendChild(link);
-            }
-        })();
-
-        // In ultra mode, block Google Fonts from loading by removing the link tag
-        if (savedTheme === 'ultra') {
-            const fontLink = document.querySelector('link[href*="fonts.googleapis"]');
-            if (fontLink) fontLink.remove();
-        }
-
-        function setTheme(themeName) {
-            document.body.setAttribute('data-theme', themeName);
-            localStorage.setItem('dashboard-theme', themeName);
-            // Reload to apply/remove font link cleanly
-            window.location.reload();
-        }
-
         const container = document.getElementById('services-container');
         const toastContainer = document.getElementById('toast-container');
 
@@ -783,51 +946,68 @@
             toast.innerHTML = message;
             toastContainer.appendChild(toast);
             setTimeout(() => {
-                toast.classList.add('fade-out');
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
 
-        async function fetchSystemStats() {
+        async function fetchSystemStats(manual = false) {
             try {
                 const res = await fetch('/api/system');
-                if(res.status === 401) { window.location.href = "/login.html"; return; }
                 if(!res.ok) return;
                 const stats = await res.json();
 
-                document.getElementById('sys-hostname').textContent = stats.hostname;
+                // Dynamic Name
+                const serverName = stats.display_name || stats.server_name || 'pinedash';
+                document.getElementById('sys-hostname').textContent = serverName;
+                document.title = `${serverName} - Dashboard`;
+
                 document.getElementById('sys-tailscale').textContent = `IP: ${stats.tailscale_ip}`;
                 document.getElementById('sys-uptime').textContent = `Up: ${stats.uptime}`;
 
+                // RAM
                 document.getElementById('ram-text').textContent = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
                 const ramBar = document.getElementById('ram-bar');
                 ramBar.style.width = `${stats.ram_percent}%`;
-                ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : '');
+                ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
 
+                // Disk
                 document.getElementById('disk-text').textContent = `${stats.disk_used} / ${stats.disk_total}`;
                 const diskBar = document.getElementById('disk-bar');
                 diskBar.style.width = `${stats.disk_percent}%`;
-                diskBar.style.backgroundColor = stats.disk_percent > 90 ? '#ffb4ab' : '';
 
-                document.getElementById('cpu-text').textContent = `${stats.cpu_percent}% (${stats.loadavg[0]})`;
+                // CPU Load
+                document.getElementById('cpu-text').textContent = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
                 const cpuBar = document.getElementById('cpu-bar');
                 cpuBar.style.width = `${stats.cpu_percent}%`;
-                cpuBar.style.backgroundColor = stats.cpu_percent > 80 ? '#ffb4ab' : '';
-            } catch (err) {
-                console.error("Failed to load system stats", err);
-            }
+
+                // CPU Temp
+                if (stats.cpu_temp) {
+                    document.getElementById('temp-text').textContent = stats.cpu_temp;
+                    const tempBar = document.getElementById('temp-bar');
+                    const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
+                    tempBar.style.width = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
+                    tempBar.style.backgroundColor = tempVal > 78 ? '#ffb4ab' : (tempVal > 65 ? '#fcc419' : 'var(--primary)');
+                }
+
+                // Drive Sync
+                if (stats.drive_last_sync_human) {
+                    const timeEl = document.getElementById('drive-sync-time');
+                    if (timeEl) timeEl.textContent = stats.drive_last_sync_human;
+                }
+
+                if (manual) showToast('Telemetry synchronized', 'success');
+            } catch (err) {}
         }
 
         async function fetchServices() {
             try {
                 const res = await fetch('/api/services');
-                if(res.status === 401) { window.location.href = "/login.html"; return; }
                 if(!res.ok) return;
                 const data = await res.json();
                 renderServices(data);
-            } catch (err) {
-                console.error("Failed to load services", err);
-            }
+            } catch (err) {}
         }
 
         function renderServices(services) {
@@ -854,8 +1034,12 @@
                     `;
                 }
 
-                const titleHTML = (isOnline && s.port > 0)
-                    ? `<a href="http://${window.location.hostname}:${s.port}" target="_blank" class="service-link"><h2>${s.name}</h2></a>`
+                let launchUrl = (s.port > 0) ? `http://${window.location.hostname}:${s.port}` : '#';
+                if (s.id === 'couchdb') {
+                    launchUrl = '/couchdb/_utils/';
+                }
+                const titleHTML = (isOnline && (s.port > 0 || s.id === 'couchdb'))
+                    ? `<a href="${launchUrl}" target="_blank" class="service-link"><h2>${s.name} ↗</h2></a>`
                     : `<h2>${s.name}</h2>`;
 
                 card.innerHTML = `
@@ -872,14 +1056,16 @@
                         <div class="port">${s.port > 0 ? `Port ${s.port}` : ''}</div>
                         <div class="actions">
                             ${torButtonHTML}
+                            ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: ${isOnline ? 'var(--online)' : 'var(--offline)'}">${isOnline ? 'On' : 'Off'}</span>
+                                <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: ${isOnline ? 'var(--online)' : 'var(--offline)'}">${isOnline ? 'On' : 'Off'}</span>
                                 <button
                                     class="toggle-switch ${isOnline ? 'on' : ''}"
                                     aria-label="Toggle ${s.name}"
                                     onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
                                 ></button>
                             </div>
+                            `}
                         </div>
                     </div>
                 `;
@@ -887,19 +1073,28 @@
             });
         }
 
-        async function logout() {
-            try {
-                await fetch('/api/logout');
-                window.location.href = '/login.html';
-            } catch(e) {
-                window.location.href = '/login.html';
-            }
-        }
-
         async function toggleService(id, action, btnElement, serviceName) {
+            if (CURRENT_USER.role === 'viewer') {
+                showToast('Viewer mode: Read-only access', 'error');
+                return;
+            }
+
+            const card = btnElement.closest('.card');
+            const badge = card ? card.querySelector('.status-badge') : null;
+            const label = btnElement.previousElementSibling;
+            const prevOnline = btnElement.classList.contains('on');
+
+            // 1. Natural Tactile & Optimistic UI
             btnElement.disabled = true;
-            const originalText = btnElement.innerText;
-            btnElement.innerText = '...';
+            btnElement.classList.add('transitioning');
+            if (badge) {
+                badge.className = 'status-badge transitioning';
+                badge.textContent = action === 'start' ? 'Starting…' : 'Stopping…';
+            }
+            if (label) {
+                label.textContent = action === 'start' ? 'Starting' : 'Stopping';
+                label.style.color = '#fcc419';
+            }
 
             try {
                 const res = await fetch(`/api/services/${id}/toggle`, {
@@ -908,132 +1103,247 @@
                     body: JSON.stringify({ action })
                 });
 
-                if (res.status === 401) { window.location.href = "/login.html"; return; }
                 if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Operation failed');
 
-                showToast(`Successfully sent ${action} command to ${serviceName}`, 'success');
-                setTimeout(fetchServices, 1000);
+                // 2. Smooth Success Spring Animation
+                btnElement.classList.remove('transitioning');
+                if (action === 'start') {
+                    btnElement.classList.add('on');
+                    btnElement.setAttribute('onclick', `toggleService('${id}', 'stop', this, '${serviceName}')`);
+                    if (card) {
+                        card.classList.add('wake-up');
+                        setTimeout(() => card.classList.remove('wake-up'), 1300);
+                    }
+                    if (badge) {
+                        badge.className = 'status-badge online';
+                        badge.textContent = 'online';
+                    }
+                    if (label) {
+                        label.textContent = 'On';
+                        label.style.color = 'var(--online)';
+                    }
+                    showToast(`✨ ${serviceName} started smoothly`, 'success');
+                } else {
+                    btnElement.classList.remove('on');
+                    btnElement.setAttribute('onclick', `toggleService('${id}', 'start', this, '${serviceName}')`);
+                    if (badge) {
+                        badge.className = 'status-badge offline';
+                        badge.textContent = 'offline';
+                    }
+                    if (label) {
+                        label.textContent = 'Off';
+                        label.style.color = 'var(--offline)';
+                    }
+                    showToast(`🛑 ${serviceName} stopped`, 'default');
+                }
+                setTimeout(fetchServices, 1200);
             } catch (err) {
-                showToast(`Failed to ${action} ${serviceName}`, 'error');
-                btnElement.innerText = originalText;
+                // Rollback smoothly on failure
+                btnElement.classList.remove('transitioning');
+                if (prevOnline) btnElement.classList.add('on');
+                else btnElement.classList.remove('on');
+                if (badge) {
+                    badge.className = `status-badge ${prevOnline ? 'online' : 'offline'}`;
+                    badge.textContent = prevOnline ? 'online' : 'offline';
+                }
+                if (label) {
+                    label.textContent = prevOnline ? 'On' : 'Off';
+                    label.style.color = prevOnline ? 'var(--online)' : 'var(--offline)';
+                }
+                showToast(`Failed to ${action} ${serviceName}: ${err}`, 'error');
+            } finally {
                 btnElement.disabled = false;
             }
         }
 
         async function toggleTorProxy(enable, btnElement) {
             btnElement.disabled = true;
-            btnElement.innerText = '...';
-
             try {
                 const res = await fetch('/api/suwayomi/tor', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enable })
                 });
-
-                if (res.status === 401) { window.location.href = "/login.html"; return; }
                 if (!res.ok) throw new Error(await res.text());
-
-                showToast(`Tor proxy ${enable ? 'enabled' : 'disabled'} for Suwayomi`, 'success');
-                setTimeout(fetchServices, 2000);
-            } catch (err) {
-                showToast('Failed to toggle Tor proxy', 'error');
+                showToast(`Suwayomi Tor proxy ${enable ? 'enabled' : 'disabled'}`, 'success');
+                setTimeout(fetchServices, 1000);
+            } catch(e) {
+                showToast(`Failed to toggle Tor: ${e}`, 'error');
+            } finally {
                 btnElement.disabled = false;
             }
         }
 
-        let torExitActive = false;
-        let userRole = "guest";
-
-        async function fetchTorExitStatus() {
+        async function triggerManualSync(btn) {
+            if (!btn) btn = document.getElementById('manual-sync-btn');
+            if (btn) {
+                btn.classList.add('syncing');
+                btn.disabled = true;
+            }
+            const labelEl = document.getElementById('sync-btn-label');
+            const statusText = document.getElementById('drive-sync-text');
+            if (labelEl) labelEl.textContent = 'Syncing…';
+            if (statusText) statusText.textContent = 'Syncing…';
             try {
-                const res = await fetch('/api/system/tor-exit');
-                if(res.status === 401) { window.location.href = "/login.html"; return; }
-                if(!res.ok) return;
+                const res = await fetch('/api/drive/sync', { method: 'POST' });
                 const data = await res.json();
-                torExitActive = data.active;
-
-                const btn = document.getElementById('tor-exit-btn');
-                const banner = document.getElementById('tor-exit-banner');
-                const label = document.getElementById('tor-exit-label');
-
-                if (torExitActive) {
-                    btn.classList.add('on');
-                    label.innerText = 'Enabled';
-                    label.style.color = 'var(--online)';
-                    banner.classList.add('active');
-                } else {
-                    btn.classList.remove('on');
-                    label.innerText = 'Disabled';
-                    label.style.color = 'var(--offline)';
-                    banner.classList.remove('active');
+                setTimeout(() => {
+                    if (btn) {
+                        btn.classList.remove('syncing');
+                        btn.disabled = false;
+                    }
+                    if (labelEl) labelEl.textContent = 'Sync Now';
+                    if (statusText) statusText.textContent = 'Synced';
+                    const timeEl = document.getElementById('drive-sync-time');
+                    if (timeEl) timeEl.textContent = 'Just now';
+                    showToast('Drive Storage & Backups synced successfully!', 'success');
+                }, 600);
+            } catch(e) {
+                if (btn) {
+                    btn.classList.remove('syncing');
+                    btn.disabled = false;
                 }
-                btn.disabled = false;
-            } catch (err) {
-                console.error("Failed to load Tor Exit status", err);
+                if (labelEl) labelEl.textContent = 'Sync Now';
+                if (statusText) statusText.textContent = 'Error';
+                showToast('Sync failed: ' + e.message, 'error');
             }
         }
 
         async function toggleTorExit() {
             const btn = document.getElementById('tor-exit-btn');
-            const label = document.getElementById('tor-exit-label');
+            const isCurrentlyOn = btn.classList.contains('on');
+            const newState = !isCurrentlyOn;
             btn.disabled = true;
-            label.innerText = '...';
-
-            const newState = !torExitActive;
 
             try {
                 const res = await fetch('/api/system/tor-exit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enable: newState })
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({enable: newState})
                 });
-
-                if (res.status === 401) { window.location.href = "/login.html"; return; }
                 if (!res.ok) throw new Error(await res.text());
-
-                showToast('Tor Exit Node status changed', 'success');
-                setTimeout(fetchTorExitStatus, 1000);
-            } catch (err) {
-                showToast('Failed to toggle Tor Exit Node', 'error');
+                showToast(`Tor exit node ${newState ? 'activated' : 'disabled'}`, 'success');
+                fetchTorExitStatus();
+            } catch(e) {
+                showToast(`Tor error: ${e}`, 'error');
+            } finally {
                 btn.disabled = false;
             }
         }
 
-        async function fetchUserRole() {
+        async function fetchTorExitStatus() {
             try {
-                const res = await fetch('/api/me');
-                if (res.status === 401) { window.location.href = "/login.html"; return; }
-                if (res.ok) {
-                    const data = await res.json();
-                    userRole = data.role;
-                    if (userRole !== 'admin') {
-                        document.getElementById('tor-exit-banner').style.display = 'none';
-                        document.getElementById('stats-bar').style.display = 'none';
-                    }
+                const res = await fetch('/api/system/tor-exit');
+                if(!res.ok) return;
+                const data = await res.json();
+                const btn = document.getElementById('tor-exit-btn');
+                const label = document.getElementById('tor-exit-label');
+                if (data.active || data.enabled) {
+                    btn.classList.add('on');
+                    label.textContent = 'Active';
+                    label.style.color = 'var(--online)';
+                } else {
+                    btn.classList.remove('on');
+                    label.textContent = 'Inactive';
+                    label.style.color = 'var(--offline)';
                 }
-            } catch (e) {
-                console.error('Auth check failed:', e);
-            }
+            } catch(e) {}
         }
 
-        async function initDashboard() {
-            await fetchUserRole();
+        async function fetchTailnetDevices() {
+            try {
+                const res = await fetch('/api/users');
+                if (!res.ok) return;
+                const data = await res.json();
+                const tsUsers = data.tailscale_users || [];
+                const ribbon = document.getElementById('devices-ribbon');
+
+                if (tsUsers.length === 0) {
+                    ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">No peer devices discovered.</div>';
+                    return;
+                }
+
+                ribbon.innerHTML = '';
+                tsUsers.forEach(u => {
+                    (u.devices || []).forEach(d => {
+                        const chip = document.createElement('div');
+                        chip.className = 'device-chip';
+                        const osIcon = d.os === 'android' ? '📱' : (d.os === 'linux' ? '🐧' : (d.os === 'windows' ? '🪟' : '🍏'));
+                        const selfTag = d.is_self ? ' (This Server)' : '';
+                        chip.innerHTML = `
+                            <span>${osIcon}</span>
+                            <span><strong>${d.name}</strong>${selfTag}</span>
+                            <span style="color:var(--text-muted);">${d.ip}</span>
+                            <span style="color:${d.online ? 'var(--online)' : 'var(--offline)'}">●</span>
+                        `;
+                        ribbon.appendChild(chip);
+                    });
+                });
+            } catch(e) {}
+        }
+
+        let CURRENT_USER = { role: 'viewer', is_owner: false };
+
+        async function fetchCurrentUser() {
+            try {
+                const res = await fetch('/api/me');
+                if (!res.ok) return;
+                const u = await res.json();
+                CURRENT_USER = u;
+
+                const nameEl = document.getElementById('nav-user-name');
+                const roleEl = document.getElementById('nav-user-role');
+                const avatarEl = document.getElementById('nav-user-avatar');
+
+                if (nameEl) nameEl.textContent = u.display_name || 'User';
+                if (avatarEl && u.avatar) {
+                    avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
+                }
+                if (roleEl) {
+                    if (u.role === 'owner') {
+                        roleEl.textContent = '👑 Owner';
+                        roleEl.style.color = '#AE9E5C';
+                    } else if (u.role === 'admin') {
+                        roleEl.textContent = '🛡️ Admin';
+                        roleEl.style.color = 'var(--online)';
+                    } else {
+                        roleEl.textContent = '👁️ Viewer';
+                        roleEl.style.color = 'var(--text-muted)';
+                    }
+                }
+
+                const torBtn = document.getElementById('tor-exit-btn');
+                if (torBtn && u.role === 'viewer') {
+                    torBtn.disabled = true;
+                    torBtn.title = 'Viewer: Read-only access';
+                    torBtn.style.cursor = 'not-allowed';
+                    torBtn.style.opacity = '0.5';
+                }
+            } catch(e) {}
+        }
+
+        // Global shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'r' || e.key === 'R') {
+                fetchSystemStats(true);
+                fetchServices();
+            } else if (e.key === 's' || e.key === 'S') {
+                window.location.href = '/settings.html';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchCurrentUser();
             fetchSystemStats();
             fetchServices();
             fetchTorExitStatus();
-
-            // Ultra mode: poll every 15s to minimise server & client load
-            // All other themes: poll every 5s for near-realtime updates
-            const pollInterval = (savedTheme === 'ultra') ? 15000 : 5000;
-            setInterval(() => {
-                fetchSystemStats();
-                fetchServices();
-                fetchTorExitStatus();
-            }, pollInterval);
-        }
-
-        initDashboard();
+            fetchTailnetDevices();
+            setInterval(fetchSystemStats, 2000);
+            setInterval(fetchTailnetDevices, 10000);
+        });
     </script>
 </body>
 </html>

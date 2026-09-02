@@ -1,0 +1,13 @@
+[Unit]
+Description=Tinarchy Drive Storage Synchronization at Boot
+Before=filebrowser-quantum.service
+After=network.target
+
+[Service]
+Type=oneshot
+User=pineapple
+ExecStart=/usr/local/bin/tinarchy-drive-sync
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

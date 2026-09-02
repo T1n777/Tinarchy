@@ -1,10 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+    <script>
+        // ─── Universal Zero-Network Wallpaper (Image & MP4 Video) & Pywal Sync Engine ───
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        async function saveLocalWallpaper(blob, key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).put(blob, key);
+            } catch(e) { console.warn('Local caching error', e); }
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#79b8ff';
+            const fg = pywal.special?.foreground || '#f0f6fc';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', '#a3b3c2');
+            root.style.setProperty('--glass-border', pColor + '35');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = `url('${mediaUrl}')`;
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', `url('${mediaUrl}')`);
+                root.style.setProperty('--login-wp-url', `url('${mediaUrl}')`);
+            }
+        }
+
+        // Run synchronously before DOM render and on DOMContentLoaded
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            document.body && document.body.setAttribute('data-theme', savedTheme);
+            
+            // 1. Pywal Colors
+            try {
+                const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                applyThemeAndColors(root, pywal);
+            } catch(e) {}
+
+            // 2. Blur & Translucency
+            const blur = localStorage.getItem('dashboard-blur') || '16';
+            root.style.setProperty('--wp-blur', `${blur}px`);
+            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const t = parseInt(transRaw, 10) / 100;
+            root.style.setProperty('--ui-translucency', t);
+            root.style.setProperty('--ui-blur', t <= 0 ? '0px' : '24px');
+            root.style.setProperty('--ui-saturate', '180%');
+
+            // 3. Media Loading
+            const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+            const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+            
+            if (isVideo && wpUrl) {
+                // Videos are loaded via URL / stream
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, true));
+                } else {
+                    applyMediaToBackground(wpUrl, true);
+                }
+            } else {
+                const cachedBlob = await getLocalWallpaper('active_wallpaper');
+                if (cachedBlob) {
+                    const blobUrl = URL.createObjectURL(cachedBlob);
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(blobUrl, false));
+                    } else {
+                        applyMediaToBackground(blobUrl, false);
+                    }
+                } else if (wpUrl) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, false));
+                    } else {
+                        applyMediaToBackground(wpUrl, false);
+                    }
+                    try {
+                        const res = await fetch(wpUrl);
+                        if (res.ok) {
+                            const blob = await res.blob();
+                            await saveLocalWallpaper(blob, 'active_wallpaper');
+                        }
+                    } catch(e) {}
+                }
+            }
+        })();
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tinarchy Dashboard</title>
+    <title>pinedash</title>
     <style>
+        ::selection { background: var(--primary); color: #0b0f14; text-shadow: none; }
+        ::-moz-selection { background: var(--primary); color: #0b0f14; text-shadow: none; }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -151,20 +299,33 @@
         }
 
         button:active { transform: translateY(0); }
+    
+        .wallpaper-video {
+            position: fixed;
+            inset: -20px;
+            width: calc(100vw + 40px);
+            height: calc(100vh + 40px);
+            object-fit: cover;
+            filter: blur(var(--wp-blur, 16px));
+            z-index: -2;
+            transform: translateZ(0);
+            pointer-events: none;
+        }
+
     </style>
 </head>
 <body>
-    <div class="wallpaper"></div>
+    <div class="wallpaper"><video class="wallpaper-video" autoplay loop muted playsinline style="display:none;"></video></div>
     <div class="login-card">
-        <h2>Tinarchy Dashboard</h2>
+        <h2 id="login-brand">pinedash</h2>
         <p class="subtitle">Sign in to continue</p>
         <div class="error" id="error">Invalid username or password</div>
         <form id="login-form">
             <label for="username">Account</label>
             <div class="select-wrapper">
                 <select id="username" required>
-                    <option value="tin">tin</option>
-                    <option value="ice.kimi">ice.kimi</option>
+                    <option value="pineapple">pineapple</option>
+                    <option value="peach">peach</option>
                 </select>
             </div>
             <label for="password">Password</label>
@@ -173,7 +334,16 @@
         </form>
     </div>
     <script>
-                // Apply saved login settings from localStorage
+        // Fetch dynamic server identity
+        fetch('/api/app/config').then(r => r.json()).then(data => {
+            if (data.display_name) {
+                const b = document.getElementById('login-brand');
+                if (b) b.textContent = data.display_name;
+                document.title = `${data.display_name} - Login`;
+            }
+        }).catch(() => {});
+
+        // Apply saved login settings from localStorage
         (function() {
             document.body.setAttribute('data-theme', localStorage.getItem('dashboard-theme') || 'glass');
             const root = document.documentElement;

@@ -1,0 +1,15 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = pinedash
+DNS.2 = pineapple-station
+DNS.3 = pineapple-station.taildb42a2.ts.net
+DNS.4 = localhost
+DNS.5 = pinedash.local
+IP.1 = 100.112.193.54
+IP.2 = 10.14.143.130
+IP.3 = 127.0.0.1
