@@ -117,7 +117,7 @@ WHOIS_CACHE = {}
 def get_tailscale_host_owner():
     """
     Dynamically discovers the Tailscale account that owns/registered this server node.
-    Works dynamically on any Tailscale network without hardcoded emails.
+    Always uses the live DisplayName from Tailscale without hardcoded names.
     """
     try:
         res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
@@ -126,20 +126,19 @@ def get_tailscale_host_owner():
             self_user_id = st.get('Self', {}).get('UserID')
             if self_user_id:
                 user_info = st.get('User', {}).get(str(self_user_id), {})
-                app_cfg = get_app_config()
-                custom_owner = app_cfg.get('owner_name')
+                login_name = user_info.get('LoginName', '')
+                display_name = user_info.get('DisplayName') or login_name or 'Owner'
                 return {
                     'user_id': self_user_id,
-                    'login_name': user_info.get('LoginName', ''),
-                    'display_name': custom_owner if custom_owner else user_info.get('DisplayName', user_info.get('LoginName', 'Owner'))
+                    'login_name': login_name,
+                    'display_name': display_name
                 }
     except Exception as e:
         print(f"Error resolving Tailscale host owner: {e}")
-    app_cfg = get_app_config()
     return {
         'user_id': None,
-        'login_name': os.environ.get('OWNER_EMAIL', 'fallback@gmail.com'),
-        'display_name': app_cfg.get('owner_name', 'Owner')
+        'login_name': os.environ.get('OWNER_EMAIL', ''),
+        'display_name': 'Owner'
     }
 
 def get_roles_config():
@@ -294,11 +293,8 @@ def get_tailscale_users():
                     })
             
             l_name = uinfo.get('LoginName', '')
-            d_name = uinfo.get('DisplayName', l_name)
+            d_name = uinfo.get('DisplayName') or l_name or 'Owner'
             role = get_user_role(l_name, d_name)
-            app_cfg = get_app_config()
-            if role == 'owner' and app_cfg.get('owner_name'):
-                d_name = app_cfg.get('owner_name')
             ts_users.append({
                 'id': uid,
                 'display_name': d_name,
