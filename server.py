@@ -126,17 +126,20 @@ def get_tailscale_host_owner():
             self_user_id = st.get('Self', {}).get('UserID')
             if self_user_id:
                 user_info = st.get('User', {}).get(str(self_user_id), {})
+                app_cfg = get_app_config()
+                custom_owner = app_cfg.get('owner_name')
                 return {
                     'user_id': self_user_id,
                     'login_name': user_info.get('LoginName', ''),
-                    'display_name': user_info.get('DisplayName', user_info.get('LoginName', 'Owner'))
+                    'display_name': custom_owner if custom_owner else user_info.get('DisplayName', user_info.get('LoginName', 'Owner'))
                 }
     except Exception as e:
         print(f"Error resolving Tailscale host owner: {e}")
+    app_cfg = get_app_config()
     return {
         'user_id': None,
         'login_name': os.environ.get('OWNER_EMAIL', 'fallback@gmail.com'),
-        'display_name': 'Yatin'
+        'display_name': app_cfg.get('owner_name', 'Owner')
     }
 
 def get_roles_config():
@@ -274,6 +277,9 @@ def get_tailscale_users():
             l_name = uinfo.get('LoginName', '')
             d_name = uinfo.get('DisplayName', l_name)
             role = get_user_role(l_name, d_name)
+            app_cfg = get_app_config()
+            if role == 'owner' and app_cfg.get('owner_name'):
+                d_name = app_cfg.get('owner_name')
             ts_users.append({
                 'id': uid,
                 'display_name': d_name,
@@ -611,7 +617,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Forbidden: Only the Owner (Yatin) can change user roles"}')
+                self.wfile.write(b'{"error": "Forbidden: Only the Owner can change user roles"}')
                 return
 
             target_user = str(data.get('user', '')).strip()
