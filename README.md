@@ -1,4 +1,4 @@
-# 🍍 Pinedash (Tinarchy Server Ecosystem)
+# 🍍 Tinarchy (Tinarchy Server Ecosystem)
 
 ![Dashboard Banner](public/github-header-banner.png)
 
@@ -31,15 +31,15 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 ### 3. 🔮 Passwordless Obsidian LiveSync via Tailscale Mesh
 - **Native Apache CouchDB 3.5**: Runs as a lightweight systemd unit (~81 MB RAM) for real-time, end-to-end encrypted note vault synchronization.
-- **Tailscale WireGuard Security**: Requests arriving through your private Tailscale network (`https://pinedash/couchdb/`) are transparently authorized via Nginx `$final_auth` mappings. Clients leave username and password completely blank in Obsidian.
+- **Tailscale WireGuard Security**: Requests arriving through your private Tailscale network (`https://tinarchy/couchdb/`) are transparently authorized via Nginx `$final_auth` mappings. Clients leave username and password completely blank in Obsidian.
 
 ### 4. 🛡️ Cloudflare 1.1.1.1 DNS-over-TLS (DoT)
 - **Encrypted DNS Queries**: Outbound queries (package updates, manga scrapers, and media metadata) are encrypted over TLS (port 853) using Cloudflare `1.1.1.1` and `1.0.0.1` with DNSSEC cryptographic validation.
 - **Tailscale Split-DNS**: Tailscale MagicDNS (`100.100.100.100`) continues resolving `*.ts.net` peer devices in **1.6ms**.
 
 ### 5. 🌐 Friendly URL & Unified SSL SAN Certificates
-- **Friendly Domain**: Access your dashboard directly via **`https://pinedash`** or `https://pineapple-station`.
-- **Unified SAN Certificate**: A single self-signed Root CA issues full-chain certificates covering `pinedash`, `pineapple-station`, and IP addresses with zero browser security alerts.
+- **Friendly Domain**: Access your dashboard directly via **`https://tinarchy`** or `https://tinarchy`.
+- **Unified SAN Certificate**: A single self-signed Root CA issues full-chain certificates covering `tinarchy`, `tinarchy`, and IP addresses with zero browser security alerts.
 
 ### 6. 🧅 Tor Anonymity Proxy & Global Tailnet Exit Routing
 - **Per-Service Tor Toggle**: Route Suwayomi manga scrapers through the Tor onion network with a single switch.
@@ -56,7 +56,7 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 ```mermaid
 flowchart TD
     subgraph Client ["Client Devices (Laptop / Mobile via Tailscale)"]
-        Browser["🌐 Web Browser (https://pinedash)"]
+        Browser["🌐 Web Browser (https://tinarchy)"]
         ObsidianApp["📱 Obsidian App (Self-hosted LiveSync)"]
         FileApp["📂 FileBrowser Client"]
     end
@@ -67,8 +67,8 @@ flowchart TD
         SyncMirror["Port 8081 Mirror -> /api/drive/sync"]
     end
 
-    subgraph BackendServices ["Server Services (pineapple-station)"]
-        PyDash["🍍 Pinedash Backend (server.py on :8080)"]
+    subgraph BackendServices ["Server Services (tinarchy)"]
+        PyDash["🍍 Tinarchy Backend (server.py on :8080)"]
         CouchDB["🔮 Apache CouchDB 3.5 (:5984)"]
         FileBrowser["📂 FileBrowser Quantum (:8082)"]
         Suwayomi["📚 Suwayomi Manga Server (:4567)"]
@@ -78,8 +78,8 @@ flowchart TD
     end
 
     subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
-        DriveRoot["/home/pineapple/drive"]
-        Wallpapers["Wallpapers -> /home/pineapple/Wall"]
+        DriveRoot["/home/tin/drive"]
+        Wallpapers["Wallpapers -> /home/tin/Wall"]
         Manga["Media/Manga -> /var/lib/suwayomi/downloads"]
         Notes["notes/ (Obsidian Vaults)"]
         Backups["shared/backups/ (Google Drive Sync)"]
@@ -116,16 +116,16 @@ sudo apt install python3 python3-pil nginx couchdb tor iptables rclone
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/T1n777/Tinarchy.git /home/pineapple/server-dashboard
-cd /home/pineapple/server-dashboard
+git clone https://github.com/T1n777/Tinarchy.git /home/tin/server-dashboard
+cd /home/tin/server-dashboard
 ```
 
 ### 3. Configure Dynamic Branding
 Create or edit `app_config.json`:
 ```json
 {
-  "server_name": "pinedash",
-  "project_name": "pinedash"
+  "server_name": "tinarchy",
+  "project_name": "tinarchy"
 }
 ```
 

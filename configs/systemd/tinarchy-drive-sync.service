@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-User=pineapple
+User=tin
 ExecStart=/usr/local/bin/tinarchy-drive-sync
 RemainAfterExit=yes
 

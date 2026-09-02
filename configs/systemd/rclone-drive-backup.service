@@ -1,12 +1,12 @@
 [Unit]
-Description=Rclone Backup /home/pineapple/drive to Google Drive
+Description=Rclone Backup /home/tin/drive to Google Drive
 After=network.target
 
 [Service]
 Type=oneshot
-User=pineapple
-Group=pineapple
-ExecStart=/home/pineapple/scripts/backup-drive-to-gdrive.sh
+User=tin
+Group=tin
+ExecStart=/home/tin/scripts/backup-drive-to-gdrive.sh
 
 [Install]
 WantedBy=multi-user.target

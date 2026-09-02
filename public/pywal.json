@@ -1,27 +1,27 @@
 {
-  "wallpaper": "default_palette",
+  "wallpaper": "/home/tin/server-dashboard/public/Wallpapers/tokyo-night--4-omakub.jpg",
   "alpha": "100",
   "special": {
-    "background": "#0f1419",
+    "background": "#110e1a",
     "foreground": "#f0f6fc",
     "cursor": "#f0f6fc"
   },
   "colors": {
-    "color0": "#0f1419",
-    "color1": "#79b8ff",
-    "color2": "#b392f0",
-    "color3": "#f97583",
-    "color4": "#79b8ff",
-    "color5": "#ffab70",
-    "color6": "#7ee787",
+    "color0": "#110e1a",
+    "color1": "#af7cfb",
+    "color2": "#b486fb",
+    "color3": "#a972fb",
+    "color4": "#be8ffc",
+    "color5": "#af7cfb",
+    "color6": "#b486fb",
     "color7": "#f0f6fc",
     "color8": "#a3b3c2",
-    "color9": "#79b8ff",
-    "color10": "#b392f0",
-    "color11": "#f97583",
-    "color12": "#79b8ff",
-    "color13": "#ffab70",
-    "color14": "#7ee787",
+    "color9": "#af7cfb",
+    "color10": "#b486fb",
+    "color11": "#a972fb",
+    "color12": "#be8ffc",
+    "color13": "#af7cfb",
+    "color14": "#b486fb",
     "color15": "#f0f6fc"
   }
 }

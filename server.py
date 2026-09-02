@@ -3,6 +3,20 @@ import pywal_generator
 import http.server
 import socketserver
 import json
+import os
+
+# --- Load Environment Variables ---
+def load_env():
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            for line in f:
+                if '=' in line and not line.startswith('#'):
+                    k, v = line.strip().split('=', 1)
+                    os.environ[k.strip()] = v.strip().strip('"\'')
+load_env()
+
+
 import subprocess
 import os
 import re
@@ -121,8 +135,8 @@ def get_tailscale_host_owner():
         print(f"Error resolving Tailscale host owner: {e}")
     return {
         'user_id': None,
-        'login_name': 'imyash0722@gmail.com',
-        'display_name': 'Yashwanth Karthik'
+        'login_name': os.environ.get('OWNER_EMAIL', 'fallback@gmail.com'),
+        'display_name': 'Yatin'
     }
 
 def get_roles_config():
@@ -156,24 +170,25 @@ def get_user_role(login_name, display_name=""):
 
     # 2. Check if the Owner granted Admin permissions
     cfg = get_roles_config()
+    roles = cfg.get('roles', {})
+    if login_name in roles:
+        return roles[login_name]
+    
     admins = cfg.get('admin_accounts', [])
-    if isinstance(cfg.get('roles'), dict) and cfg['roles'].get(login_name) == 'admin':
-        return 'admin'
     if login_name in admins:
         return 'admin'
 
-    # 3. New Tailscale accounts automatically default to Viewer!
     return 'viewer'
 
 def resolve_tailscale_client(ip):
     host_owner = get_tailscale_host_owner()
     # Localhost / loopback / server self
-    if ip in ['127.0.0.1', '::1', '100.112.193.54']:
+    if ip in ['127.0.0.1', '::1', os.environ.get('TAILSCALE_IP', '127.0.0.1')]:
         return {
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
             'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
-            'device_name': 'pinedash',
+            'device_name': 'tinarchy',
             'device_ip': ip,
             'role': 'owner',
             'is_owner': True,
@@ -275,7 +290,7 @@ def get_tailscale_users():
 
 PORT = 8080
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
-WALLPAPER_DIR = '/home/pineapple/Wall' if os.path.isdir('/home/pineapple/Wall') else os.path.join(PUBLIC_DIR, 'Wallpapers')
+WALLPAPER_DIR = '/home/tin/Wall' if os.path.isdir('/home/tin/Wall') else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
 SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
@@ -284,6 +299,8 @@ SERVICES = [
     {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
     {'id': 'sshd', 'name': 'SSH Server', 'port': 22, 'systemd': 'sshd', 'icon': '🔑', 'description': 'Secure shell access'},
+    {'id': 'navidrome', 'name': 'Navidrome (Friend)', 'port': 4533, 'systemd': 'navidrome', 'icon': '🎵', 'description': 'Music streaming server'},
+    {'id': 'navidrome-tin', 'name': 'Navidrome (Tin)', 'port': 4534, 'systemd': 'navidrome-tin', 'icon': '🎵', 'description': 'Music streaming server'},
 ]
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
@@ -338,6 +355,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/api/services':
             results = []
             for s in SERVICES:
+                role = session.get('role', 'viewer')
+                if role == 'guest' and s['id'] not in ['navidrome', 'navidrome-tin', 'filebrowser']:
+                    continue
+                if role == 'friend' and s['id'] == 'jellyfin':
+                    continue
                 status_obj = s.copy()
                 try:
                     res = subprocess.run(['systemctl', 'is-active', s['systemd']], capture_output=True, text=True)
@@ -526,9 +548,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             stats['cpu_temp_val'] = celsius_val
 
             app_cfg = get_app_config()
-            stats['display_name'] = app_cfg.get('server_name') or app_cfg.get('project_name') or 'pinedash'
+            stats['display_name'] = app_cfg.get('server_name') or app_cfg.get('project_name') or 'tinarchy'
             stats['server_name'] = stats['display_name']
-            stats['project_name'] = app_cfg.get('project_name', 'pinedash')
+            stats['project_name'] = app_cfg.get('project_name', 'tinarchy')
             # Drive sync status
             sync_last_file = '/run/tinarchy-drive/sync-last'
             if os.path.exists(sync_last_file):
@@ -580,7 +602,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Forbidden: Only the Owner (Yashwanth Karthik) can change user roles"}')
+                self.wfile.write(b'{"error": "Forbidden: Only the Owner (Yatin) can change user roles"}')
                 return
 
             target_user = str(data.get('user', '')).strip()
@@ -680,7 +702,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         # ─── Service Toggle: ADMIN & OWNER ───
         elif self.path.startswith('/api/services/') and self.path.endswith('/toggle'):
-            if session.get('role') not in ['owner', 'admin']:
+            service_id = self.path.split('/')[3]
+            role = session.get('role', 'viewer')
+            
+            allowed = False
+            if role in ['owner', 'admin']:
+                allowed = True
+                
+            if not allowed:
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
@@ -791,5 +820,5 @@ class ThreadingSimpleServer(socketserver.ThreadingMixIn, socketserver.TCPServer)
 if __name__ == '__main__':
     ThreadingSimpleServer.allow_reuse_address = True
     with ThreadingSimpleServer(("127.0.0.1", PORT), DashboardHandler) as httpd:
-        print(f"Serving Pinedash backend on 127.0.0.1:{PORT}")
+        print(f"Serving Tinarchy backend on 127.0.0.1:{PORT}")
         httpd.serve_forever()

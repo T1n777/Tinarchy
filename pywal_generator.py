@@ -45,7 +45,7 @@ def generate_pywal_palette(img_path):
         base_name = os.path.basename(img_path).rsplit('.', 1)[0]
         
         # 1. Prioritize pre-rendered 2KB .webp thumbnail for instant 10ms execution
-        possible_webp = f"/home/pineapple/server-dashboard/public/thumbnails/{base_name}.webp"
+        possible_webp = f"/home/tin/server-dashboard/public/thumbnails/{base_name}.webp"
         if os.path.exists(possible_webp):
             actual_img = possible_webp
         elif img_path.lower().endswith('.mp4'):
