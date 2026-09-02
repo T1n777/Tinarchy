@@ -1270,11 +1270,13 @@
                     (u.devices || []).forEach(d => {
                         const chip = document.createElement('div');
                         chip.className = 'device-chip';
-                        const osIcon = d.os === 'android' ? '📱' : (d.os === 'linux' ? '🐧' : (d.os === 'windows' ? '🪟' : '🍏'));
+                        const os = (d.os || '').toLowerCase();
+                        const osIcon = os === 'android' ? '📱' : (os === 'linux' ? '🐧' : (os === 'windows' ? '🪟' : '💻'));
                         const selfTag = d.is_self ? ' (This Server)' : '';
+                        const sharedTag = d.is_shared ? ' <span style="font-size:0.65rem; padding:1px 5px; border-radius:4px; background:rgba(255,255,255,0.1); color:var(--primary); font-weight:600;">Shared</span>' : '';
                         chip.innerHTML = `
                             <span>${osIcon}</span>
-                            <span><strong>${d.name}</strong>${selfTag}</span>
+                            <span><strong>${d.name}</strong>${selfTag}${sharedTag}</span>
                             <span style="color:var(--text-muted);">${d.ip}</span>
                             <span style="color:${d.online ? 'var(--online)' : 'var(--offline)'}">●</span>
                         `;

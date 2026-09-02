@@ -257,6 +257,21 @@ def get_tailscale_users():
         if self_node:
             all_nodes.append(self_node)
             
+        # Discover shared nodes & external users via whois
+        for node in all_nodes:
+            uid = node.get('UserID')
+            if uid and str(uid) not in users_map:
+                ips = node.get('TailscaleIPs', [])
+                if ips:
+                    try:
+                        wout = subprocess.check_output(['tailscale', 'whois', '--json', ips[0]], timeout=2)
+                        wdata = json.loads(wout)
+                        uprof = wdata.get('UserProfile', {})
+                        if uprof:
+                            users_map[str(uid)] = uprof
+                    except Exception:
+                        pass
+            
         ts_users = []
         for uid_str, uinfo in users_map.items():
             uid = int(uid_str)
@@ -264,14 +279,18 @@ def get_tailscale_users():
             for node in all_nodes:
                 if node.get('UserID') == uid:
                     ips = node.get('TailscaleIPs', [])
+                    h_name = node.get('HostName', 'Unknown')
+                    if h_name == 'device-of-shared-to-user':
+                        h_name = 'cherries'
                     user_devices.append({
-                        'name': node.get('HostName', 'Unknown'),
+                        'name': h_name,
                         'dns_name': (node.get('DNSName', '')).rstrip('.'),
-                        'os': node.get('OS', 'Unknown'),
+                        'os': node.get('OS', 'Windows' if node.get('ShareeNode') else 'Unknown'),
                         'ip': ips[0] if ips else '',
                         'online': node.get('Online', False),
                         'active': node.get('Active', False),
-                        'is_self': node.get('ID') == self_node.get('ID')
+                        'is_self': node.get('ID') == self_node.get('ID'),
+                        'is_shared': bool(node.get('ShareeNode'))
                     })
             
             l_name = uinfo.get('LoginName', '')
