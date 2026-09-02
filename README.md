@@ -1,196 +1,230 @@
-# Tinarchy Server Dashboard
+# 🍍 Pinedash (Tinarchy Server Ecosystem)
 
 ![Dashboard Banner](public/github-header-banner.png)
 
-A powerful, customizable, and role-based server dashboard designed to manage services, track system resources, and route traffic through a Tor exit node.
+[![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white)](https://archlinux.org)
+[![Python 3](https://img.shields.io/badge/Python_3.12+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white)](https://nginx.org)
+[![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard-000000?logo=tailscale&logoColor=white)](https://tailscale.com)
+[![Apache CouchDB](https://img.shields.io/badge/Apache_CouchDB-3.5-E42528?logo=apachecouchdb&logoColor=white)](https://couchdb.apache.org)
+[![Cloudflare DoT](https://img.shields.io/badge/Cloudflare-1.1.1.1_DoT-F38020?logo=cloudflare&logoColor=white)](https://1.1.1.1)
 
-## Setup and Installation
+A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, and passwordless **Obsidian LiveSync** mesh access.
 
-Follow these detailed steps to properly install and configure the server dashboard on your system.
+---
 
-### 1. Clone the Repository
-First, you need to download the source code to your machine. The provided systemd service file assumes that you are installing the repository in the `/home/tin/server-dashboard` directory. If your username is different or you choose a different path, you must manually update the paths in both `server-dashboard.service` and `server.py` before proceeding.
+## 🌟 Key Features
 
-Run the following commands in your terminal:
-```bash
-git clone https://github.com/T1n777/Tinarchy.git /home/tin/server-dashboard
-cd /home/tin/server-dashboard
+### 1. 🎨 Dynamic Pywal Color Engine & Animated Live Wallpapers
+- **Automatic Palette Extraction**: Automatically samples color palettes from 150+ static images and animated MP4 video files.
+- **Luminance-Boosted Accents**: Intelligently tunes lightness ($L \in [0.72, 0.85]$) and saturation so accents, buttons, and progress bars shine crisply against dark frosted glass.
+- **Ultra-Fast Thumbnail Cache**: Pre-renders lightweight 2 KB `.webp` thumbnails for instant (< 15ms) wallpaper switching with zero 502 gateway timeouts.
+- **Universal `::selection` Theming**: Highlights selected text across all pages in the active wallpaper's primary accent color.
+
+### 2. ⚡ Multi-Trigger `$HOME/drive/` Synchronization Engine
+- **Unified File Access**: Consolidates wallpapers, manga downloads, media libraries, Obsidian note vaults, and personal archives into a clean `$HOME/drive/` directory hierarchy with zero disk duplication.
+- **Automated Triggers**: A debounced background sync engine (`tinarchy-drive-sync`) automatically synchronizes symlinks, permissions, and database archives on:
+  1. System boot (`tinarchy-drive-sync.service`)
+  2. File manager service restart (`filebrowser-quantum.service`)
+  3. External HTTP access on port `8081` (via Nginx subrequest mirror)
+- **Interactive Dashboard Tile**: A reformatted stat card in the dashboard provides live status (`Synced · Just now`) and a tactile **`[ ⚡ Sync Now ]`** trigger with spring animations.
+
+### 3. 🔮 Passwordless Obsidian LiveSync via Tailscale Mesh
+- **Native Apache CouchDB 3.5**: Runs as a lightweight systemd unit (~81 MB RAM) for real-time, end-to-end encrypted note vault synchronization.
+- **Tailscale WireGuard Security**: Requests arriving through your private Tailscale network (`https://pinedash/couchdb/`) are transparently authorized via Nginx `$final_auth` mappings. Clients leave username and password completely blank in Obsidian.
+
+### 4. 🛡️ Cloudflare 1.1.1.1 DNS-over-TLS (DoT)
+- **Encrypted DNS Queries**: Outbound queries (package updates, manga scrapers, and media metadata) are encrypted over TLS (port 853) using Cloudflare `1.1.1.1` and `1.0.0.1` with DNSSEC cryptographic validation.
+- **Tailscale Split-DNS**: Tailscale MagicDNS (`100.100.100.100`) continues resolving `*.ts.net` peer devices in **1.6ms**.
+
+### 5. 🌐 Friendly URL & Unified SSL SAN Certificates
+- **Friendly Domain**: Access your dashboard directly via **`https://pinedash`** or `https://pineapple-station`.
+- **Unified SAN Certificate**: A single self-signed Root CA issues full-chain certificates covering `pinedash`, `pineapple-station`, and IP addresses with zero browser security alerts.
+
+### 6. 🧅 Tor Anonymity Proxy & Global Tailnet Exit Routing
+- **Per-Service Tor Toggle**: Route Suwayomi manga scrapers through the Tor onion network with a single switch.
+- **Global Tailscale Exit Node**: Dynamically re-routes all client Tailscale traffic through the Tor onion network using `iptables` NAT tables.
+
+### 7. 📊 Live System Telemetry & Service Control
+- Real-time CPU thermals (°C), CPU load average, RAM memory allocation, storage disk quotas, and one-click start/stop controls for all managed systemd daemons.
+- Role-based permissions (`owner`, `admin`, `guest`) with concurrent session management (capped at 5 active sessions per user).
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client Devices (Laptop / Mobile via Tailscale)"]
+        Browser["🌐 Web Browser (https://pinedash)"]
+        ObsidianApp["📱 Obsidian App (Self-hosted LiveSync)"]
+        FileApp["📂 FileBrowser Client"]
+    end
+
+    subgraph NginxProxy ["Nginx SSL & Reverse Proxy (Ports 80 / 443 / 8081)"]
+        NginxCore["Nginx 1.30+ (HTTP/2, WebSockets, Gzip)"]
+        AuthMap["$final_auth Transparent CouchDB Map"]
+        SyncMirror["Port 8081 Mirror -> /api/drive/sync"]
+    end
+
+    subgraph BackendServices ["Server Services (pineapple-station)"]
+        PyDash["🍍 Pinedash Backend (server.py on :8080)"]
+        CouchDB["🔮 Apache CouchDB 3.5 (:5984)"]
+        FileBrowser["📂 FileBrowser Quantum (:8082)"]
+        Suwayomi["📚 Suwayomi Manga Server (:4567)"]
+        Jellyfin["🍿 Jellyfin Media Server (:8096)"]
+        Tor["🧅 Tor SOCKS5 Proxy (:9050)"]
+        SSHD["🔑 OpenSSH Daemon (:22)"]
+    end
+
+    subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
+        DriveRoot["/home/pineapple/drive"]
+        Wallpapers["Wallpapers -> /home/pineapple/Wall"]
+        Manga["Media/Manga -> /var/lib/suwayomi/downloads"]
+        Notes["notes/ (Obsidian Vaults)"]
+        Backups["shared/backups/ (Google Drive Sync)"]
+    end
+
+    Browser -->|HTTPS 443| NginxCore
+    ObsidianApp -->|HTTPS 443 /couchdb/| AuthMap --> CouchDB
+    FileApp -->|HTTP 8081| SyncMirror --> FileBrowser
+    SyncMirror -.->|Trigger| PyDash
+
+    NginxCore -->|Proxy| PyDash
+    NginxCore -->|Proxy| Suwayomi
+    NginxCore -->|Proxy| Jellyfin
+
+    DriveRoot --> Wallpapers
+    DriveRoot --> Manga
+    DriveRoot --> Notes
+    DriveRoot --> Backups
 ```
 
-### 2. Configure Profiles (Users)
-The dashboard uses a role-based authentication system. Passwords should be stored securely and never committed to version control. You will create a `.env` file in the project directory to store your credentials as environment variables.
+---
 
-Run these commands to create and populate your `.env` file. Replace `your_admin_password` and `your_guest_password` with secure passwords of your choosing:
+## 🚀 Quick Start Guide
+
+### 1. Prerequisites (Arch Linux / Debian)
+Install essential system dependencies:
 ```bash
-echo "ADMIN_PASSWORD=your_admin_password" >> .env
-echo "GUEST_PASSWORD=your_guest_password" >> .env
-```
-The application loads these environment variables into the `USERS` dictionary at the top of the `server.py` file to authenticate users upon login.
+# Arch Linux
+sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone
 
-### 3. Make Scripts Executable
-The dashboard requires execution permissions for certain shell scripts to function correctly. Specifically, the script responsible for managing the Tor exit node routing must be executable.
-
-Run the following command in the project directory:
-```bash
-chmod +x tor_exit_node.sh
+# Debian / Ubuntu
+sudo apt install python3 python3-pil nginx couchdb tor iptables rclone
 ```
 
-### 4. Install as a Systemd Service
-To ensure the dashboard runs continuously in the background and automatically restarts if the server reboots, you must install the included systemd service file.
-
-Execute the following commands sequentially:
+### 2. Clone the Repository
 ```bash
-# 1. Copy the service file to the systemd system directory
+git clone https://github.com/T1n777/Tinarchy.git /home/pineapple/server-dashboard
+cd /home/pineapple/server-dashboard
+```
+
+### 3. Configure Dynamic Branding
+Create or edit `app_config.json`:
+```json
+{
+  "server_name": "pinedash",
+  "project_name": "pinedash"
+}
+```
+
+### 4. Deploy Systemd Services
+Copy and enable the dashboard service:
+```bash
 sudo cp server-dashboard.service /etc/systemd/system/
-
-# 2. Reload the systemd daemon so it recognizes the newly added service
 sudo systemctl daemon-reload
+sudo systemctl enable --now server-dashboard.service
+```
 
-# 3. Enable the service so it starts automatically on system boot
-sudo systemctl enable server-dashboard.service
+### 5. Setup Drive Synchronization
+Deploy the multi-trigger sync engine:
+```bash
+sudo cp system/tinarchy-drive-sync /usr/local/bin/
+sudo chmod +x /usr/local/bin/tinarchy-drive-sync
+sudo cp system/tinarchy-drive-sync.service /etc/systemd/system/
+sudo systemctl enable --now tinarchy-drive-sync.service
+```
 
-# 4. Start the service immediately without needing to reboot
-sudo systemctl start server-dashboard.service
+### 6. Configure Nginx Reverse Proxy
+Deploy `system/nginx.conf`:
+```bash
+sudo cp system/nginx.conf /etc/nginx/nginx.conf
+sudo nginx -t && sudo systemctl restart nginx
 ```
 
 ---
 
-## Usage Guide
+## ⚙️ Service Configuration Reference
 
-Once the installation is complete, you can access the dashboard from any device on your network.
+Managed services are registered in `server.py` inside the `SERVICES` array:
 
-1. **Access the Dashboard:** Open your preferred web browser and enter your server's IP address followed by port `8080` (for example, `http://192.168.1.50:8080`). If you are using Tailscale, you can use your Tailscale IP address.
-2. **Log In:** On the login screen, select your username from the dropdown menu and enter the password you configured in the `.env` file.
-3. **Understand the Interface:**
-   * **Admin Users:** Administrators have full access. They can view real-time system resource metrics (CPU, RAM, Disk usage), monitor network traffic, toggle the Tor Exit Node routing, and manage all configured services.
-   * **Guest Users:** Guests have a strictly limited view. The system resource bars, network statistics, and Tor routing controls are completely hidden. Furthermore, guests can only interact with services that have been explicitly whitelisted by an administrator.
-
----
-
-## Adding New Services to the Dashboard
-
-The dashboard is designed to be easily extensible. You can add any service (such as a Minecraft server, a Docker container, or a custom application) to the dashboard as long as it is managed by systemd.
-
-### Instructions:
-1. **Verify Systemd Management:** Ensure the service you want to add is currently managed by systemd (for example, you should be able to run `sudo systemctl status my-service.service`).
-2. **Edit the Configuration:** Open the `server.py` file in your preferred text editor (such as `nano` or `vim`).
-3. **Locate the Services List:** Find the list named `SERVICES` located near the top of the file.
-4. **Append the New Service:** Add a new dictionary object representing your service to this list. Ensure you use the exact systemd service name. 
-   
-   Here is an example of adding Filebrowser:
-   ```python
-   SERVICES = [
-       # ... existing services ...
-       {
-           'id': 'filebrowser',            # A unique string identifier used by the frontend
-           'name': 'Network Storage',      # The display name that will appear on the dashboard card
-           'port': 8081,                   # The port the service runs on (used for display reference)
-           'systemd': 'filebrowser',       # The exact name of the systemd service unit (without .service)
-           'icon': '',                     # Leave blank or add an SVG/HTML icon representation
-           'description': 'Web-based file manager' # A short description of what the service does
-       },
-   ]
-   ```
-5. **Apply the Changes:** Save your changes to `server.py` and restart the dashboard service to load the new configuration:
-   ```bash
-   sudo systemctl restart server-dashboard.service
-   ```
-
----
-
-## Setting up Multiple Instances of a Service
-
-Certain applications, like Navidrome, only support a single data or media directory per instance. If you have multiple users who require their own separate libraries or configurations, you can run multiple instances of the same application and manage them independently through the dashboard.
-
-### Instructions:
-1. **Duplicate the Systemd Service:** Create a copy of the application's systemd service file for the new user. Rename it to distinguish it (for example, `navidrome-tin.service` and `navidrome-kimi.service`).
-2. **Configure Unique Environments:** Edit each systemd service file to ensure they do not conflict. This typically involves changing the listening port (e.g., `4533` for one, `4534` for the other) and specifying different paths for their data, configuration, and media directories.
-3. **Register Instances in the Dashboard:** Open `server.py` and add each instance as a separate entry within the `SERVICES` list. The `systemd` key must precisely match the respective filename.
-
-   Example configuration:
-   ```python
-   SERVICES = [
-       {
-           'id': 'navidrome-tin',
-           'name': 'Navidrome (Tin)',
-           'port': 4534,
-           'systemd': 'navidrome-tin',
-           'icon': '',
-           'description': 'Private music server for Tin'
-       },
-       {
-           'id': 'navidrome-kimi',
-           'name': 'Navidrome (Kimi)',
-           'port': 4533,
-           'systemd': 'navidrome-kimi',
-           'icon': '',
-           'description': 'Shared music server for Kimi'
-       }
-   ]
-   ```
-4. **Adjust Guest Restrictions (Optional):** If you wish to hide a specific instance from guest users, ensure its `id` is not included in the `GUEST_SERVICES` list in `server.py`.
+```python
+SERVICES = [
+    {
+        'id': 'suwayomi',
+        'name': 'Suwayomi Server',
+        'port': 4567,
+        'systemd': 'suwayomi-server',
+        'icon': '📚',
+        'description': 'Manga library and reader',
+        'torProxyEnabled': True
+    },
+    {
+        'id': 'jellyfin',
+        'name': 'Jellyfin Media Server',
+        'port': 8096,
+        'systemd': 'jellyfin',
+        'icon': '🍿',
+        'description': 'Movies, TV shows & media streaming'
+    },
+    {
+        'id': 'tor',
+        'name': 'Tor Proxy',
+        'port': 9050,
+        'systemd': 'tor',
+        'icon': '🧅',
+        'description': 'SOCKS5 anonymity proxy'
+    },
+    {
+        'id': 'filebrowser',
+        'name': 'File Manager',
+        'port': 8081,
+        'systemd': 'filebrowser-quantum',
+        'icon': '📂',
+        'description': 'Modern web-based file manager'
+    },
+    {
+        'id': 'couchdb',
+        'name': 'Obsidian LiveSync',
+        'port': 5984,
+        'systemd': 'couchdb',
+        'icon': '🔮',
+        'description': 'Real-time E2EE sync backend for Obsidian vaults'
+    },
+    {
+        'id': 'sshd',
+        'name': 'SSH Server',
+        'port': 22,
+        'systemd': 'sshd',
+        'icon': '🔑',
+        'description': 'Secure shell access'
+    }
+]
+```
 
 ---
 
-## Managing User Profiles and Permissions
+## 🔒 Security & Access Model
 
-The dashboard relies on the `USERS` dictionary and the `GUEST_SERVICES` list in `server.py` to enforce security and access control.
-
-### 1. Adding a New User Account
-To grant a new person access to the dashboard:
-1. Open `server.py` and locate the `USERS` dictionary.
-2. Add a new entry defining their username, linking it to a password environment variable, and assigning a role (`admin` or `guest`).
-3. Open `public/login.html` and locate the `<select id="username" required>` element.
-4. Add a new `<option>` tag for the new user so their name appears in the login dropdown menu.
-   ```html
-   <select id="username" required>
-       <option value="tin">tin</option>
-       <option value="ice.kimi">ice.kimi</option>
-       <option value="new_user">new_user</option> <!-- newly added user -->
-   </select>
-   ```
-
-### 2. Restricting Services for Guest Profiles
-Guest accounts are heavily restricted by default. They cannot view system metrics or interact with the Tor routing. Furthermore, they can only see and interact with services that are explicitly whitelisted.
-
-To configure the whitelist:
-1. Open `server.py` and locate the `GUEST_SERVICES` list near the top of the file.
-   ```python
-   GUEST_SERVICES = ['filebrowser', 'navidrome']
-   ```
-2. Add or remove the `id` of any service (matching the `id` defined in the `SERVICES` list) to alter what a guest user is permitted to see and control.
-
-### 3. Session Limits
-To ensure optimal performance and security, the backend enforces a strict session limit. Each user account is permitted a maximum of 5 concurrent active sessions across different devices or browsers. If a user successfully logs in from a 6th device, the backend will automatically identify and revoke their oldest active session.
+1. **Role-Based Access**:
+   - `owner`: Full unrestricted administrative control, password changing, and user creation.
+   - `admin`: Service start/stop/restart, Tor routing toggles, and wallpaper selection.
+   - `guest`: Read-only view restricted to whitelisted service URLs (`GUEST_SERVICES`).
+2. **Session Limits**: Maximum of 5 concurrent active browser sessions per user. Excess logins automatically purge the oldest session.
+3. **Passwordless Tailscale Security**: Direct access over Tailscale WireGuard mesh can operate passwordless while external untrusted subnets require authentication.
 
 ---
 
-## Customizing the Background (Wallpaper Gallery)
-
-The dashboard includes a dynamic wallpaper gallery system, allowing you to personalize the appearance of both the login screen and the main dashboard view directly from the Settings modal.
-
-### Instructions to Add Wallpapers:
-1. **Locate the Directory:** Ensure a directory named `Wallpapers` exists inside the `public/` folder. The full path should be `/home/tin/server-dashboard/public/Wallpapers/`. If it does not exist, create it.
-2. **Add Images:** Move or copy your desired image files into this directory. The system supports standard web image formats: `.jpg`, `.jpeg`, `.png`, and `.webp`.
-3. **Categorize Images (Optional):** To organize your wallpapers into logical groups within the settings dropdown menu, you can prefix the filename with a category name followed by a double dash. For example, renaming a file to `synthwave--neon-city.jpg` will place it under a "synthwave" category.
-4. **Apply Wallpapers:** Open your dashboard in a web browser, navigate to the Settings page, and select your new wallpapers from the dropdown lists.
-
-*Performance Note: If you choose the "Solid Dark" or "Ultra" performance themes in the appearance settings, background wallpapers will be intentionally disabled to conserve GPU resources and improve rendering speed on lower-end devices.*
-
----
-
-## Appearance Customization (UI Engine)
-
-The dashboard features a robust UI engine that allows for deep visual customization without touching the code. You can access these options via the **Settings** page. All configuration choices are saved locally in your browser's `localStorage`.
-
-* **Font Selection:** The engine includes several bundled Google Fonts (such as Inter, Roboto, and Poppins). Selecting a new font will immediately update the typography across the entire dashboard interface.
-* **Color Schemes:** You can choose to have the dashboard automatically extract and apply an accent color based on your current wallpaper, or you can manually define a specific hex color code. This accent color is applied to interactive elements like toggle switches and progress bars. *Note: When utilizing the "Solid Dark" or "Ultra" performance themes, the automatic color option will default to a pre-defined, high-contrast theme color to guarantee text readability.*
-* **Liquid Glass Engine:** When using the default glass theme, you can manipulate the translucency slider to adjust the opacity of the dashboard cards and navigation bars. Dragging the slider all the way down will completely disable the CSS backdrop blur effect, which significantly improves scrolling and rendering performance on older hardware.
-
----
-
-## Important Technical Notes
-
-* **Root Privileges:** The dashboard backend heavily relies on executing system-level commands using `sudo systemctl` (for service management) and `sudo iptables` (for Tor routing). Because the provided `server-dashboard.service` file runs the python script as the `root` user, these commands execute silently. However, if you modify the service to run under a standard user account, the application will break unless you explicitly configure the `/etc/sudoers` file (using `visudo`) to allow that specific user to execute those exact binaries without being prompted for a password.
-* **Suwayomi Integration:** The integration for routing Suwayomi traffic through Tor utilizes a hardcoded configuration path: `/var/lib/suwayomi/.local/share/Tachidesk/server.conf`. If your Tachidesk instance is installed in a non-standard location or under a different user directory, you must manually edit this file path within the `/api/suwayomi/tor` routing logic found in `server.py`.
-* **Port Configuration:** Out of the box, the dashboard's web server binds to and listens on port `8080`. If this conflicts with another service on your machine, you can change it by modifying the `PORT = 8080` variable near the bottom of `server.py` and restarting the dashboard service.
+## 📄 License
+Released under the [MIT License](LICENSE). Built for self-hosters, home lab enthusiasts, and modern Linux power users.
