@@ -1,0 +1,11 @@
+User tor
+DataDirectory /var/lib/tor
+
+SocksPort 0.0.0.0:9050
+SocksPolicy accept 127.0.0.0/8
+SocksPolicy accept 100.64.0.0/10
+SocksPolicy accept 100.0.0.0/8
+SocksPolicy reject *
+
+DNSPort 127.0.0.1:5353
+TransPort 127.0.0.1:9040

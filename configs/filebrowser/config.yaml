@@ -1,0 +1,19 @@
+server:
+  port: 8082
+  listen: "127.0.0.1"
+  baseURL: "/"
+  database: "/home/pineapple/drive/.filebrowser.db"
+  cacheDir: "/home/pineapple/drive/.cache"
+  sources:
+    - path: "/home/pineapple/drive"
+      name: "drive"
+      config:
+        defaultEnabled: true
+
+auth:
+  adminUsername: "pineapple"
+  adminPassword: "admin_password"
+  methods:
+    password:
+      enabled: true
+      minLength: 4

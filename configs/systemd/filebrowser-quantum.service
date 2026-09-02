@@ -1,0 +1,16 @@
+[Unit]
+Description=FileBrowser Quantum Web File Manager
+After=network.target
+
+[Service]
+Type=simple
+User=pineapple
+Group=pineapple
+WorkingDirectory=/home/pineapple
+ExecStartPre=/usr/local/bin/tinarchy-drive-sync
+ExecStart=/usr/local/bin/filebrowser -c /etc/filebrowser/config.yaml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
