@@ -1,0 +1,13 @@
+[Unit]
+Description=24/7 Hardware Power Key & Lid Inhibit Lock
+After=systemd-logind.service
+Wants=systemd-logind.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/systemd-inhibit --what=handle-power-key:handle-suspend-key:handle-hibernate-key:handle-lid-switch:idle --who="Pinedash 24/7 Server" --why="Prevent accidental physical power button shutdown" /usr/bin/sleep infinity
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

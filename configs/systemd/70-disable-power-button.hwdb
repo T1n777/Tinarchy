@@ -1,0 +1,7 @@
+evdev:input:b0019v0000p0001*
+ KEYBOARD_KEY_116=reserved
+ KEYBOARD_KEY_142=reserved
+ KEYBOARD_KEY_143=reserved
+ KEYBOARD_KEY_74=reserved
+ KEYBOARD_KEY_power=reserved
+ KEYBOARD_KEY_sleep=reserved
