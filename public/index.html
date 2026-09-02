@@ -11,7 +11,7 @@
 
     <script>
         // ─── Universal Zero-Network Wallpaper & Pywal Engine ───
-        const DB_NAME = 'TinarchyStorage';
+        const DB_NAME = 'PinedashStorage';
         const STORE_NAME = 'wallpapers';
 
         function openLocalDB() {
@@ -829,7 +829,7 @@
             <nav class="top-nav">
                 <div class="brand">
                     <span>🍍</span>
-                    <span id="sys-hostname">tinarchy</span>
+                    <span id="sys-hostname">pinedash</span>
                     <span class="pulse-beacon"></span>
                 </div>
                 <div class="meta">
@@ -959,7 +959,7 @@
                 const stats = await res.json();
 
                 // Dynamic Name
-                const serverName = stats.display_name || stats.server_name || 'tinarchy';
+                const serverName = stats.display_name || stats.server_name || 'pinedash';
                 document.getElementById('sys-hostname').textContent = serverName;
                 document.title = `${serverName} - Dashboard`;
 

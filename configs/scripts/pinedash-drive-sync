@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Tinarchy Drive Sync Engine
+# Pinedash Drive Sync Engine
 # Synchronizes and updates $HOME/drive/ folders, symlinks, permissions, and FileBrowser index.
 
-LOCK_DIR="/run/tinarchy-drive"
+LOCK_DIR="/run/pinedash-drive"
 mkdir -p "$LOCK_DIR" 2>/dev/null || true
 chmod 777 "$LOCK_DIR" 2>/dev/null || true
 
@@ -31,20 +31,20 @@ fi
 echo "$CURRENT_TIME" > "$TIMESTAMP_FILE" 2>/dev/null || true
 chmod 666 "$TIMESTAMP_FILE" 2>/dev/null || true
 
-DRIVE_DIR="/home/tin/drive"
+DRIVE_DIR="/home/pineapple/drive"
 
 # 2. Verify and repair symlinks
-[ -d "/home/tin/Wall" ] && ln -sfn /home/tin/Wall "$DRIVE_DIR/Wallpapers"
+[ -d "/home/pineapple/Wall" ] && ln -sfn /home/pineapple/Wall "$DRIVE_DIR/Wallpapers"
 [ -d "/var/lib/suwayomi/downloads" ] && ln -sfn /var/lib/suwayomi/downloads "$DRIVE_DIR/Media/Manga"
 mkdir -p "$DRIVE_DIR/notes" "$DRIVE_DIR/shared/backups" "$DRIVE_DIR/Media/Movies" "$DRIVE_DIR/Media/Shows" "$DRIVE_DIR/Media/Music"
 
 # 3. Trigger server database snapshot
-if [ -x "/home/tin/scripts/backup-server-databases.sh" ]; then
-    /home/tin/scripts/backup-server-databases.sh >/dev/null 2>&1 || true
+if [ -x "/home/pineapple/scripts/backup-server-databases.sh" ]; then
+    /home/pineapple/scripts/backup-server-databases.sh >/dev/null 2>&1 || true
 fi
 
 # 4. Signal FileBrowser
 touch "$DRIVE_DIR"
 [ -f "$DRIVE_DIR/.filebrowser.db" ] && touch "$DRIVE_DIR/.filebrowser.db"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Tinarchy Drive Sync completed successfully."
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Pinedash Drive Sync completed successfully."

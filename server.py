@@ -103,7 +103,7 @@ def get_app_config():
             pass
     return {
         "server_name": "",
-        "project_name": "tinarchy"
+        "project_name": "pinedash"
     }
 
 def save_app_config(cfg):
@@ -188,7 +188,7 @@ def resolve_tailscale_client(ip):
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
             'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
-            'device_name': 'tinarchy',
+            'device_name': 'pinedash',
             'device_ip': ip,
             'role': 'owner',
             'is_owner': True,
@@ -290,7 +290,7 @@ def get_tailscale_users():
 
 PORT = 8080
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
-WALLPAPER_DIR = '/home/tin/Wall' if os.path.isdir('/home/tin/Wall') else os.path.join(PUBLIC_DIR, 'Wallpapers')
+WALLPAPER_DIR = '/home/pineapple/Wall' if os.path.isdir('/home/pineapple/Wall') else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
 SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
@@ -443,7 +443,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/drive/sync':
             try:
-                subprocess.Popen(['/usr/local/bin/tinarchy-drive-sync'])
+                subprocess.Popen(['/usr/local/bin/pinedash-drive-sync'])
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', 'application/json')
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), 'application/json', code=500)
@@ -557,11 +557,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             stats['cpu_temp_val'] = celsius_val
 
             app_cfg = get_app_config()
-            stats['display_name'] = app_cfg.get('server_name') or app_cfg.get('project_name') or 'tinarchy'
+            stats['display_name'] = app_cfg.get('server_name') or app_cfg.get('project_name') or 'pinedash'
             stats['server_name'] = stats['display_name']
-            stats['project_name'] = app_cfg.get('project_name', 'tinarchy')
+            stats['project_name'] = app_cfg.get('project_name', 'pinedash')
             # Drive sync status
-            sync_last_file = '/run/tinarchy-drive/sync-last'
+            sync_last_file = '/run/pinedash-drive/sync-last'
             if os.path.exists(sync_last_file):
                 try:
                     with open(sync_last_file, 'r') as f_s:
@@ -703,7 +703,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # ─── Drive Sync: POST ───
         elif self.path == '/api/drive/sync':
             try:
-                subprocess.Popen(['/usr/local/bin/tinarchy-drive-sync'])
+                subprocess.Popen(['/usr/local/bin/pinedash-drive-sync'])
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', "application/json")
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), "application/json", code=500)
@@ -786,7 +786,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 action = 'start' if enable else 'stop'
                 try:
-                    cmd = f"sudo /home/tin/server-dashboard/tor_exit_node.sh {action}"
+                    cmd = f"sudo /home/pineapple/server-dashboard/tor_exit_node.sh {action}"
                     subprocess.run(cmd, shell=True, check=True)
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
@@ -829,5 +829,5 @@ class ThreadingSimpleServer(socketserver.ThreadingMixIn, socketserver.TCPServer)
 if __name__ == '__main__':
     ThreadingSimpleServer.allow_reuse_address = True
     with ThreadingSimpleServer(("127.0.0.1", PORT), DashboardHandler) as httpd:
-        print(f"Serving Tinarchy backend on 127.0.0.1:{PORT}")
+        print(f"Serving Pinedash backend on 127.0.0.1:{PORT}")
         httpd.serve_forever()

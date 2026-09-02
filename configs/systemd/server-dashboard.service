@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/tin/server-dashboard/server.py
-WorkingDirectory=/home/tin/server-dashboard
+ExecStart=/usr/bin/python3 /home/pineapple/server-dashboard/server.py
+WorkingDirectory=/home/pineapple/server-dashboard
 Restart=on-failure
 RestartSec=5
 

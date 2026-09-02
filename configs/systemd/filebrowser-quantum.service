@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=tin
-Group=tin
-WorkingDirectory=/home/tin
-ExecStartPre=/usr/local/bin/tinarchy-drive-sync
+User=pineapple
+Group=pineapple
+WorkingDirectory=/home/pineapple
+ExecStartPre=/usr/local/bin/pinedash-drive-sync
 ExecStart=/usr/local/bin/filebrowser -c /etc/filebrowser/config.yaml
 Restart=always
 RestartSec=5

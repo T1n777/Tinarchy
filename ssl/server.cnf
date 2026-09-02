@@ -9,7 +9,7 @@ req_extensions = req_ext
 C = US
 ST = California
 L = San Francisco
-O = Tinarchy
+O = Pinedash
 OU = Infrastructure
 CN = pinedash
 

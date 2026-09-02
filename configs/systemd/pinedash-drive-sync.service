@@ -1,12 +1,12 @@
 [Unit]
-Description=Tinarchy Drive Storage Synchronization at Boot
+Description=Pinedash Drive Storage Synchronization at Boot
 Before=filebrowser-quantum.service
 After=network.target
 
 [Service]
 Type=oneshot
-User=tin
-ExecStart=/usr/local/bin/tinarchy-drive-sync
+User=root
+ExecStart=/usr/local/bin/pinedash-drive-sync
 RemainAfterExit=yes
 
 [Install]

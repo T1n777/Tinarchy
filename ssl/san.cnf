@@ -9,7 +9,7 @@ x509_extensions = v3_req
 C = IN
 ST = KA
 L = Bangalore
-O = Tinarchy
+O = Pinedash
 OU = Server
 CN = pineapple-station
 
