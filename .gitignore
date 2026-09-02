@@ -12,3 +12,4 @@ roles_config.json
 *.db
 
 *.key
+services.local.json

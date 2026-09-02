@@ -299,9 +299,18 @@ SERVICES = [
     {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
     {'id': 'sshd', 'name': 'SSH Server', 'port': 22, 'systemd': 'sshd', 'icon': '🔑', 'description': 'Secure shell access'},
-    {'id': 'navidrome', 'name': 'Navidrome (Friend)', 'port': 4533, 'systemd': 'navidrome', 'icon': '🎵', 'description': 'Music streaming server'},
-    {'id': 'navidrome-tin', 'name': 'Navidrome (Tin)', 'port': 4534, 'systemd': 'navidrome-tin', 'icon': '🎵', 'description': 'Music streaming server'},
 ]
+
+# Load optional machine-specific services (untracked in git, e.g. Navidrome)
+LOCAL_SERVICES_FILE = os.path.join(os.path.dirname(__file__), 'services.local.json')
+if os.path.exists(LOCAL_SERVICES_FILE):
+    try:
+        with open(LOCAL_SERVICES_FILE, 'r') as f:
+            local_svcs = json.load(f)
+            if isinstance(local_svcs, list):
+                SERVICES.extend(local_svcs)
+    except Exception as e:
+        print(f'Error loading local services: {e}')
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
