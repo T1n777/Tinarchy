@@ -173,7 +173,7 @@ def resolve_tailscale_client(ip):
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
             'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
-            'device_name': 'pineapple-station',
+            'device_name': 'pinedash',
             'device_ip': ip,
             'role': 'owner',
             'is_owner': True,
