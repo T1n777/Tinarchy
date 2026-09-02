@@ -4,9 +4,21 @@ server:
   baseURL: "/"
   database: "/home/pineapple/drive/.filebrowser.db"
   cacheDir: "/home/pineapple/drive/.cache"
+  cacheDirCleanup: true
+  minSearchLength: 2
+  numImageProcessors: 4
+  maxArchiveSize: 0
   sources:
     - path: "/home/pineapple/drive"
       name: "drive"
+      config:
+        defaultEnabled: true
+    - path: "/home/pineapple/Wall"
+      name: "wallpapers"
+      config:
+        defaultEnabled: true
+    - path: "/var/lib/suwayomi/downloads"
+      name: "manga"
       config:
         defaultEnabled: true
 
@@ -17,3 +29,6 @@ auth:
     password:
       enabled: true
       minLength: 4
+      signup: false
+    passkey:
+      enabled: true
