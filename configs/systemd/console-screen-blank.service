@@ -1,0 +1,14 @@
+[Unit]
+Description=Console Screen Blanker (Headless Server Screen Saver)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/setterm --blank 1
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+
+[Install]
+WantedBy=multi-user.target
