@@ -1,3 +1,5 @@
+import socket
+import platform
 import gzip
 import pywal_generator
 import http.server
@@ -94,16 +96,32 @@ def get_cpu_temp():
 
 APP_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_config.json')
 
+def get_system_hostname():
+    try:
+        return socket.gethostname() or os.uname().nodename or 'server'
+    except Exception:
+        return 'server'
+
 def get_app_config():
+    sys_name = get_system_hostname()
     if os.path.exists(APP_CONFIG_FILE):
         try:
             with open(APP_CONFIG_FILE, 'r') as f:
-                return json.load(f)
+                cfg = json.load(f)
+                server_name = cfg.get('server_name') or sys_name
+                return {
+                    'server_name': cfg.get('server_name', ''),
+                    'project_name': cfg.get('project_name', sys_name),
+                    'display_name': server_name,
+                    'hostname': sys_name
+                }
         except Exception:
             pass
     return {
         "server_name": "",
-        "project_name": "pinedash"
+        "project_name": sys_name,
+        "display_name": sys_name,
+        "hostname": sys_name
     }
 
 def save_app_config(cfg):
@@ -577,10 +595,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             stats['cpu_temp'] = celsius_str
             stats['cpu_temp_val'] = celsius_val
 
+            sys_name = get_system_hostname()
             app_cfg = get_app_config()
-            stats['display_name'] = app_cfg.get('server_name') or app_cfg.get('project_name') or 'pinedash'
+            stats['display_name'] = app_cfg.get('display_name') or sys_name
             stats['server_name'] = stats['display_name']
-            stats['project_name'] = app_cfg.get('project_name', 'pinedash')
+            stats['project_name'] = app_cfg.get('project_name', sys_name)
+            stats['hostname'] = sys_name
             # Drive sync status
             sync_last_file = '/run/pinedash-drive/sync-last'
             if os.path.exists(sync_last_file):
