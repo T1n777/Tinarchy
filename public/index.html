@@ -766,20 +766,24 @@
 
         .devices-ribbon {
             display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
+            flex-direction: column;
+            gap: 14px;
         }
 
-        .device-chip {
+        .device-row {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            background: rgba(255, 255, 255, 0.04);
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            font-size: 0.82rem;
-            font-family: var(--font-mono);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            transition: background 0.2s, transform 0.2s;
+        }
+        .device-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateX(2px);
         }
 
         /* Toast */
@@ -1261,27 +1265,65 @@
                 const ribbon = document.getElementById('devices-ribbon');
 
                 if (tsUsers.length === 0) {
-                    ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted);">No peer devices discovered.</div>';
+                    ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); padding:10px 0;">No peer devices discovered.</div>';
                     return;
                 }
 
                 ribbon.innerHTML = '';
                 tsUsers.forEach(u => {
+                    const userGroup = document.createElement('div');
+                    userGroup.style.cssText = 'display:flex; flex-direction:column; gap:8px; width:100%;';
+                    
+                    const avatarHTML = u.avatar 
+                        ? `<img src="${u.avatar}" style="width:30px; height:30px; border-radius:50%; object-fit:cover; border:1px solid var(--glass-border);">`
+                        : `<div style="width:30px; height:30px; border-radius:50%; background:var(--primary); color:#000; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.8rem;">${(u.display_name||'U')[0]}</div>`;
+                    
+                    const roleBadge = u.is_owner 
+                        ? '<span style="font-size:0.65rem; background:rgba(174,158,92,0.2); color:#AE9E5C; border:1px solid #AE9E5C; padding:2px 8px; border-radius:6px; font-weight:700;">👑 Owner</span>'
+                        : (u.role === 'admin' 
+                            ? '<span style="font-size:0.65rem; background:rgba(78,222,163,0.2); color:var(--online); border:1px solid var(--online); padding:2px 8px; border-radius:6px; font-weight:700;">🛡️ Admin</span>' 
+                            : '<span style="font-size:0.65rem; background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid rgba(255,255,255,0.1); padding:2px 8px; border-radius:6px;">👁️ Viewer</span>');
+
+                    let devicesHTML = '';
                     (u.devices || []).forEach(d => {
-                        const chip = document.createElement('div');
-                        chip.className = 'device-chip';
                         const os = (d.os || '').toLowerCase();
                         const osIcon = os === 'android' ? '📱' : (os === 'linux' ? '🐧' : (os === 'windows' ? '🪟' : '💻'));
-                        const selfTag = d.is_self ? ' (This Server)' : '';
-                        const sharedTag = d.is_shared ? ' <span style="font-size:0.65rem; padding:1px 5px; border-radius:4px; background:rgba(255,255,255,0.1); color:var(--primary); font-weight:600;">Shared</span>' : '';
-                        chip.innerHTML = `
-                            <span>${osIcon}</span>
-                            <span><strong>${d.name}</strong>${selfTag}${sharedTag}</span>
-                            <span style="color:var(--text-muted);">${d.ip}</span>
-                            <span style="color:${d.online ? 'var(--online)' : 'var(--offline)'}">●</span>
+                        const selfTag = d.is_self ? ' <span style="font-size:0.65rem; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; color:var(--text-muted); font-weight:600;">This Server</span>' : '';
+                        const sharedTag = d.is_shared ? ' <span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(105,180,195,0.15); color:var(--primary); font-weight:600; border:1px solid rgba(105,180,195,0.3);">Shared</span>' : '';
+                        const statusDot = d.online 
+                            ? '<span style="display:flex; align-items:center; gap:6px; color:var(--online); font-size:0.75rem; font-weight:600;"><span style="color:var(--online); font-size:0.7rem;">●</span> Online</span>' 
+                            : '<span style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.75rem;"><span style="font-size:0.7rem;">○</span> Offline</span>';
+
+                        devicesHTML += `
+                            <div class="device-row">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <span style="font-size:1.2rem;">${osIcon}</span>
+                                    <div>
+                                        <div style="font-weight:600; color:var(--text); font-size:0.86rem;">${d.name}${selfTag}${sharedTag}</div>
+                                        <div style="color:var(--text-muted); font-size:0.75rem; font-family:var(--font-mono);">${d.ip}</div>
+                                    </div>
+                                </div>
+                                <div>${statusDot}</div>
+                            </div>
                         `;
-                        ribbon.appendChild(chip);
                     });
+
+                    userGroup.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-top: 2px;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                ${avatarHTML}
+                                <div>
+                                    <span style="font-weight:700; color:var(--text); font-size:0.9rem;">${u.display_name}</span>
+                                    <span style="color:var(--text-muted); font-size:0.75rem; margin-left:6px;">${u.login_name}</span>
+                                </div>
+                            </div>
+                            <div>${roleBadge}</div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            ${devicesHTML}
+                        </div>
+                    `;
+                    ribbon.appendChild(userGroup);
                 });
             } catch(e) {}
         }
