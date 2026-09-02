@@ -261,9 +261,13 @@ def resolve_tailscale_client(ip):
     return fallback
 
 def get_tailscale_users():
+    """
+    Dynamically aggregates all Tailscale users and devices (including all shared peers/nodes)
+    using generic loops and whois inspection without any hardcoded names.
+    """
     try:
         res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode != 0:
+        if res.returncode != 0 or not res.stdout:
             return []
         data = json.loads(res.stdout)
         users_map = data.get('User', {})
@@ -274,45 +278,75 @@ def get_tailscale_users():
         if self_node:
             all_nodes.append(self_node)
             
-        # Discover shared nodes & external users via whois
+        # 1. Loop through all nodes to dynamically discover any shared/external users via whois
+        node_details = {}
         for node in all_nodes:
+            node_id = str(node.get('ID'))
             uid = node.get('UserID')
-            if uid and str(uid) not in users_map:
-                ips = node.get('TailscaleIPs', [])
-                if ips:
-                    try:
-                        wout = subprocess.check_output(['tailscale', 'whois', '--json', ips[0]], timeout=2)
-                        wdata = json.loads(wout)
-                        uprof = wdata.get('UserProfile', {})
-                        if uprof:
-                            users_map[str(uid)] = uprof
-                    except Exception:
-                        pass
+            ips = node.get('TailscaleIPs', [])
+            primary_ip = ips[0] if ips else ''
             
+            # If this node belongs to an unknown/shared user, discover via whois
+            if primary_ip and (not uid or str(uid) not in users_map):
+                try:
+                    wout = subprocess.check_output(['tailscale', 'whois', '--json', primary_ip], timeout=2)
+                    wdata = json.loads(wout)
+                    uprof = wdata.get('UserProfile', {})
+                    wnode = wdata.get('Node', {})
+                    if uprof and uprof.get('ID'):
+                        user_uid = str(uprof.get('ID'))
+                        users_map[user_uid] = uprof
+                        node['UserID'] = uprof.get('ID')
+                    if wnode:
+                        node_details[node_id] = wnode
+                except Exception as e:
+                    print(f"Whois discovery error for {primary_ip}: {e}")
+
+        # 2. Group nodes by UserID using a generic loop
         ts_users = []
         for uid_str, uinfo in users_map.items():
-            uid = int(uid_str)
+            try:
+                uid = int(uid_str)
+            except Exception:
+                uid = uid_str
+                
             user_devices = []
             for node in all_nodes:
                 if node.get('UserID') == uid:
+                    node_id = str(node.get('ID'))
                     ips = node.get('TailscaleIPs', [])
-                    h_name = node.get('HostName', 'Unknown')
-                    if h_name == 'device-of-shared-to-user':
-                        h_name = 'cherries'
+                    wnode = node_details.get(node_id, {})
+                    
+                    # Dynamically resolve hostname
+                    h_name = (
+                        wnode.get('Name') or 
+                        node.get('HostName') or 
+                        wnode.get('ComputedName') or 
+                        'Device'
+                    )
+                    if h_name == 'device-of-shared-to-user' and uinfo.get('DisplayName'):
+                        h_name = f"{uinfo.get('DisplayName')}'s Device"
+                    
+                    # Dynamically resolve OS
+                    os_name = (node.get('OS') or wnode.get('Hostinfo', {}).get('OS') or '').lower()
+                    if not os_name:
+                        os_name = 'windows' if (node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode')) else 'unknown'
+
                     user_devices.append({
                         'name': h_name,
                         'dns_name': (node.get('DNSName', '')).rstrip('.'),
-                        'os': node.get('OS', 'Windows' if node.get('ShareeNode') else 'Unknown'),
+                        'os': os_name,
                         'ip': ips[0] if ips else '',
                         'online': node.get('Online', False),
                         'active': node.get('Active', False),
-                        'is_self': node.get('ID') == self_node.get('ID'),
-                        'is_shared': bool(node.get('ShareeNode'))
+                        'is_self': bool(self_node and node.get('ID') == self_node.get('ID')),
+                        'is_shared': bool(node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode'))
                     })
             
             l_name = uinfo.get('LoginName', '')
-            d_name = uinfo.get('DisplayName') or l_name or 'Owner'
+            d_name = uinfo.get('DisplayName') or l_name or 'User'
             role = get_user_role(l_name, d_name)
+            
             ts_users.append({
                 'id': uid,
                 'display_name': d_name,
@@ -322,6 +356,7 @@ def get_tailscale_users():
                 'is_owner': (role == 'owner'),
                 'devices': user_devices
             })
+            
         return ts_users
     except Exception as e:
         print(f"Tailscale status error: {e}")
