@@ -565,7 +565,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             results = []
             for s in SERVICES:
                 role = session.get('role', 'viewer')
-                if role == 'guest' and s['id'] not in ['navidrome', 'navidrome-tin', 'filebrowser']:
+                if role == 'guest' and s['id'] not in ['navidrome', 'filebrowser']:
                     continue
                 if role == 'friend' and s['id'] == 'jellyfin':
                     continue

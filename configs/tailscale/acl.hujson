@@ -18,7 +18,7 @@
 			"dst":    ["*:*"],
 		},
 
-		// Guests can access the Dashboard (80/443/8080), Network Storage (8081), and Navidrome (4533/4534) on tinarchy.
+		// Guests can access the Dashboard (80/443/8080), Network Storage (8081), and Navidrome (4533) on tinarchy.
 		{
 			"action": "accept",
 			"src":    ["group:guests"],
@@ -27,8 +27,7 @@
 				"100.67.207.60:443",   // Dashboard HTTPS (Tailscale TLS)
 				"100.67.207.60:8080",  // Dashboard HTTP (Alternate / Proxy Port)
 				"100.67.207.60:8081",  // Network Storage (FileBrowser Quantum)
-				"100.67.207.60:4533",  // Navidrome (Shared Friend Music Server)
-				"100.67.207.60:4534",  // Navidrome (Tin Music Server)
+				"100.67.207.60:4533",  // Navidrome (Kimi Music Server)
 			],
 		},
 	],
