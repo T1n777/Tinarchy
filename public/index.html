@@ -817,9 +817,119 @@
 
         /* Responsive */
         @media (max-width: 640px) {
-            .container { padding: 0 16px 40px; }
-            .top-nav { width: 100% !important; max-width: 100% !important; border-radius: 16px; padding: 8px 16px; gap: 0; }
-            .top-nav .meta { display: none; }
+            .container { padding: 0 14px 40px; }
+
+            /* Top Nav Floating Pill on Mobile */
+            .top-nav-wrapper {
+                margin: 10px 0 16px;
+                top: 10px;
+                width: 100%;
+            }
+            .top-nav {
+                width: 100% !important;
+                max-width: 100% !important;
+                border-radius: 999px !important;
+                padding: 6px 12px 6px 16px !important;
+                gap: 8px !important;
+                justify-content: space-between !important;
+                box-sizing: border-box !important;
+            }
+            .top-nav .brand {
+                font-size: 1.05rem;
+                gap: 6px;
+                flex-shrink: 0;
+            }
+            .top-nav .brand span:nth-child(2) {
+                max-width: 120px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .top-nav .meta {
+                display: none !important;
+            }
+            .nav-actions {
+                display: flex;
+                gap: 6px !important;
+                align-items: center;
+                flex-shrink: 0;
+            }
+            #nav-user-pill {
+                padding: 0 !important;
+                background: transparent !important;
+                border: none !important;
+                gap: 0 !important;
+            }
+            #nav-user-name,
+            #nav-user-role {
+                display: none !important;
+            }
+            #nav-user-avatar {
+                width: 28px !important;
+                height: 28px !important;
+                box-shadow: 0 0 0 1.5px var(--glass-border);
+            }
+            .nav-btn {
+                padding: 6px 10px !important;
+                min-width: 32px !important;
+                height: 32px !important;
+                border-radius: 999px !important;
+                justify-content: center !important;
+                font-size: 0.85rem !important;
+            }
+            .nav-btn-text {
+                display: none !important;
+            }
+            .nav-btn-icon {
+                display: inline-block !important;
+                font-size: 1rem !important;
+                line-height: 1;
+            }
+
+            /* Stats Grid on Mobile: 2 per row */
+            .stats-bar {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                margin: 16px 0 !important;
+            }
+            .stat-card {
+                padding: 14px 14px !important;
+            }
+            .stat-card:last-child {
+                grid-column: span 2;
+            }
+            .stat-value {
+                font-size: 1.25rem !important;
+            }
+
+            /* Tor Exit Banner */
+            .tor-exit-banner {
+                padding: 14px 16px !important;
+                gap: 12px !important;
+            }
+            .tor-exit-info h2 {
+                font-size: 0.95rem !important;
+            }
+            .tor-exit-info p {
+                font-size: 0.76rem !important;
+            }
+
+            /* Service Cards */
+            .card {
+                padding: 18px !important;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .top-nav .brand span:nth-child(2) {
+                max-width: 85px;
+            }
+            .top-nav {
+                padding: 5px 8px 5px 12px !important;
+            }
+            .nav-actions {
+                gap: 4px !important;
+            }
         }
     </style>
 </head>
@@ -840,14 +950,20 @@
                     <span class="meta-badge" id="sys-tailscale">IP: ...</span>
                     <span class="meta-badge" id="sys-uptime">Up: ...</span>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="nav-actions" style="display: flex; gap: 10px; align-items: center;">
                     <div id="nav-user-pill" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 3px 12px 3px 4px; border-radius: 999px; border: 1px solid var(--glass-border);">
                         <div id="nav-user-avatar" style="width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.75rem; overflow:hidden;">Y</div>
                         <span id="nav-user-name" style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Owner</span>
                         <span id="nav-user-role" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #AE9E5C; letter-spacing:0.04em;">👑 Owner</span>
                     </div>
-                    <a href="/settings.html" class="nav-btn">Settings</a>
-                    <button class="nav-btn" onclick="fetchSystemStats(true)">Refresh</button>
+                    <a href="/settings.html" class="nav-btn nav-btn-settings" title="Settings">
+                        <span class="nav-btn-icon">⚙️</span>
+                        <span class="nav-btn-text">Settings</span>
+                    </a>
+                    <button class="nav-btn nav-btn-refresh" onclick="fetchSystemStats(true)" title="Refresh Telemetry">
+                        <span class="nav-btn-icon">↻</span>
+                        <span class="nav-btn-text">Refresh</span>
+                    </button>
                 </div>
             </nav>
         </div>
