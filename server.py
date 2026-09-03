@@ -6,6 +6,7 @@ import http.server
 import socketserver
 import json
 import os
+import glob
 
 # --- Load Environment Variables ---
 def load_env():
@@ -77,21 +78,84 @@ def format_total(bytes_total):
     else:
         return f"{bytes_total / (1024 * 1024 * 1024):.2f} GB"
 
-def get_cpu_temp():
-    paths = [
+_CPU_TEMP_PATH = None
+
+def find_best_cpu_temp_path():
+    # 1. Check hwmon for dedicated CPU temperature drivers (coretemp, k10temp, zenpower, etc.)
+    cpu_hwmon_names = {'coretemp', 'k10temp', 'zenpower', 'cpu_thermal', 'soc_thermal'}
+    for hwmon in sorted(glob.glob('/sys/class/hwmon/hwmon*')):
+        try:
+            with open(os.path.join(hwmon, 'name'), 'r') as f:
+                h_name = f.read().strip().lower()
+            if h_name in cpu_hwmon_names:
+                # Prefer 'Package id 0' or 'Tdie' or 'Tctl' or 'Core 0'
+                for label_file in sorted(glob.glob(os.path.join(hwmon, 'temp*_label'))):
+                    try:
+                        with open(label_file, 'r') as lf:
+                            lbl = lf.read().strip().lower()
+                        if any(k in lbl for k in ('package', 'tdie', 'tctl', 'core 0')):
+                            inp_file = label_file.replace('_label', '_input')
+                            if os.path.isfile(inp_file):
+                                return inp_file
+                    except Exception:
+                        pass
+                t1 = os.path.join(hwmon, 'temp1_input')
+                if os.path.isfile(t1):
+                    return t1
+        except Exception:
+            pass
+
+    # 2. Check thermal zones for designated CPU types (x86_pkg_temp, cpu-thermal, etc.)
+    cpu_zone_keywords = ('x86_pkg_temp', 'cpu', 'pkg', 'k10temp', 'coretemp', 'soc')
+    for zone in sorted(glob.glob('/sys/class/thermal/thermal_zone*')):
+        try:
+            with open(os.path.join(zone, 'type'), 'r') as f:
+                z_type = f.read().strip().lower()
+            if any(k in z_type for k in cpu_zone_keywords):
+                t_file = os.path.join(zone, 'temp')
+                if os.path.isfile(t_file):
+                    return t_file
+        except Exception:
+            pass
+
+    # 3. Check vendor-specific platform monitors (e.g. dell_smm, thinkpad)
+    for hwmon in sorted(glob.glob('/sys/class/hwmon/hwmon*')):
+        try:
+            with open(os.path.join(hwmon, 'name'), 'r') as f:
+                h_name = f.read().strip().lower()
+            if any(k in h_name for k in ('dell', 'thinkpad', 'asus')):
+                t1 = os.path.join(hwmon, 'temp1_input')
+                if os.path.isfile(t1):
+                    return t1
+        except Exception:
+            pass
+
+    # 4. Fallback to classic/legacy paths (ensures 100% compatibility with older laptops/kernels)
+    legacy_paths = [
         '/sys/class/thermal/thermal_zone0/temp',
         '/sys/class/hwmon/hwmon0/temp1_input',
         '/sys/class/hwmon/hwmon1/temp1_input'
     ]
-    for p in paths:
-        if os.path.exists(p):
-            try:
-                with open(p, 'r') as f:
-                    val = int(f.read().strip())
-                    celsius = round(val / 1000.0, 1)
-                    return f"{celsius}°C", int(celsius)
-            except Exception:
-                pass
+    for p in legacy_paths:
+        if os.path.isfile(p):
+            return p
+
+    return None
+
+def get_cpu_temp():
+    global _CPU_TEMP_PATH
+    if not _CPU_TEMP_PATH or not os.path.isfile(_CPU_TEMP_PATH):
+        _CPU_TEMP_PATH = find_best_cpu_temp_path()
+
+    if _CPU_TEMP_PATH:
+        try:
+            with open(_CPU_TEMP_PATH, 'r') as f:
+                val = int(f.read().strip())
+                celsius = round(val / 1000.0, 1) if val > 1000 else float(val)
+                return f"{celsius}°C", int(celsius)
+        except Exception:
+            _CPU_TEMP_PATH = None
+
     return "N/A", 0
 
 APP_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_config.json')
