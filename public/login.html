@@ -91,7 +91,14 @@
         (async function bootSync() {
             const root = document.documentElement;
             const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
-            document.body && document.body.setAttribute('data-theme', savedTheme);
+            root.setAttribute('data-theme', savedTheme);
+            if (document.body) {
+                document.body.setAttribute('data-theme', savedTheme);
+            } else {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.setAttribute('data-theme', savedTheme);
+                });
+            }
             
             // 1. Pywal Colors
             try {

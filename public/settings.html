@@ -562,23 +562,42 @@
         }
 
         function selectTheme(themeName, el) {
+            const root = document.documentElement;
+            root.setAttribute('data-theme', themeName);
             document.body.setAttribute('data-theme', themeName);
             localStorage.setItem('dashboard-theme', themeName);
+
             document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
-            if (el) el.classList.add('selected');
+            if (el) {
+                el.classList.add('selected');
+            } else {
+                const card = document.getElementById(`theme-card-${themeName}`);
+                if (card) card.classList.add('selected');
+            }
             
-            const root = document.documentElement;
             if (themeName === 'solid') {
                 root.style.setProperty('--primary', '#69B4C3');
             } else if (themeName === 'ultra') {
                 root.style.setProperty('--primary', '#7eb8f7');
             } else {
+                // Frosted Glass - Restore dynamic Pywal colors and translucency
                 try {
                     const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
-                    if (pywal.colors) {
-                        root.style.setProperty('--primary', pywal.colors.color4 || '#69B4C3');
-                    }
+                    applyThemeAndColors(root, pywal);
                 } catch(e) {}
+                const blur = localStorage.getItem('dashboard-blur') || '6';
+                root.style.setProperty('--wp-blur', `${blur}px`);
+                const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
+                const t = parseInt(transRaw, 10) / 100;
+                root.style.setProperty('--ui-translucency', t);
+                root.style.setProperty('--ui-blur', t <= 0 ? '0px' : '24px');
+                root.style.setProperty('--ui-saturate', '180%');
+
+                const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+                const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+                if (wpUrl) {
+                    applyMediaToBackground(wpUrl, isVideo);
+                }
             }
             showToast(`Theme changed to ${themeName === 'glass' ? 'Frosted Glass' : (themeName === 'solid' ? 'Solid Dark' : 'Ultra')}`, 'success');
         }
@@ -849,6 +868,9 @@
                     localStorage.setItem("dashboard-wallpaper-is-video", isVid ? "true" : "false");
                     
                     const root = document.documentElement;
+                    if (localStorage.getItem('dashboard-theme') !== 'glass') {
+                        selectTheme('glass', document.getElementById('theme-card-glass'));
+                    }
                     applyMediaToBackground(data.url, isVid);
 
                     if (!isVid) {
