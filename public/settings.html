@@ -93,7 +93,14 @@
         (async function bootSync() {
             const root = document.documentElement;
             const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
-            document.body && document.body.setAttribute('data-theme', savedTheme);
+            root.setAttribute('data-theme', savedTheme);
+            if (document.body) {
+                document.body.setAttribute('data-theme', savedTheme);
+            } else {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.setAttribute('data-theme', savedTheme);
+                });
+            }
             
             // 1. Pywal Colors
             try {
@@ -275,7 +282,7 @@
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     
         /* Solid Dark Theme Override */
-        body[data-theme="solid"] {
+        :root[data-theme="solid"], body[data-theme="solid"] {
             --bg: #0b0d13;
             --glass: #141722;
             --glass-hover: #1b1e2a;
@@ -298,7 +305,7 @@
         }
 
         /* Ultra Performance Theme Override */
-        body[data-theme="ultra"] {
+        :root[data-theme="ultra"], body[data-theme="ultra"] {
             --bg: #0d0d0d;
             --glass: #181818;
             --glass-hover: #202020;

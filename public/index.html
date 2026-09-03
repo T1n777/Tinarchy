@@ -95,12 +95,25 @@
         (async function bootSync() {
             const root = document.documentElement;
             const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
-            document.body && document.body.setAttribute('data-theme', savedTheme);
+            root.setAttribute('data-theme', savedTheme);
+            if (document.body) {
+                document.body.setAttribute('data-theme', savedTheme);
+            } else {
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.setAttribute('data-theme', savedTheme);
+                });
+            }
 
-            try {
-                const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
-                applyThemeAndColors(root, pywal);
-            } catch(e) {}
+            if (savedTheme === 'solid') {
+                root.style.setProperty('--primary', '#69B4C3');
+            } else if (savedTheme === 'ultra') {
+                root.style.setProperty('--primary', '#7eb8f7');
+            } else {
+                try {
+                    const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                    applyThemeAndColors(root, pywal);
+                } catch(e) {}
+            }
 
             // Crisp 6px default blur
             const blur = localStorage.getItem('dashboard-blur') || '6';
@@ -138,10 +151,86 @@
                 }
             }
         })();
+
+        window.addEventListener('pageshow', () => {
+            const theme = localStorage.getItem('dashboard-theme') || 'glass';
+            document.documentElement.setAttribute('data-theme', theme);
+            if (document.body) document.body.setAttribute('data-theme', theme);
+        });
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'dashboard-theme') {
+                const theme = e.newValue || 'glass';
+                document.documentElement.setAttribute('data-theme', theme);
+                if (document.body) document.body.setAttribute('data-theme', theme);
+            }
+        });
     </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        /* Solid Dark Theme Override */
+        :root[data-theme="solid"],
+        body[data-theme="solid"] {
+            --bg: #0b0d13;
+            --glass-rgb: 20, 23, 34;
+            --glass: #141722;
+            --glass-hover: #1b1e2a;
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background-color: var(--bg) !important;
+        }
+        body[data-theme="solid"] .wallpaper,
+        body[data-theme="solid"] .wallpaper-tint {
+            display: none !important;
+        }
+        body[data-theme="solid"] .glass,
+        body[data-theme="solid"] .card,
+        body[data-theme="solid"] .stat-card,
+        body[data-theme="solid"] .top-nav,
+        body[data-theme="solid"] .tailnet-drawer,
+        body[data-theme="solid"] .tor-exit-banner,
+        body[data-theme="solid"] .toast {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+            background: var(--glass) !important;
+        }
+
+        /* Ultra Performance Theme Override */
+        :root[data-theme="ultra"],
+        body[data-theme="ultra"] {
+            --bg: #0d0d0d;
+            --glass: #181818;
+            --glass-hover: #222222;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --card-shadow: none;
+            background-color: var(--bg) !important;
+        }
+        body[data-theme="ultra"] .wallpaper,
+        body[data-theme="ultra"] .wallpaper-tint {
+            display: none !important;
+        }
+        body[data-theme="ultra"] *,
+        body[data-theme="ultra"] *::before,
+        body[data-theme="ultra"] *::after {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
+            transition: none !important;
+            animation: none !important;
+        }
+        body[data-theme="ultra"] .glass,
+        body[data-theme="ultra"] .card,
+        body[data-theme="ultra"] .stat-card,
+        body[data-theme="ultra"] .top-nav,
+        body[data-theme="ultra"] .tailnet-drawer,
+        body[data-theme="ultra"] .tor-exit-banner,
+        body[data-theme="ultra"] .toast {
+            background: var(--glass) !important;
+            border: 1px solid var(--glass-border) !important;
+            border-radius: 8px !important;
+        }
 
         :root, body[data-theme="glass"] {
             --bg: #0a0f1e;
