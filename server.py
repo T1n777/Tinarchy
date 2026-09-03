@@ -40,27 +40,89 @@ def load_env():
 
 load_env()
 
-PREV_NET = {'time': time.time(), 'rx': 0, 'tx': 0}
-PREV_CPU = {'time': time.time(), 'total': 0, 'idle': 0}
+PREV_NET = {'time': time.time(), 'rx': 0, 'tx': 0, 'rx_spd': 0, 'tx_spd': 0, 'rx_tot': 0, 'tx_tot': 0}
+_NET_LOCK = threading.Lock()
 
-def get_cpu_percent():
-    global PREV_CPU
+_CPU_LOCK = threading.Lock()
+_LAST_CPU_PERCENT = 0.0
+
+def _read_cpu_times():
     try:
         with open('/proc/stat', 'r') as f:
             line = f.readline()
         fields = [float(x) for x in line.strip().split()[1:]]
-        idle = fields[3] + (fields[4] if len(fields) > 4 else 0)
-        total = sum(fields)
-        
-        diff_idle = idle - PREV_CPU['idle']
-        diff_total = total - PREV_CPU['total']
-        PREV_CPU = {'time': time.time(), 'total': total, 'idle': idle}
-        
-        if diff_total > 0:
-            return round((1.0 - (diff_idle / diff_total)) * 100.0, 1)
-        return 0.0
+        # Linux standard: [0] user, [1] nice, [2] system, [3] idle, [4] iowait, [5] irq, [6] softirq, [7] steal
+        idle = fields[3] + (fields[4] if len(fields) > 4 else 0.0)
+        non_idle = fields[0] + fields[1] + fields[2] + (sum(fields[5:8]) if len(fields) >= 8 else 0.0)
+        total = idle + non_idle
+        return time.time(), total, idle
     except Exception:
-        return 0.0
+        return time.time(), 0.0, 0.0
+
+_t_init, _tot_init, _idle_init = _read_cpu_times()
+PREV_CPU = {'time': _t_init, 'total': _tot_init, 'idle': _idle_init}
+
+def get_cpu_percent():
+    global PREV_CPU, _LAST_CPU_PERCENT
+    with _CPU_LOCK:
+        now_t, total, idle = _read_cpu_times()
+        if total == 0.0:
+            return _LAST_CPU_PERCENT
+
+        dt = now_t - PREV_CPU['time']
+        diff_total = total - PREV_CPU['total']
+        diff_idle = idle - PREV_CPU['idle']
+
+        # Prevent false 0% spikes from rapid concurrent requests (< 0.5s)
+        if dt < 0.5 or diff_total <= 0:
+            return _LAST_CPU_PERCENT
+
+        usage = max(0.0, min(100.0, (1.0 - (diff_idle / diff_total)) * 100.0))
+        _LAST_CPU_PERCENT = round(usage, 1)
+        PREV_CPU = {'time': now_t, 'total': total, 'idle': idle}
+        return _LAST_CPU_PERCENT
+
+def get_ram_stats():
+    """Hardware-adaptive RAM usage calculation.
+    Uses MemAvailable on modern Linux kernels (3.14+) with legacy fallbacks
+    for older machines and kernels.
+    """
+    try:
+        meminfo = {}
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                parts = line.split(':')
+                if len(parts) == 2:
+                    meminfo[parts[0].strip()] = int(parts[1].strip().split()[0])
+
+        total_kb = meminfo.get('MemTotal', 0)
+        if total_kb <= 0:
+            return {'ram_used_mb': 0, 'ram_total_mb': 0, 'ram_percent': 0.0}
+
+        # Modern Linux: MemAvailable is the kernel's official freeable memory estimate
+        if 'MemAvailable' in meminfo:
+            avail_kb = meminfo['MemAvailable']
+            used_kb = max(0, total_kb - avail_kb)
+        else:
+            # Fallback for older kernels: total - free - buffers - cached
+            free_kb = meminfo.get('MemFree', 0)
+            buffers_kb = meminfo.get('Buffers', 0)
+            cached_kb = meminfo.get('Cached', 0)
+            sreclaim_kb = meminfo.get('SReclaimable', 0)
+            shmem_kb = meminfo.get('Shmem', 0)
+            used_kb = max(0, total_kb - free_kb - buffers_kb - cached_kb - sreclaim_kb + shmem_kb)
+
+        used_mb = int(used_kb / 1024)
+        total_mb = int(total_kb / 1024)
+        percent = round((used_kb / total_kb) * 100.0, 1)
+
+        return {
+            'ram_used_mb': used_mb,
+            'ram_total_mb': total_mb,
+            'ram_percent': percent
+        }
+    except Exception:
+        return {'ram_used_mb': 0, 'ram_total_mb': 0, 'ram_percent': 0.0}
 
 def format_speed(bytes_per_sec):
     if bytes_per_sec < 1024:
@@ -588,26 +650,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/system':
             stats = {}
-            try:
-                with open('/proc/meminfo', 'r') as f:
-                    meminfo = {}
-                    for line in f:
-                        parts = line.split(':')
-                        if len(parts) == 2:
-                            meminfo[parts[0].strip()] = int(parts[1].strip().split()[0])
-                    
-                    total = meminfo.get('MemTotal', 0)
-                    free = meminfo.get('MemFree', 0)
-                    buffers = meminfo.get('Buffers', 0)
-                    cached = meminfo.get('Cached', 0)
-                    used = total - free - buffers - cached
-                    stats['ram_used_mb'] = int(used / 1024)
-                    stats['ram_total_mb'] = int(total / 1024)
-                    stats['ram_percent'] = round((used / total) * 100, 1) if total > 0 else 0
-            except Exception:
-                stats['ram_used_mb'] = 0
-                stats['ram_total_mb'] = 0
-                stats['ram_percent'] = 0
+            stats.update(get_ram_stats())
 
             try:
                 vfs = os.statvfs('/')
@@ -651,22 +694,27 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             now_t = time.time()
             try:
-                rx_tot = 0
-                tx_tot = 0
-                with open('/proc/net/dev', 'r') as f_dev:
-                    for line in f_dev.readlines()[2:]:
-                        parts = line.split(':')
-                        if len(parts) == 2:
-                            iface = parts[0].strip()
-                            if iface != 'lo':
-                                fields = parts[1].split()
-                                rx_tot += int(fields[0])
-                                tx_tot += int(fields[8])
-                dt = max(0.5, now_t - PREV_NET['time'])
-                rx_spd = max(0, (rx_tot - PREV_NET['rx']) / dt) if PREV_NET['rx'] > 0 and rx_tot >= PREV_NET['rx'] else 0
-                tx_spd = max(0, (tx_tot - PREV_NET['tx']) / dt) if PREV_NET['tx'] > 0 and tx_tot >= PREV_NET['tx'] else 0
-                PREV_NET = {'time': now_t, 'rx': rx_tot, 'tx': tx_tot}
-                
+                with _NET_LOCK:
+                    rx_tot = 0
+                    tx_tot = 0
+                    with open('/proc/net/dev', 'r') as f_dev:
+                        for line in f_dev.readlines()[2:]:
+                            parts = line.split(':')
+                            if len(parts) == 2:
+                                iface = parts[0].strip()
+                                if iface != 'lo':
+                                    fields = parts[1].split()
+                                    rx_tot += int(fields[0])
+                                    tx_tot += int(fields[8])
+                    dt = now_t - PREV_NET['time']
+                    if dt >= 0.5:
+                        rx_spd = max(0, (rx_tot - PREV_NET['rx']) / dt) if PREV_NET['rx'] > 0 and rx_tot >= PREV_NET['rx'] else 0
+                        tx_spd = max(0, (tx_tot - PREV_NET['tx']) / dt) if PREV_NET['tx'] > 0 and tx_tot >= PREV_NET['tx'] else 0
+                        PREV_NET = {'time': now_t, 'rx': rx_tot, 'tx': tx_tot, 'rx_spd': rx_spd, 'tx_spd': tx_spd, 'rx_tot': rx_tot, 'tx_tot': tx_tot}
+                    else:
+                        rx_spd = PREV_NET.get('rx_spd', 0)
+                        tx_spd = PREV_NET.get('tx_spd', 0)
+
                 stats['net_rx_bytes_sec'] = rx_spd
                 stats['net_tx_bytes_sec'] = tx_spd
                 stats['net_rx_speed'] = format_speed(rx_spd)
