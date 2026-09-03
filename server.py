@@ -488,7 +488,7 @@ def get_tailscale_users():
         print(f"Tailscale status error: {e}")
         return []
 
-PORT = 8080
+PORT = int(os.environ.get('PORT', 8085))
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
