@@ -208,7 +208,7 @@ def resolve_tailscale_client(ip):
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
             'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
-            'device_name': 'pinedash',
+            'device_name': get_system_hostname(),
             'device_ip': ip,
             'role': 'owner',
             'is_owner': True,
@@ -364,7 +364,7 @@ def get_tailscale_users():
 
 PORT = 8080
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
-WALLPAPER_DIR = '/home/pineapple/Wall' if os.path.isdir('/home/pineapple/Wall') else os.path.join(PUBLIC_DIR, 'Wallpapers')
+WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
 SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
@@ -862,7 +862,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 action = 'start' if enable else 'stop'
                 try:
-                    cmd = f"sudo /home/pineapple/server-dashboard/tor_exit_node.sh {action}"
+                    cmd = f"sudo {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tor_exit_node.sh')} {action}"
                     subprocess.run(cmd, shell=True, check=True)
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
