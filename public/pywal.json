@@ -1,27 +1,27 @@
 {
-  "wallpaper": "/home/tin/server-dashboard/public/Wallpapers/tokyo-night--4-omakub.jpg",
+  "wallpaper": "/home/pineapple/Wall/abstract_fluid_smoke_16x10.png",
   "alpha": "100",
   "special": {
-    "background": "#110e1a",
+    "background": "#0e0e1a",
     "foreground": "#f0f6fc",
     "cursor": "#f0f6fc"
   },
   "colors": {
-    "color0": "#110e1a",
-    "color1": "#af7cfb",
-    "color2": "#b486fb",
-    "color3": "#a972fb",
-    "color4": "#be8ffc",
-    "color5": "#af7cfb",
-    "color6": "#b486fb",
+    "color0": "#0e0e1a",
+    "color1": "#b6c3e3",
+    "color2": "#acb3dd",
+    "color3": "#9c9cd0",
+    "color4": "#b9c6e8",
+    "color5": "#b6c3e3",
+    "color6": "#acb3dd",
     "color7": "#f0f6fc",
     "color8": "#a3b3c2",
-    "color9": "#af7cfb",
-    "color10": "#b486fb",
-    "color11": "#a972fb",
-    "color12": "#be8ffc",
-    "color13": "#af7cfb",
-    "color14": "#b486fb",
+    "color9": "#b6c3e3",
+    "color10": "#acb3dd",
+    "color11": "#9c9cd0",
+    "color12": "#b9c6e8",
+    "color13": "#b6c3e3",
+    "color14": "#acb3dd",
     "color15": "#f0f6fc"
   }
 }
