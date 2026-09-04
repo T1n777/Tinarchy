@@ -444,19 +444,21 @@ def get_tailscale_users():
                     wnode = node_details.get(node_id, {})
                     
                     # Dynamically resolve hostname
-                    h_name = (
-                        wnode.get('Name') or 
-                        node.get('HostName') or 
-                        wnode.get('ComputedName') or 
-                        'Device'
-                    )
-                    if h_name == 'device-of-shared-to-user' and uinfo.get('DisplayName'):
-                        h_name = f"{uinfo.get('DisplayName')}'s Device"
+                    is_shared = bool(node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode'))
+                    raw_hname = node.get('HostName') or wnode.get('Name') or wnode.get('ComputedName') or ''
                     
-                    # Dynamically resolve OS
+                    if not raw_hname or raw_hname == 'device-of-shared-to-user':
+                        if is_shared:
+                            h_name = f"Shared Device ({ips[0]})" if ips else "Shared Device"
+                        else:
+                            h_name = "Device"
+                    else:
+                        h_name = raw_hname
+                    
+                    # Dynamically resolve OS (avoid assuming Windows for shared peers)
                     os_name = (node.get('OS') or wnode.get('Hostinfo', {}).get('OS') or '').lower()
                     if not os_name:
-                        os_name = 'windows' if (node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode')) else 'unknown'
+                        os_name = 'unknown'
 
                     user_devices.append({
                         'name': h_name,
