@@ -577,6 +577,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 'media': 'jellyfin',
                 'movies': 'jellyfin',
                 'stream': 'jellyfin',
+                'navidrome': 'navidrome',
+                'music': 'navidrome',
+                'audio': 'navidrome',
             }
 
             target_id = alias_map.get(service_key, service_key)
@@ -588,10 +591,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 target_url = f"https://{host}:8081/"
             elif target_id == 'suwayomi':
                 target_url = f"https://{host}:4567/"
+            elif target_id in ['navidrome', 'music', 'audio']:
+                svc = next((s for s in SERVICES if 'navidrome' in s.get('id', '')), None)
+                port = svc.get('port', 4533) if svc else 4533
+                scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
+                target_url = f"{scheme}://{host}:{port}/"
             else:
                 svc = next((s for s in SERVICES if s['id'] == target_id), None)
                 if svc and svc.get('port', 0) > 0:
-                    target_url = f"https://{host}:{svc['port']}/"
+                    scheme = svc.get('scheme') or svc.get('protocol')
+                    if not scheme:
+                        scheme = 'http' if svc.get('port') in [4533, 4534] or svc.get('ssl') is False else 'https'
+                    target_url = f"{scheme}://{host}:{svc['port']}/"
                 elif target_id in ['', 'list']:
                     target_url = "/"
 
@@ -655,6 +666,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     pseudo_link = '/links/manga'
                 elif s['id'] == 'couchdb':
                     pseudo_link = '/links/couchdb'
+                elif 'navidrome' in s['id']:
+                    pseudo_link = '/links/navidrome'
                 status_obj['link'] = pseudo_link
 
                 results.append(status_obj)
