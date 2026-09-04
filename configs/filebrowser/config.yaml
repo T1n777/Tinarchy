@@ -19,12 +19,11 @@ server:
         defaultEnabled: true
 
 auth:
-  adminUsername: "tin"
-  adminPassword: "admin"
   methods:
+    noauth: true
     password:
-      enabled: true
+      enabled: false
       minLength: 4
       signup: false
     passkey:
-      enabled: true
+      enabled: false
