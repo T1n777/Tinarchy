@@ -560,6 +560,59 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt')):
             super().do_GET()
             return
+
+        # ─── Pseudo /links/ Fast Router for Services ───
+        if self.path.startswith('/links/') or self.path == '/links':
+            service_key = self.path[7:].split('?')[0].split('#')[0].strip('/').lower() if self.path.startswith('/links/') else ''
+            raw_host = self.headers.get('Host', '')
+            host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+
+            alias_map = {
+                'files': 'filebrowser',
+                'file': 'filebrowser',
+                'drive': 'filebrowser',
+                'quantum': 'filebrowser',
+                'manga': 'suwayomi',
+                'tachiyomi': 'suwayomi',
+                'reader': 'suwayomi',
+                'couchdb': 'couchdb',
+                'obsidian': 'couchdb',
+                'livesync': 'couchdb',
+                'db': 'couchdb',
+                'jellyfin': 'jellyfin',
+                'media': 'jellyfin',
+                'movies': 'jellyfin',
+                'stream': 'jellyfin',
+            }
+
+            target_id = alias_map.get(service_key, service_key)
+
+            target_url = None
+            if target_id == 'couchdb':
+                target_url = "/couchdb/_utils/"
+            elif target_id == 'filebrowser':
+                target_url = f"https://{host}:8081/"
+            elif target_id == 'suwayomi':
+                target_url = f"https://{host}:4567/"
+            else:
+                svc = next((s for s in SERVICES if s['id'] == target_id), None)
+                if svc and svc.get('port', 0) > 0:
+                    target_url = f"https://{host}:{svc['port']}/"
+                elif target_id in ['', 'list']:
+                    target_url = "/"
+
+            if target_url:
+                self.send_response(302)
+                self.send_header('Location', target_url)
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                return
+            else:
+                self.send_response(404)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(b"<h1>404 Not Found</h1><p>Service pseudo link not found.</p>")
+                return
             
         session = self.check_auth()
 
@@ -584,6 +637,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         status_obj['torProxyEnabled'] = (res.returncode == 0)
                     except Exception:
                         status_obj['torProxyEnabled'] = False
+
+                pseudo_link = f"/links/{s['id']}"
+                if s['id'] == 'filebrowser':
+                    pseudo_link = '/links/files'
+                elif s['id'] == 'suwayomi':
+                    pseudo_link = '/links/manga'
+                elif s['id'] == 'couchdb':
+                    pseudo_link = '/links/couchdb'
+                status_obj['link'] = pseudo_link
 
                 results.append(status_obj)
 
