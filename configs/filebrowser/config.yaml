@@ -13,6 +13,10 @@ server:
       name: "root"
       config:
         defaultEnabled: true
+    - path: "/home/pineapple"
+      name: "home"
+      config:
+        defaultEnabled: true
 
 auth:
   adminUsername: "tin"
