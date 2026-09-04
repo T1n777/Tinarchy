@@ -1247,7 +1247,7 @@
                 if (s.id === 'couchdb') {
                     launchUrl = '/couchdb/_utils/';
                 } else if (s.id === 'filebrowser') {
-                    launchUrl = '/files/';
+                    launchUrl = `https://${window.location.hostname}:8081/`;
                 } else if (s.id === 'suwayomi') {
                     launchUrl = '/manga/';
                 } else if (s.port > 0) {
@@ -1268,7 +1268,7 @@
                         <div class="systemd-name">${s.systemd}.service</div>
                     </div>
                     <div class="card-footer">
-                        <div class="port">${s.id === 'couchdb' ? 'HTTPS /couchdb/' : (s.id === 'filebrowser' ? 'HTTPS /files/' : (s.id === 'suwayomi' ? 'HTTPS /manga/' : (s.port > 0 ? `Port ${s.port}` : '')))}</div>
+                        <div class="port">${s.id === 'couchdb' ? 'HTTPS /couchdb/' : (s.id === 'filebrowser' ? 'HTTPS Port 8081' : (s.id === 'suwayomi' ? 'HTTPS /manga/' : (s.port > 0 ? `Port ${s.port}` : '')))}</div>
                         <div class="actions">
                             ${torButtonHTML}
                             ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `
