@@ -1243,9 +1243,13 @@
                     `;
                 }
 
-                let launchUrl = (s.port > 0) ? `http://${window.location.hostname}:${s.port}` : '#';
+                let launchUrl = '#';
                 if (s.id === 'couchdb') {
                     launchUrl = '/couchdb/_utils/';
+                } else if (s.id === 'filebrowser') {
+                    launchUrl = `https://${window.location.hostname}:8081/`;
+                } else if (s.port > 0) {
+                    launchUrl = `https://${window.location.hostname}:${s.port}/`;
                 }
                 const titleHTML = (isOnline && (s.port > 0 || s.id === 'couchdb'))
                     ? `<a href="${launchUrl}" target="_blank" class="service-link"><h2>${s.name} ↗</h2></a>`
