@@ -729,6 +729,17 @@
             border-radius: 6px;
             border: 1px solid rgba(255, 255, 255, 0.16);
             letter-spacing: 0.02em;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .port:hover {
+            background: var(--primary);
+            color: #0b0f14;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
         }
 
         .actions {
@@ -1243,8 +1254,8 @@
                     `;
                 }
 
-                const pseudoLink = s.link || `/links/${s.id}`;
-                const launchUrl = pseudoLink;
+                const serviceLink = s.link || `/${s.id}`;
+                const launchUrl = serviceLink;
                 const titleHTML = isOnline
                     ? `<a href="${launchUrl}" target="_blank" class="service-link"><h2>${s.name} ↗</h2></a>`
                     : `<h2>${s.name}</h2>`;
@@ -1260,7 +1271,7 @@
                         <div class="systemd-name">${s.systemd}.service</div>
                     </div>
                     <div class="card-footer">
-                        <div class="port" title="Pseudo Service Link">${pseudoLink}</div>
+                        <a href="${launchUrl}" target="_blank" class="port" title="Open ${serviceLink}">${serviceLink}</a>
                         <div class="actions">
                             ${torButtonHTML}
                             ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `

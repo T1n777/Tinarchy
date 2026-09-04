@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tor SOCKS5 Proxy Guide - Server Dashboard</title>
+    <script>
+        // Universal Wallpaper & Pywal Sync Engine
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#69B4C3';
+            const fg = pywal.special?.foreground || '#cae5ef';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', 'rgba(202, 229, 239, 0.65)');
+            root.style.setProperty('--glass-border', pColor + '25');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = 'url('' + mediaUrl + '')';
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', 'url('' + mediaUrl + '')');
+            }
+        }
+
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            root.setAttribute('data-theme', savedTheme);
+
+            try {
+                const pywalCache = localStorage.getItem('pywal-cache');
+                if (pywalCache) applyThemeAndColors(root, JSON.parse(pywalCache));
+                fetch('/api/pywal').then(r => r.ok ? r.json() : null).then(data => {
+                    if (data && data.colors) {
+                        localStorage.setItem('pywal-cache', JSON.stringify(data));
+                        applyThemeAndColors(root, data);
+                    }
+                }).catch(() => {});
+            } catch(e) {}
+
+            const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+            const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+
+            if (isVideo && wpUrl) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, true));
+                } else {
+                    applyMediaToBackground(wpUrl, true);
+                }
+            } else {
+                const cachedBlob = await getLocalWallpaper('active_wallpaper');
+                if (cachedBlob) {
+                    const blobUrl = URL.createObjectURL(cachedBlob);
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(blobUrl, false));
+                    } else {
+                        applyMediaToBackground(blobUrl, false);
+                    }
+                } else if (wpUrl) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, false));
+                    } else {
+                        applyMediaToBackground(wpUrl, false);
+                    }
+                }
+            }
+        })();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #111519;
+            --glass: rgba(17, 21, 25, 0.78);
+            --glass-card: rgba(22, 28, 34, 0.72);
+            --glass-border: rgba(105, 180, 195, 0.22);
+            --primary: #69B4C3;
+            --primary-glow: rgba(105, 180, 195, 0.35);
+            --text: #cae5ef;
+            --text-muted: rgba(202, 229, 239, 0.65);
+            --online: #5af78e;
+            --code-bg: rgba(9, 12, 16, 0.85);
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+            --font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --wp-blur: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--text);
+            min-height: 100vh;
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+            padding: 2rem 1rem 4rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .wallpaper {
+            position: fixed;
+            inset: -20px;
+            background: var(--wp-url) no-repeat center center;
+            background-size: cover;
+            filter: blur(var(--wp-blur));
+            z-index: -2;
+            transform: translateZ(0);
+        }
+
+        .wallpaper-tint {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 20%, rgba(17, 21, 25, 0.65) 0%, rgba(10, 13, 16, 0.88) 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 1.25rem;
+            border-radius: 14px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            transform: translateX(-2px);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(90, 247, 142, 0.12);
+            color: var(--online);
+            border: 1px solid rgba(90, 247, 142, 0.3);
+        }
+
+        .badge .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+
+        .header-card {
+            padding: 2rem;
+            border-radius: 18px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        .header-icon {
+            font-size: 3rem;
+            background: rgba(105, 180, 195, 0.12);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            width: 72px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 24px var(--primary-glow);
+        }
+
+        .header-info h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .header-info p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .meta-box {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .meta-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .meta-val {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--primary);
+            word-break: break-all;
+        }
+
+        .card {
+            padding: 1.75rem;
+            border-radius: 18px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 .sec-num {
+            background: var(--primary);
+            color: #0b0f14;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+
+        .card p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .code-container {
+            position: relative;
+            background: var(--code-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1rem 1.2rem;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            color: #79b8ff;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: #0b0f14;
+            border-color: var(--primary);
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .step-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(105, 180, 195, 0.15);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .step-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .step-content strong {
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .highlight-box {
+            background: rgba(105, 180, 195, 0.08);
+            border-left: 3px solid var(--primary);
+            padding: 0.85rem 1.1rem;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #0b0f14;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: opacity 0.2s, transform 0.2s;
+            align-self: flex-start;
+        }
+
+        .btn-action:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--primary);
+            color: #0b0f14;
+            font-weight: 700;
+            padding: 10px 18px;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            font-size: 0.85rem;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .header-card {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="wallpaper-tint"></div>
+
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+            <div class="badge">
+                <span class="dot"></span>
+                Tor SOCKS5 Port 9050 Online
+            </div>
+        </nav>
+
+        <!-- Header Card -->
+        <div class="header-card">
+            <div class="header-icon">🧅</div>
+            <div class="header-info">
+                <h1>Tor SOCKS5 Proxy</h1>
+                <p>Route desktop browsers, mobile apps, terminal tools, and manga sources through the Tor onion anonymity network via <code style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code>.</p>
+            </div>
+        </div>
+
+        <!-- Parameters Grid -->
+        <div class="meta-grid">
+            <div class="meta-box">
+                <div class="meta-label">Proxy Type & Protocol</div>
+                <div class="meta-val">SOCKS5 / SOCKS5h</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">SOCKS Host</div>
+                <div class="meta-val" id="proxyHost">100.112.193.54</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Proxy Port</div>
+                <div class="meta-val">9050</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Authentication</div>
+                <div class="meta-val">None (Tailnet Mesh)</div>
+            </div>
+        </div>
+
+        <!-- 1. Web Browser Configuration -->
+        <div class="card">
+            <h2><span class="sec-num">1</span> Web Browser Configuration</h2>
+            <p>You can route any web browser's traffic through this Tor proxy without installing the Tor browser:</p>
+            
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-circle">🦊</div>
+                    <div class="step-content">
+                        <strong>Mozilla Firefox (Native Support):</strong>
+                        <p>1. Open Firefox <strong>Settings</strong> ➔ scroll to <strong>Network Settings</strong> ➔ click <strong>Settings...</strong></p>
+                        <p>2. Select <strong>Manual proxy configuration</strong>.</p>
+                        <p>3. Set SOCKS Host: <code style="color:var(--primary); font-family:var(--font-mono);">100.112.193.54</code> and Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
+                        <p>4. Check <strong>SOCKS v5</strong> and <strong>Proxy DNS when using SOCKS v5</strong> (prevents DNS leaks!).</p>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle">🌐</div>
+                    <div class="step-content">
+                        <strong>Chrome / Brave / Edge (Extension):</strong>
+                        <p>Install the <strong style="color:#fff;">FoxyProxy Standard</strong> extension from the Chrome Web Store. Add a proxy with Protocol: <code style="color:var(--primary); font-family:var(--font-mono);">SOCKS5</code>, Host: <code style="color:var(--primary); font-family:var(--font-mono);">100.112.193.54</code>, Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Terminal & cURL Usage -->
+        <div class="card">
+            <h2><span class="sec-num">2</span> Terminal & Development Tools</h2>
+            <p>Route command-line tools like <code style="color:var(--primary); font-family:var(--font-mono);">curl</code>, Python requests, or git through Tor:</p>
+            
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-circle">A</div>
+                    <div class="step-content">
+                        <strong>Verify Tor Connection via cURL (Returns Exit Node IP):</strong>
+                        <div class="code-container">
+                            <code id="curlCmd">curl --socks5-hostname 100.112.193.54:9050 https://check.torproject.org/api/ip</code>
+                            <button class="copy-btn" onclick="copyCode('curlCmd')">📋 Copy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle">B</div>
+                    <div class="step-content">
+                        <strong>Route Current Shell Session Through Tor:</strong>
+                        <div class="code-container">
+<code id="exportCmd">export ALL_PROXY="socks5h://100.112.193.54:9050"
+export HTTP_PROXY="socks5h://100.112.193.54:9050"
+export HTTPS_PROXY="socks5h://100.112.193.54:9050"</code>
+                            <button class="copy-btn" onclick="copyCode('exportCmd')">📋 Copy</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle">C</div>
+                    <div class="step-content">
+                        <strong>Git over Tor (Bypass ISP restrictions):</strong>
+                        <div class="code-container">
+                            <code id="gitCmd">git config --global http.proxy 'socks5h://100.112.193.54:9050'</code>
+                            <button class="copy-btn" onclick="copyCode('gitCmd')">📋 Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Built-in Server Integrations -->
+        <div class="card">
+            <h2><span class="sec-num">3</span> Server Integrations</h2>
+            <div class="highlight-box">
+                <strong>📚 Suwayomi Manga Reader:</strong> Suwayomi includes a one-click Tor toggle on the dashboard. When enabled, it routes manga scraping through Tor on port 9050, effortlessly bypassing Cloudflare rate-limits and ISP blocks on sites like MangaDex.
+            </div>
+            <div class="highlight-box" style="margin-top: 8px;">
+                <strong>🛡️ Tailscale Exit Node Mode:</strong> The dashboard includes an iptables Tor Exit Node router (<code style="font-family:var(--font-mono);">tor_exit_node.sh</code>). When activated, traffic from connected client devices can be anonymized transparently without manual proxy setup in each app.
+            </div>
+        </div>
+
+        <!-- 4. Test Verification -->
+        <div class="card">
+            <h2><span class="sec-num">4</span> Test & Verify Privacy</h2>
+            <p>Once you have configured your browser or tool, visit the official Tor Project checker to verify that your IP is disguised and onion routing is active:</p>
+            <a href="https://check.torproject.org" target="_blank" class="btn-action">
+                <span>Check Tor Status at torproject.org ↗</span>
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>Copied to clipboard!</span>
+    </div>
+
+    <script>
+        function copyCode(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
+                showToast('Copied to clipboard!');
+            }).catch(() => {
+                showToast('Failed to copy');
+            });
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if (!t) return;
+            t.querySelector('span').textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        // Adjust host if accessed via hostname
+        if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            const h = window.location.hostname;
+            document.getElementById('proxyHost').textContent = h;
+            document.getElementById('curlCmd').textContent = 'curl --socks5-hostname ' + h + ':9050 https://check.torproject.org/api/ip';
+            document.getElementById('exportCmd').textContent = 'export ALL_PROXY="socks5h://' + h + ':9050"
+export HTTP_PROXY="socks5h://' + h + ':9050"
+export HTTPS_PROXY="socks5h://' + h + ':9050"';
+            document.getElementById('gitCmd').textContent = 'git config --global http.proxy 'socks5h://' + h + ':9050'';
+        }
+    </script>
+</body>
+</html>

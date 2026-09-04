@@ -1,27 +1,27 @@
 {
-  "wallpaper": "/home/pineapple/Wall/abstract_fluid_smoke_16x10.png",
+  "wallpaper": "/home/pineapple/server-dashboard/public/Wallpapers/aurora_borealis_lake_16x10.png",
   "alpha": "100",
   "special": {
-    "background": "#0e0e1a",
+    "background": "#100f19",
     "foreground": "#f0f6fc",
     "cursor": "#f0f6fc"
   },
   "colors": {
-    "color0": "#0e0e1a",
-    "color1": "#b6c3e3",
-    "color2": "#acb3dd",
-    "color3": "#9c9cd0",
-    "color4": "#b9c6e8",
-    "color5": "#b6c3e3",
-    "color6": "#acb3dd",
+    "color0": "#100f19",
+    "color1": "#e8cad7",
+    "color2": "#acc8d7",
+    "color3": "#9bdefc",
+    "color4": "#ddb9d2",
+    "color5": "#e8cad7",
+    "color6": "#acc8d7",
     "color7": "#f0f6fc",
     "color8": "#a3b3c2",
-    "color9": "#b6c3e3",
-    "color10": "#acb3dd",
-    "color11": "#9c9cd0",
-    "color12": "#b9c6e8",
-    "color13": "#b6c3e3",
-    "color14": "#acb3dd",
+    "color9": "#e8cad7",
+    "color10": "#acc8d7",
+    "color11": "#9bdefc",
+    "color12": "#ddb9d2",
+    "color13": "#e8cad7",
+    "color14": "#acc8d7",
     "color15": "#f0f6fc"
   }
 }

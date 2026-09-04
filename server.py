@@ -526,13 +526,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Vary', 'Accept-Encoding')
             self.send_header('Content-Length', str(len(compressed)))
             self.end_headers()
-            self.wfile.write(compressed)
+            if self.command != 'HEAD':
+                self.wfile.write(compressed)
         else:
             self.send_response(code)
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Length', str(len(data_bytes)))
             self.end_headers()
-            self.wfile.write(data_bytes)
+            if self.command != 'HEAD':
+                self.wfile.write(data_bytes)
 
     def end_headers(self):
         if hasattr(self, 'path') and (self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.svg', '.woff2', '.ico'))):
@@ -555,74 +557,87 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         client_ip = self.get_client_ip()
         return resolve_tailscale_client(client_ip)
 
-    def handle_pseudo_links(self):
-        if self.path.startswith('/links/') or self.path == '/links':
-            service_key = self.path[7:].split('?')[0].split('#')[0].strip('/').lower() if self.path.startswith('/links/') else ''
-            raw_host = self.headers.get('Host', '')
-            host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+    def serve_guide_page(self, filename):
+        guide_file = os.path.join(PUBLIC_DIR, 'guides', filename)
+        if not os.path.isfile(guide_file):
+            self.send_response(404)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            if self.command != 'HEAD':
+                self.wfile.write(b"<h1>404 Not Found</h1><p>Guide page not found.</p>")
+            return True
+        try:
+            with open(guide_file, 'rb') as f:
+                content = f.read()
+            self.send_compressed(content, "text/html; charset=utf-8")
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            if self.command != 'HEAD':
+                self.wfile.write(str(e).encode())
+        return True
 
-            alias_map = {
-                'files': 'filebrowser',
-                'file': 'filebrowser',
-                'drive': 'filebrowser',
-                'quantum': 'filebrowser',
-                'manga': 'suwayomi',
-                'tachiyomi': 'suwayomi',
-                'reader': 'suwayomi',
-                'couchdb': 'couchdb',
-                'obsidian': 'couchdb',
-                'livesync': 'couchdb',
-                'db': 'couchdb',
-                'jellyfin': 'jellyfin',
-                'media': 'jellyfin',
-                'movies': 'jellyfin',
-                'stream': 'jellyfin',
-                'navidrome': 'navidrome',
-                'music': 'navidrome',
-                'audio': 'navidrome',
-            }
+    def handle_service_routes(self):
+        # Extract path without query or fragment, strip trailing slashes
+        raw_path = self.path.split('?')[0].split('#')[0]
+        clean_path = raw_path.rstrip('/').lower() if raw_path != '/' else '/'
+        if not clean_path or clean_path == '/':
+            return False
 
-            target_id = alias_map.get(service_key, service_key)
-
-            target_url = None
-            if target_id == 'couchdb':
-                target_url = "/couchdb/_utils/"
-            elif target_id == 'filebrowser':
-                target_url = f"https://{host}:8081/"
-            elif target_id == 'suwayomi':
-                target_url = f"https://{host}:4567/"
-            elif target_id in ['navidrome', 'music', 'audio']:
-                svc = next((s for s in SERVICES if 'navidrome' in s.get('id', '')), None)
-                port = svc.get('port', 4533) if svc else 4533
-                scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
-                target_url = f"{scheme}://{host}:{port}/"
-            else:
-                svc = next((s for s in SERVICES if s['id'] == target_id), None)
-                if svc and svc.get('port', 0) > 0:
-                    scheme = svc.get('scheme') or svc.get('protocol')
-                    if not scheme:
-                        scheme = 'http' if svc.get('port') in [4533, 4534] or svc.get('ssl') is False else 'https'
-                    target_url = f"{scheme}://{host}:{svc['port']}/"
-                elif target_id in ['', 'list']:
-                    target_url = "/"
-
-            if target_url:
+        # Support backward-compatible /links/ prefix (e.g. /links/files -> /files)
+        if clean_path.startswith('/links'):
+            sub = clean_path[6:].strip('/')
+            if not sub:
                 self.send_response(302)
-                self.send_header('Location', target_url)
+                self.send_header('Location', '/')
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 self.end_headers()
                 return True
-            else:
-                self.send_response(404)
-                self.send_header('Content-Type', 'text/html; charset=utf-8')
-                self.end_headers()
-                if self.command != 'HEAD':
-                    self.wfile.write(b"<h1>404 Not Found</h1><p>Service pseudo link not found.</p>")
-                return True
+            clean_path = '/' + sub
+
+        # 1. Dedicated Static Guide Pages for non-HTTP / setup services
+        if clean_path in ['/ssh', '/sshd', '/guides/ssh', '/guides/ssh.html']:
+            return self.serve_guide_page('ssh.html')
+
+        if clean_path in ['/tor', '/tor-proxy', '/socks5', '/guides/tor', '/guides/tor.html']:
+            return self.serve_guide_page('tor.html')
+
+        if clean_path in ['/obsidian', '/livesync', '/notes', '/guides/obsidian', '/guides/obsidian.html']:
+            return self.serve_guide_page('obsidian.html')
+
+        # 2. Top-Level Web Application Redirects
+        raw_host = self.headers.get('Host', '')
+        host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+
+        target_url = None
+        if clean_path in ['/files', '/file', '/drive', '/quantum', '/filebrowser']:
+            target_url = f"https://{host}:8081/"
+        elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
+            target_url = f"https://{host}:4567/"
+        elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
+            target_url = f"https://{host}:8096/"
+        elif clean_path in ['/navidrome', '/music', '/audio']:
+            svc = next((s for s in SERVICES if 'navidrome' in s.get('id', '')), None)
+            port = svc.get('port', 4533) if svc else 4533
+            scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
+            target_url = f"{scheme}://{host}:{port}/"
+        elif clean_path == '/couchdb':
+            target_url = "/couchdb/_utils/"
+
+        if target_url:
+            self.send_response(302)
+            self.send_header('Location', target_url)
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
         return False
 
+    handle_pseudo_links = handle_service_routes
+
     def do_HEAD(self):
-        if self.handle_pseudo_links():
+        if self.handle_service_routes():
             return
         super().do_HEAD()
 
@@ -632,7 +647,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
             return
 
-        if self.handle_pseudo_links():
+        if self.handle_service_routes():
             return
             
         session = self.check_auth()
@@ -659,16 +674,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     except Exception:
                         status_obj['torProxyEnabled'] = False
 
-                pseudo_link = f"/links/{s['id']}"
+                service_link = f"/{s['id']}"
                 if s['id'] == 'filebrowser':
-                    pseudo_link = '/links/files'
+                    service_link = '/files'
                 elif s['id'] == 'suwayomi':
-                    pseudo_link = '/links/manga'
+                    service_link = '/manga'
                 elif s['id'] == 'couchdb':
-                    pseudo_link = '/links/couchdb'
+                    service_link = '/obsidian'
+                elif s['id'] == 'sshd':
+                    service_link = '/ssh'
+                elif s['id'] == 'tor':
+                    service_link = '/tor'
                 elif 'navidrome' in s['id']:
-                    pseudo_link = '/links/navidrome'
-                status_obj['link'] = pseudo_link
+                    service_link = '/navidrome'
+                status_obj['link'] = service_link
 
                 results.append(status_obj)
 
