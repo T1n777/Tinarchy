@@ -555,13 +555,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         client_ip = self.get_client_ip()
         return resolve_tailscale_client(client_ip)
 
-    def do_GET(self):
-        # Allow static assets and public endpoints
-        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt')):
-            super().do_GET()
-            return
-
-        # ─── Pseudo /links/ Fast Router for Services ───
+    def handle_pseudo_links(self):
         if self.path.startswith('/links/') or self.path == '/links':
             service_key = self.path[7:].split('?')[0].split('#')[0].strip('/').lower() if self.path.startswith('/links/') else ''
             raw_host = self.headers.get('Host', '')
@@ -606,13 +600,29 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Location', target_url)
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 self.end_headers()
-                return
+                return True
             else:
                 self.send_response(404)
                 self.send_header('Content-Type', 'text/html; charset=utf-8')
                 self.end_headers()
-                self.wfile.write(b"<h1>404 Not Found</h1><p>Service pseudo link not found.</p>")
-                return
+                if self.command != 'HEAD':
+                    self.wfile.write(b"<h1>404 Not Found</h1><p>Service pseudo link not found.</p>")
+                return True
+        return False
+
+    def do_HEAD(self):
+        if self.handle_pseudo_links():
+            return
+        super().do_HEAD()
+
+    def do_GET(self):
+        # Allow static assets and public endpoints
+        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt')):
+            super().do_GET()
+            return
+
+        if self.handle_pseudo_links():
+            return
             
         session = self.check_auth()
 
