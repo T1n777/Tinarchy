@@ -461,6 +461,13 @@
             font-size: 0.95rem;
         }
 
+        .step-content p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin: 0;
+        }
+
         .toast {
             position: fixed;
             bottom: 24px;
@@ -627,13 +634,29 @@
                 <div class="step-item">
                     <div class="step-circle">1</div>
                     <div class="step-content">
-                        <strong>Connect to Tailscale:</strong> Open the Tailscale app on your mobile device and make sure it is connected to the same tailnet.
+                        <strong>Connect to Tailscale:</strong>
+                        <p>Open the Tailscale app on your phone or tablet and verify that it is connected to your tailnet.</p>
                     </div>
                 </div>
                 <div class="step-item">
                     <div class="step-circle">2</div>
                     <div class="step-content">
-                        <strong>Add New Host:</strong> Set Host to <code style="color:var(--primary); font-family:var(--font-mono);">100.112.193.54</code> or <code style="color:var(--primary); font-family:var(--font-mono);">pineapple-station.taildb42a2.ts.net</code>, Port: <code style="color:var(--primary); font-family:var(--font-mono);">22</code>, Username: <code style="color:var(--primary); font-family:var(--font-mono);">pineapple</code>.
+                        <strong>Configure Connection Details:</strong>
+                        <p style="margin-bottom: 8px;">Create a new host in your SSH client (Termius, JuiceSSH, Prompt) with:</p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px;">
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
+                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Host / Address</div>
+                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">100.112.193.54</div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
+                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Port</div>
+                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">22</div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
+                                <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Username</div>
+                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">pineapple</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
