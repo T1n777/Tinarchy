@@ -3,38 +3,41 @@
 	"groups": {
 		"group:admins": [
 			"yatinrajesh77@gmail.com",
+			"imyash0722@gmail.com",
 		],
 		"group:guests": [
+			"janakiniharika7@gmail.com",
 			"thirukumaran3057@gmail.com",
 		],
 	},
 
 	// Define access rules.
 	"acls": [
-		// Admins can access all devices and ports.
+		// Admins have full access to all devices and ports.
 		{
 			"action": "accept",
-			"src":    ["group:admins"],
+			"src":    ["group:admins", "autogroup:member"],
 			"dst":    ["*:*"],
 		},
 
-		// Guests can access the Dashboard (80/443/8080), Network Storage (8081), and Navidrome (4533) on tinarchy.
+		// Shared users & Guests can access Pinedash Dashboard, FileBrowser, Suwayomi Manga, and Navidrome.
 		{
 			"action": "accept",
-			"src":    ["group:guests"],
+			"src":    ["group:guests", "janakiniharika7@gmail.com"],
 			"dst": [
-				"100.67.207.60:80",    // Dashboard HTTP (Zero SSL friction)
-				"100.67.207.60:443",   // Dashboard HTTPS (Tailscale TLS)
-				"100.67.207.60:8080",  // Dashboard HTTP (Alternate / Proxy Port)
-				"100.67.207.60:8081",  // Network Storage (FileBrowser Quantum)
-				"100.67.207.60:4533",  // Navidrome (Kimi Music Server)
+				"100.112.193.54:80",    // Dashboard HTTP
+				"100.112.193.54:443",   // Dashboard HTTPS
+				"100.112.193.54:8080",  // Dashboard HTTP (Alternate)
+				"100.112.193.54:8081",  // Network Storage (FileBrowser Quantum)
+				"100.112.193.54:4567",  // Suwayomi Manga Server
+				"100.112.193.54:4533",  // Navidrome Music
 			],
 		},
 	],
 
 	// Define users and devices that can use Tailscale SSH.
 	"ssh": [
-		// Allow all users to SSH into their own devices in check mode.
+		// Allow all members to SSH into their own devices in check mode.
 		{
 			"action": "check",
 			"src":    ["autogroup:member"],
