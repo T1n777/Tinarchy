@@ -560,6 +560,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             service_key = self.path[7:].split('?')[0].split('#')[0].strip('/').lower() if self.path.startswith('/links/') else ''
             raw_host = self.headers.get('Host', '')
             host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+            client_proto = self.headers.get('X-Forwarded-Proto', 'http')
 
             alias_map = {
                 'files': 'filebrowser',
@@ -585,13 +586,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if target_id == 'couchdb':
                 target_url = "/couchdb/_utils/"
             elif target_id == 'filebrowser':
-                target_url = f"https://{host}:8081/"
+                target_url = f"{client_proto}://{host}:8081/"
             elif target_id == 'suwayomi':
-                target_url = f"https://{host}:4567/"
+                target_url = f"{client_proto}://{host}:4567/"
             else:
                 svc = next((s for s in SERVICES if s['id'] == target_id), None)
                 if svc and svc.get('port', 0) > 0:
-                    target_url = f"https://{host}:{svc['port']}/"
+                    svc_proto = 'http' if svc['id'].startswith('navidrome') else client_proto
+                    target_url = f"{svc_proto}://{host}:{svc['port']}/"
                 elif target_id in ['', 'list']:
                     target_url = "/"
 
@@ -672,7 +674,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             }).encode(), "application/json")
 
         elif self.path == '/api/users':
-            ts_users = get_tailscale_users()
+            role = session.get('role', 'viewer')
+            ts_users = [] if role == 'guest' else get_tailscale_users()
             self.send_compressed(json.dumps({
                 "current_user": session,
                 "tailscale_users": ts_users,
@@ -846,6 +849,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps(stats).encode(), "application/json")
             
         elif self.path == '/api/system/tor-exit':
+            role = session.get('role', 'viewer')
+            if role == 'guest':
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Guest access restricted"}')
+                return
+
             try:
                 res = subprocess.run(['sudo', 'iptables', '-t', 'nat', '-L', 'TOR_EXIT'], capture_output=True)
                 active = (res.returncode == 0)
@@ -1048,6 +1059,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 action = 'start' if enable else 'stop'
                 try:
+                    if enable:
+                        # Auto-toggle ON the Tor proxy if not already on
+                        chk_tor = subprocess.run(['systemctl', 'is-active', 'tor'], capture_output=True, text=True)
+                        if chk_tor.stdout.strip() != 'active':
+                            subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
+
                     cmd = f"sudo {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tor_exit_node.sh')} {action}"
                     subprocess.run(cmd, shell=True, check=True)
                     self.send_response(200)

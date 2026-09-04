@@ -567,7 +567,8 @@
             box-shadow: 0 0 20px rgba(214, 169, 255, 0.25);
         }
 
-        .tor-exit-info { display: flex; align-items: center; gap: 16px; }
+        .tor-exit-info { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+        .tor-exit-info > div { flex: 1; min-width: 0; }
 
         .tor-icon {
             width: 44px; height: 44px;
@@ -741,6 +742,8 @@
         .toggle-switch {
             width: 46px;
             height: 26px;
+            flex-shrink: 0;
+            touch-action: manipulation;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid var(--glass-border);
             border-radius: 100px;
@@ -995,12 +998,34 @@
             .tor-exit-banner {
                 padding: 14px 16px !important;
                 gap: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+            }
+            .tor-exit-info {
+                gap: 12px !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            }
+            .tor-icon {
+                width: 38px !important;
+                height: 38px !important;
+                font-size: 1.15rem !important;
             }
             .tor-exit-info h2 {
-                font-size: 0.95rem !important;
+                font-size: 0.92rem !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                gap: 6px !important;
             }
             .tor-exit-info p {
-                font-size: 0.76rem !important;
+                font-size: 0.74rem !important;
+                line-height: 1.3 !important;
+            }
+            #tor-exit-btn {
+                flex-shrink: 0 !important;
+                margin-left: 8px !important;
             }
 
             /* Service Cards */
@@ -1420,9 +1445,11 @@
 
         async function toggleTorExit() {
             const btn = document.getElementById('tor-exit-btn');
+            if (!btn || btn.disabled) return;
             const isCurrentlyOn = btn.classList.contains('on');
             const newState = !isCurrentlyOn;
             btn.disabled = true;
+            btn.classList.add('transitioning');
 
             try {
                 const res = await fetch('/api/system/tor-exit', {
@@ -1432,21 +1459,24 @@
                 });
                 if (!res.ok) throw new Error(await res.text());
                 showToast(`Tor exit node ${newState ? 'activated' : 'disabled'}`, 'success');
-                fetchTorExitStatus();
+                await Promise.all([fetchTorExitStatus(), fetchServices()]);
             } catch(e) {
-                showToast(`Tor error: ${e}`, 'error');
+                showToast(`Tor error: ${e.message || e}`, 'error');
             } finally {
+                btn.classList.remove('transitioning');
                 btn.disabled = false;
             }
         }
 
         async function fetchTorExitStatus() {
+            if (CURRENT_USER && CURRENT_USER.role === 'guest') return;
             try {
                 const res = await fetch('/api/system/tor-exit');
                 if(!res.ok) return;
                 const data = await res.json();
                 const btn = document.getElementById('tor-exit-btn');
                 const label = document.getElementById('tor-exit-label');
+                if (!btn || !label) return;
                 if (data.active || data.enabled) {
                     btn.classList.add('on');
                     label.textContent = 'Active';
@@ -1460,12 +1490,14 @@
         }
 
         async function fetchTailnetDevices() {
+            if (CURRENT_USER && CURRENT_USER.role === 'guest') return;
             try {
                 const res = await fetch('/api/users');
                 if (!res.ok) return;
                 const data = await res.json();
                 const tsUsers = data.tailscale_users || [];
                 const ribbon = document.getElementById('devices-ribbon');
+                if (!ribbon) return;
 
                 if (tsUsers.length === 0) {
                     ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); padding:10px 0;">No peer devices discovered.</div>';
@@ -1561,12 +1593,21 @@
                     }
                 }
 
-                const torBtn = document.getElementById('tor-exit-btn');
-                if (torBtn && u.role === 'viewer') {
-                    torBtn.disabled = true;
-                    torBtn.title = 'Viewer: Read-only access';
-                    torBtn.style.cursor = 'not-allowed';
-                    torBtn.style.opacity = '0.5';
+                // Guests (Kimi): Remove Tor exit banner & Connected Tailnet Devices
+                if (u.role === 'guest') {
+                    const torBanner = document.getElementById('tor-exit-banner');
+                    if (torBanner) torBanner.remove();
+
+                    const tailnetDrawer = document.getElementById('tailnet-drawer');
+                    if (tailnetDrawer) tailnetDrawer.remove();
+                } else {
+                    const torBtn = document.getElementById('tor-exit-btn');
+                    if (torBtn && u.role === 'viewer') {
+                        torBtn.disabled = true;
+                        torBtn.title = 'Viewer: Read-only access';
+                        torBtn.style.cursor = 'not-allowed';
+                        torBtn.style.opacity = '0.5';
+                    }
                 }
             } catch(e) {}
         }
@@ -1586,10 +1627,12 @@
             await fetchCurrentUser();
             fetchSystemStats();
             fetchServices();
-            fetchTorExitStatus();
-            fetchTailnetDevices();
+            if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
+                fetchTorExitStatus();
+                fetchTailnetDevices();
+                setInterval(fetchTailnetDevices, 10000);
+            }
             setInterval(fetchSystemStats, 2000);
-            setInterval(fetchTailnetDevices, 10000);
         });
     </script>
 </body>
