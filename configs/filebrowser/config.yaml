@@ -1,7 +1,7 @@
 server:
   port: 8082
   listen: "127.0.0.1"
-  baseURL: "/"
+  baseURL: "/files"
   database: "/home/tin/drive/.filebrowser.db"
   cacheDir: "/home/tin/drive/.cache"
   cacheDirCleanup: true
@@ -17,14 +17,16 @@ server:
       name: "wallpapers"
       config:
         defaultEnabled: true
-    - path: "/var/lib/suwayomi/downloads"
+    - path: "/var/lib/suwayomi/.local/share/Tachidesk/downloads"
       name: "manga"
+      config:
+        defaultEnabled: true
+    - path: "/home/tin/storage"
+      name: "storage"
       config:
         defaultEnabled: true
 
 auth:
-  adminUsername: "tin"
-  adminPassword: "admin"
   methods:
     password:
       enabled: true

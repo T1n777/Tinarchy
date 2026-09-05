@@ -8,7 +8,7 @@ User=pineapple
 Group=pineapple
 WorkingDirectory=/home/pineapple
 ExecStartPre=/usr/local/bin/pinedash-drive-sync
-ExecStart=/usr/local/bin/filebrowser -c /etc/filebrowser/config.yaml
+ExecStart=/usr/local/bin/filebrowser-quantum -c /etc/filebrowser/config.yaml
 Restart=always
 RestartSec=5
 
