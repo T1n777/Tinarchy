@@ -7,21 +7,7 @@ import socketserver
 import json
 import os
 import glob
-
-# --- Load Environment Variables ---
-def load_env():
-    env_path = os.path.join(os.path.dirname(__file__), '.env')
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                if '=' in line and not line.startswith('#'):
-                    k, v = line.strip().split('=', 1)
-                    os.environ[k.strip()] = v.strip().strip('"\'')
-load_env()
-
-
 import subprocess
-import os
 import re
 import uuid
 import time
@@ -29,6 +15,7 @@ import http.cookies
 import ssl
 import threading
 
+# --- Load Environment Variables ---
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
     if os.path.exists(env_path):
@@ -36,7 +23,7 @@ def load_env():
             for line in f:
                 if '=' in line and not line.startswith('#'):
                     k, v = line.strip().split('=', 1)
-                    os.environ[k] = v
+                    os.environ[k.strip()] = v.strip().strip('"\'')
 
 load_env()
 
@@ -45,6 +32,8 @@ _NET_LOCK = threading.Lock()
 
 _CPU_LOCK = threading.Lock()
 _LAST_CPU_PERCENT = 0.0
+_TAILSCALE_IP_CACHE = {'ip': None, 'ts': 0}
+_SERVICES_STATUS_CACHE = {'data': None, 'ts': 0}
 
 def _read_cpu_times():
     try:
@@ -257,12 +246,19 @@ def save_app_config(cfg):
 # ─── Dynamic Tailscale Host Owner & RBAC ───
 ROLES_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'roles_config.json')
 WHOIS_CACHE = {}
+_HOST_OWNER_CACHE = {'data': None, 'ts': 0}
 
 def get_tailscale_host_owner():
     """
     Dynamically discovers the Tailscale account that owns/registered this server node.
     Always uses the live DisplayName from Tailscale without hardcoded names.
+    Cached for 60 seconds to avoid high-frequency subprocess overhead.
     """
+    global _HOST_OWNER_CACHE
+    now = time.time()
+    if _HOST_OWNER_CACHE['data'] and (now - _HOST_OWNER_CACHE['ts']) < 60:
+        return _HOST_OWNER_CACHE['data']
+
     try:
         res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
         if res.returncode == 0 and res.stdout:
@@ -272,18 +268,21 @@ def get_tailscale_host_owner():
                 user_info = st.get('User', {}).get(str(self_user_id), {})
                 login_name = user_info.get('LoginName', '')
                 display_name = user_info.get('DisplayName') or login_name or 'Owner'
-                return {
+                data = {
                     'user_id': self_user_id,
                     'login_name': login_name,
                     'display_name': display_name
                 }
+                _HOST_OWNER_CACHE = {'data': data, 'ts': now}
+                return data
     except Exception as e:
         print(f"Error resolving Tailscale host owner: {e}")
-    return {
+    fallback = {
         'user_id': None,
         'login_name': os.environ.get('OWNER_EMAIL', ''),
         'display_name': 'Owner'
     }
+    return fallback
 
 def get_roles_config():
     default_cfg = {
@@ -653,45 +652,63 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         session = self.check_auth()
 
         if self.path == '/api/services':
-            results = []
-            for s in SERVICES:
-                role = session.get('role', 'viewer')
+            global _SERVICES_STATUS_CACHE
+            now = time.time()
+            if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
+                units = [s['systemd'] for s in SERVICES]
+                unit_status = {}
+                try:
+                    res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=2)
+                    lines = res.stdout.strip().splitlines()
+                    for u, line in zip(units, lines):
+                        unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
+                except Exception:
+                    pass
+
+                tor_proxy_enabled = False
+                suwayomi_conf = '/var/lib/suwayomi/.local/share/Tachidesk/server.conf'
+                try:
+                    if os.path.isfile(suwayomi_conf):
+                        with open(suwayomi_conf, 'r') as sf:
+                            tor_proxy_enabled = ('server.socksProxyEnabled = true' in sf.read())
+                except Exception:
+                    pass
+
+                base_results = []
+                for s in SERVICES:
+                    status_obj = s.copy()
+                    status_obj['status'] = unit_status.get(s['systemd'], 'offline')
+                    if s['id'] == 'suwayomi':
+                        status_obj['torProxyEnabled'] = tor_proxy_enabled
+
+                    service_link = f"/{s['id']}"
+                    if s['id'] == 'filebrowser':
+                        service_link = '/files'
+                    elif s['id'] == 'suwayomi':
+                        service_link = '/manga'
+                    elif s['id'] == 'couchdb':
+                        service_link = '/obsidian'
+                    elif s['id'] == 'sshd':
+                        service_link = '/ssh'
+                    elif s['id'] == 'tor':
+                        service_link = '/tor'
+                    elif 'navidrome' in s['id']:
+                        service_link = '/navidrome'
+                    status_obj['link'] = service_link
+                    base_results.append(status_obj)
+
+                _SERVICES_STATUS_CACHE = {'data': base_results, 'ts': now}
+
+            role = session.get('role', 'viewer')
+            filtered_results = []
+            for s in _SERVICES_STATUS_CACHE['data']:
                 if role == 'guest' and s['id'] not in ['navidrome', 'filebrowser']:
                     continue
                 if role == 'friend' and s['id'] == 'jellyfin':
                     continue
-                status_obj = s.copy()
-                try:
-                    res = subprocess.run(['systemctl', 'is-active', s['systemd']], capture_output=True, text=True)
-                    status_obj['status'] = 'online' if res.stdout.strip() == 'active' else 'offline'
-                except Exception:
-                    status_obj['status'] = 'offline'
+                filtered_results.append(s)
 
-                if s['id'] == 'suwayomi':
-                    try:
-                        res = subprocess.run(['grep', '-q', 'server.socksProxyEnabled = true', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf'])
-                        status_obj['torProxyEnabled'] = (res.returncode == 0)
-                    except Exception:
-                        status_obj['torProxyEnabled'] = False
-
-                service_link = f"/{s['id']}"
-                if s['id'] == 'filebrowser':
-                    service_link = '/files'
-                elif s['id'] == 'suwayomi':
-                    service_link = '/manga'
-                elif s['id'] == 'couchdb':
-                    service_link = '/obsidian'
-                elif s['id'] == 'sshd':
-                    service_link = '/ssh'
-                elif s['id'] == 'tor':
-                    service_link = '/tor'
-                elif 'navidrome' in s['id']:
-                    service_link = '/navidrome'
-                status_obj['link'] = service_link
-
-                results.append(status_obj)
-
-            self.send_compressed(json.dumps(results).encode(), "application/json")
+            self.send_compressed(json.dumps(filtered_results).encode(), "application/json")
             
         elif self.path == '/api/me':
             self.send_compressed(json.dumps({
@@ -792,11 +809,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             import socket
             stats['hostname'] = socket.gethostname()
             
-            try:
-                res = subprocess.run(['tailscale', 'ip', '-4'], capture_output=True, text=True)
-                stats['tailscale_ip'] = res.stdout.strip() if res.returncode == 0 else "Offline"
-            except Exception:
-                stats['tailscale_ip'] = "Offline"
+            global _TAILSCALE_IP_CACHE
+            now_t = time.time()
+            if _TAILSCALE_IP_CACHE['ip'] and (now_t - _TAILSCALE_IP_CACHE['ts']) < 60:
+                stats['tailscale_ip'] = _TAILSCALE_IP_CACHE['ip']
+            else:
+                try:
+                    res = subprocess.run(['tailscale', 'ip', '-4'], capture_output=True, text=True, timeout=2)
+                    ip = res.stdout.strip() if res.returncode == 0 else "Offline"
+                    _TAILSCALE_IP_CACHE = {'ip': ip, 'ts': now_t}
+                    stats['tailscale_ip'] = ip
+                except Exception:
+                    stats['tailscale_ip'] = _TAILSCALE_IP_CACHE.get('ip') or "Offline"
 
             now_t = time.time()
             try:
@@ -1039,6 +1063,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             try:
                 subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
+                global _SERVICES_STATUS_CACHE
+                _SERVICES_STATUS_CACHE['ts'] = 0
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
