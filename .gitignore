@@ -13,3 +13,4 @@ roles_config.json
 
 *.key
 services.local.json
+tmp/

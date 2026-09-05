@@ -721,7 +721,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             }).encode(), "application/json")
 
         elif self.path == '/api/users':
-            ts_users = get_tailscale_users()
+            role = session.get('role', 'viewer')
+            ts_users = [] if role == 'guest' else get_tailscale_users()
             self.send_compressed(json.dumps({
                 "current_user": session,
                 "tailscale_users": ts_users,
@@ -902,6 +903,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps(stats).encode(), "application/json")
             
         elif self.path == '/api/system/tor-exit':
+            role = session.get('role', 'viewer')
+            if role == 'guest':
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Guest access restricted"}')
+                return
+
             try:
                 res = subprocess.run(['sudo', 'iptables', '-t', 'nat', '-L', 'TOR_EXIT'], capture_output=True)
                 active = (res.returncode == 0)
@@ -1106,6 +1115,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 action = 'start' if enable else 'stop'
                 try:
+                    if enable:
+                        # Auto-toggle ON the Tor proxy if not already on
+                        chk_tor = subprocess.run(['systemctl', 'is-active', 'tor'], capture_output=True, text=True)
+                        if chk_tor.stdout.strip() != 'active':
+                            subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
+
                     cmd = f"sudo {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tor_exit_node.sh')} {action}"
                     subprocess.run(cmd, shell=True, check=True)
                     self.send_response(200)

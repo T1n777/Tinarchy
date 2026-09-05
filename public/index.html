@@ -567,7 +567,8 @@
             box-shadow: 0 0 20px rgba(214, 169, 255, 0.25);
         }
 
-        .tor-exit-info { display: flex; align-items: center; gap: 16px; }
+        .tor-exit-info { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+        .tor-exit-text { flex: 1; min-width: 0; }
 
         .tor-icon {
             width: 44px; height: 44px;
@@ -575,7 +576,7 @@
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--tor-border);
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; flex-shrink: 0;
+            font-size: 1.3rem; flex: 0 0 44px;
         }
 
         .tor-exit-info h2 {
@@ -752,6 +753,8 @@
         .toggle-switch {
             width: 46px;
             height: 26px;
+            flex-shrink: 0;
+            touch-action: manipulation;
             background: rgba(255, 255, 255, 0.12);
             border: 1px solid var(--glass-border);
             border-radius: 100px;
@@ -879,6 +882,36 @@
             border: 1px solid var(--glass-border);
             padding: 2px 8px;
             border-radius: 6px;
+        }
+
+        .role-badge {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .role-badge.role-owner {
+            background: rgba(174,158,92,0.2);
+            color: #AE9E5C;
+            border: 1px solid #AE9E5C;
+        }
+        .role-badge.role-admin {
+            background: rgba(78,222,163,0.2);
+            color: var(--online);
+            border: 1px solid var(--online);
+        }
+        .role-badge.role-viewer {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-muted);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-weight: 600;
+        }
         }
 
         .devices-ribbon {
@@ -1187,13 +1220,32 @@
             /* Tor Exit Banner */
             .tor-exit-banner {
                 padding: 12px 16px !important;
-                gap: 10px !important;
+                gap: 12px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+            }
+            .tor-exit-info {
+                gap: 12px !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+            }
+            .tor-icon {
+                width: 38px !important;
+                height: 38px !important;
+                font-size: 1.15rem !important;
+                flex: 0 0 38px !important;
             }
             .tor-exit-info h2 {
                 font-size: 0.92rem !important;
             }
             .tor-exit-info p {
                 font-size: 0.74rem !important;
+                line-height: 1.3 !important;
+            }
+            #tor-exit-btn {
+                flex-shrink: 0 !important;
+                margin-left: 8px !important;
             }
 
             /* Service Cards */
@@ -1330,7 +1382,7 @@
         <div class="tor-exit-banner glass" id="tor-exit-banner">
             <div class="tor-exit-info">
                 <div class="tor-icon">🧅</div>
-                <div>
+                <div class="tor-exit-text">
                     <h2>Global Tor Exit Node <span id="tor-exit-label" style="font-size: 0.72rem; text-transform: uppercase;"></span></h2>
                     <p>Route all Tailscale client traffic through the Tor onion network.</p>
                 </div>
@@ -1635,9 +1687,11 @@
 
         async function toggleTorExit() {
             const btn = document.getElementById('tor-exit-btn');
+            if (!btn || btn.disabled) return;
             const isCurrentlyOn = btn.classList.contains('on');
             const newState = !isCurrentlyOn;
             btn.disabled = true;
+            btn.classList.add('transitioning');
 
             try {
                 const res = await fetch('/api/system/tor-exit', {
@@ -1647,21 +1701,24 @@
                 });
                 if (!res.ok) throw new Error(await res.text());
                 showToast(`Tor exit node ${newState ? 'activated' : 'disabled'}`, 'success');
-                fetchTorExitStatus();
+                await Promise.all([fetchTorExitStatus(), fetchServices()]);
             } catch(e) {
-                showToast(`Tor error: ${e}`, 'error');
+                showToast(`Tor error: ${e.message || e}`, 'error');
             } finally {
+                btn.classList.remove('transitioning');
                 btn.disabled = false;
             }
         }
 
         async function fetchTorExitStatus() {
+            if (CURRENT_USER && CURRENT_USER.role === 'guest') return;
             try {
                 const res = await fetch('/api/system/tor-exit');
                 if(!res.ok) return;
                 const data = await res.json();
                 const btn = document.getElementById('tor-exit-btn');
                 const label = document.getElementById('tor-exit-label');
+                if (!btn || !label) return;
                 if (data.active || data.enabled) {
                     btn.classList.add('on');
                     label.textContent = 'Active';
@@ -1675,12 +1732,14 @@
         }
 
         async function fetchTailnetDevices() {
+            if (CURRENT_USER && CURRENT_USER.role === 'guest') return;
             try {
                 const res = await fetch('/api/users');
                 if (!res.ok) return;
                 const data = await res.json();
                 const tsUsers = data.tailscale_users || [];
                 const ribbon = document.getElementById('devices-ribbon');
+                if (!ribbon) return;
 
                 if (tsUsers.length === 0) {
                     ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); padding:10px 0;">No peer devices discovered.</div>';
@@ -1697,10 +1756,10 @@
                         : `<div class="user-avatar-fallback">${(u.display_name||'U')[0]}</div>`;
                     
                     const roleBadge = u.is_owner 
-                        ? '<span style="font-size:0.65rem; background:rgba(174,158,92,0.2); color:#AE9E5C; border:1px solid #AE9E5C; padding:2px 8px; border-radius:6px; font-weight:700;">👑 Owner</span>'
+                        ? '<span class="role-badge role-owner">👑 Owner</span>'
                         : (u.role === 'admin' 
-                            ? '<span style="font-size:0.65rem; background:rgba(78,222,163,0.2); color:var(--online); border:1px solid var(--online); padding:2px 8px; border-radius:6px; font-weight:700;">🛡️ Admin</span>' 
-                            : '<span style="font-size:0.65rem; background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid rgba(255,255,255,0.1); padding:2px 8px; border-radius:6px;">👁️ Viewer</span>');
+                            ? '<span class="role-badge role-admin">🛡️ Admin</span>' 
+                            : '<span class="role-badge role-viewer">👁️ Viewer</span>');
 
                     let devicesHTML = '';
                     (u.devices || []).forEach(d => {
@@ -1782,12 +1841,21 @@
                     }
                 }
 
-                const torBtn = document.getElementById('tor-exit-btn');
-                if (torBtn && u.role === 'viewer') {
-                    torBtn.disabled = true;
-                    torBtn.title = 'Viewer: Read-only access';
-                    torBtn.style.cursor = 'not-allowed';
-                    torBtn.style.opacity = '0.5';
+                // Guests (Kimi): Remove Tor exit banner & Connected Tailnet Devices
+                if (u.role === 'guest') {
+                    const torBanner = document.getElementById('tor-exit-banner');
+                    if (torBanner) torBanner.remove();
+
+                    const tailnetDrawer = document.getElementById('tailnet-drawer');
+                    if (tailnetDrawer) tailnetDrawer.remove();
+                } else {
+                    const torBtn = document.getElementById('tor-exit-btn');
+                    if (torBtn && u.role === 'viewer') {
+                        torBtn.disabled = true;
+                        torBtn.title = 'Viewer: Read-only access';
+                        torBtn.style.cursor = 'not-allowed';
+                        torBtn.style.opacity = '0.5';
+                    }
                 }
             } catch(e) {}
         }
@@ -1807,10 +1875,12 @@
             await fetchCurrentUser();
             fetchSystemStats();
             fetchServices();
-            fetchTorExitStatus();
-            fetchTailnetDevices();
+            if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
+                fetchTorExitStatus();
+                fetchTailnetDevices();
+                setInterval(fetchTailnetDevices, 10000);
+            }
             setInterval(fetchSystemStats, 2000);
-            setInterval(fetchTailnetDevices, 10000);
         });
     </script>
 </body>
