@@ -9,22 +9,14 @@ server:
   numImageProcessors: 4
   maxArchiveSize: 0
   sources:
-    - path: "/home/tin/drive"
+    - path: "/home/tin"
       name: "drive"
-      config:
-        defaultEnabled: true
-    - path: "/home/tin/Wall"
-      name: "wallpapers"
       config:
         defaultEnabled: true
     - path: "/var/lib/suwayomi/.local/share/Tachidesk/downloads"
       name: "manga"
       config:
-        defaultEnabled: true
-    - path: "/home/tin/storage"
-      name: "storage"
-      config:
-        defaultEnabled: true
+        defaultEnabled: false
 
 auth:
   methods:
