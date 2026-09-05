@@ -842,6 +842,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
             margin-bottom: 12px;
         }
 
@@ -854,6 +855,99 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            min-width: 0;
+        }
+
+        .mesh-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 3px 10px;
+            border-radius: 999px;
+            line-height: 1.3;
+        }
+
+        .role-badge {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            line-height: 1.4;
+        }
+        .role-badge.role-owner {
+            background: rgba(174,158,92,0.2);
+            color: #AE9E5C;
+            border: 1px solid #AE9E5C;
+        }
+        .role-badge.role-admin {
+            background: rgba(78,222,163,0.2);
+            color: var(--online);
+            border: 1px solid var(--online);
+        }
+        .role-badge.role-viewer {
+            background: rgba(255,255,255,0.06);
+            color: var(--text-muted);
+            border: 1px solid rgba(255,255,255,0.1);
+            font-weight: 600;
+        }
+
+        .user-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 6px;
+            margin-top: 2px;
+            gap: 12px;
+        }
+
+        .user-info-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .user-titles {
+            min-width: 0;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .user-display-name {
+            font-weight: 700;
+            color: var(--text);
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-login-name {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-role-container {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
         }
 
         .devices-ribbon {
@@ -1037,6 +1131,35 @@
             .card {
                 padding: 18px !important;
             }
+
+            /* Tailnet Drawer on Mobile */
+            .tailnet-drawer {
+                padding: 16px !important;
+                margin-top: 20px !important;
+            }
+            .drawer-header {
+                gap: 8px !important;
+                margin-bottom: 12px !important;
+            }
+            .drawer-title {
+                font-size: 0.76rem !important;
+                letter-spacing: 0.04em !important;
+            }
+            .mesh-badge {
+                font-size: 0.68rem !important;
+                padding: 2px 8px !important;
+                gap: 5px !important;
+            }
+            .mesh-badge .pulse-beacon {
+                width: 6px !important;
+                height: 6px !important;
+            }
+            .user-display-name {
+                font-size: 0.84rem !important;
+            }
+            .user-login-name {
+                font-size: 0.7rem !important;
+            }
         }
 
         @media (max-width: 380px) {
@@ -1163,9 +1286,11 @@
             <div class="drawer-header">
                 <div class="drawer-title">
                     <span>🌐 Connected Tailnet Devices</span>
-                    <span class="pulse-beacon"></span>
                 </div>
-                <span style="font-size: 0.75rem; color: var(--text-muted);">Encrypted Mesh</span>
+                <div class="mesh-badge">
+                    <span class="pulse-beacon"></span>
+                    <span>Encrypted Mesh</span>
+                </div>
             </div>
             <div class="devices-ribbon" id="devices-ribbon">
                 <div style="font-size: 0.8rem; color: var(--text-muted);">Discovering mesh peers…</div>
@@ -1519,45 +1644,45 @@
                         : `<div style="width:30px; height:30px; border-radius:50%; background:var(--primary); color:#000; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.8rem;">${(u.display_name||'U')[0]}</div>`;
                     
                     const roleBadge = u.is_owner 
-                        ? '<span style="font-size:0.65rem; background:rgba(174,158,92,0.2); color:#AE9E5C; border:1px solid #AE9E5C; padding:2px 8px; border-radius:6px; font-weight:700;">👑 Owner</span>'
+                        ? '<span class="role-badge role-owner">👑 Owner</span>'
                         : (u.role === 'admin' 
-                            ? '<span style="font-size:0.65rem; background:rgba(78,222,163,0.2); color:var(--online); border:1px solid var(--online); padding:2px 8px; border-radius:6px; font-weight:700;">🛡️ Admin</span>' 
-                            : '<span style="font-size:0.65rem; background:rgba(255,255,255,0.06); color:var(--text-muted); border:1px solid rgba(255,255,255,0.1); padding:2px 8px; border-radius:6px;">👁️ Viewer</span>');
+                            ? '<span class="role-badge role-admin">🛡️ Admin</span>' 
+                            : '<span class="role-badge role-viewer">👁️ Viewer</span>');
 
                     let devicesHTML = '';
                     (u.devices || []).forEach(d => {
                         const os = (d.os || '').toLowerCase();
                         const osIcon = os === 'android' ? '📱' : (os === 'linux' ? '🐧' : (os === 'windows' ? '🪟' : '💻'));
-                        const selfTag = d.is_self ? ' <span style="font-size:0.65rem; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; color:var(--text-muted); font-weight:600;">This Server</span>' : '';
-                        const sharedTag = d.is_shared ? ' <span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(105,180,195,0.15); color:var(--primary); font-weight:600; border:1px solid rgba(105,180,195,0.3);">Shared</span>' : '';
+                        const selfTag = d.is_self ? ' <span style="font-size:0.65rem; background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; color:var(--text-muted); font-weight:600; white-space:nowrap;">This Server</span>' : '';
+                        const sharedTag = d.is_shared ? ' <span style="font-size:0.65rem; padding:2px 6px; border-radius:4px; background:rgba(105,180,195,0.15); color:var(--primary); font-weight:600; border:1px solid rgba(105,180,195,0.3); white-space:nowrap;">Shared</span>' : '';
                         const statusDot = d.online 
-                            ? '<span style="display:flex; align-items:center; gap:6px; color:var(--online); font-size:0.75rem; font-weight:600;"><span style="color:var(--online); font-size:0.7rem;">●</span> Online</span>' 
-                            : '<span style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.75rem;"><span style="font-size:0.7rem;">○</span> Offline</span>';
+                            ? '<span style="display:flex; align-items:center; gap:6px; color:var(--online); font-size:0.75rem; font-weight:600; white-space:nowrap;"><span style="color:var(--online); font-size:0.7rem;">●</span> Online</span>' 
+                            : '<span style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size:0.75rem; white-space:nowrap;"><span style="font-size:0.7rem;">○</span> Offline</span>';
 
                         devicesHTML += `
                             <div class="device-row">
-                                <div style="display:flex; align-items:center; gap:12px;">
-                                    <span style="font-size:1.2rem;">${osIcon}</span>
-                                    <div>
-                                        <div style="font-weight:600; color:var(--text); font-size:0.86rem;">${d.name}${selfTag}${sharedTag}</div>
+                                <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                                    <span style="font-size:1.2rem; flex-shrink:0;">${osIcon}</span>
+                                    <div style="min-width:0; flex:1;">
+                                        <div style="font-weight:600; color:var(--text); font-size:0.86rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.name}${selfTag}${sharedTag}</div>
                                         <div style="color:var(--text-muted); font-size:0.75rem; font-family:var(--font-mono);">${d.ip}</div>
                                     </div>
                                 </div>
-                                <div>${statusDot}</div>
+                                <div style="flex-shrink:0; margin-left:8px;">${statusDot}</div>
                             </div>
                         `;
                     });
 
                     userGroup.innerHTML = `
-                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 4px 6px; margin-top: 2px;">
-                            <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="user-group-header">
+                            <div class="user-info-left">
                                 ${avatarHTML}
-                                <div>
-                                    <span style="font-weight:700; color:var(--text); font-size:0.9rem;">${u.display_name}</span>
-                                    <span style="color:var(--text-muted); font-size:0.75rem; margin-left:6px;">${u.login_name}</span>
+                                <div class="user-titles">
+                                    <div class="user-display-name">${u.display_name}</div>
+                                    <div class="user-login-name">${u.login_name}</div>
                                 </div>
                             </div>
-                            <div>${roleBadge}</div>
+                            <div class="user-role-container">${roleBadge}</div>
                         </div>
                         <div style="display:flex; flex-direction:column; gap:6px;">
                             ${devicesHTML}
