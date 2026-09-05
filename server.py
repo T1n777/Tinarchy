@@ -448,7 +448,7 @@ def get_tailscale_users():
                     
                     if not raw_hname or raw_hname == 'device-of-shared-to-user':
                         if is_shared:
-                            h_name = f"Shared Device ({ips[0]})" if ips else "Shared Device"
+                            h_name = "Shared Node"
                         else:
                             h_name = "Device"
                     else:
