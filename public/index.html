@@ -686,10 +686,10 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 12px;
-            align-content: center;
+            align-content: start;
+            margin-top: 0;
         }
-        @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 961px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
         .card {
             aspect-ratio: 2.05 / 1;
@@ -958,31 +958,29 @@
         .toast.success { border-color: var(--online); color: var(--online); }
         .toast.error { border-color: var(--offline); color: var(--offline); }
 
-        /* ─── Dynamic Full-Page Viewport Rescaling (Desktop / Laptop) ─── */
-        @media (min-width: 1024px) and (min-height: 520px) {
+        /* ─── Desktop Parallel Tiles (min-width: 961px) — Fixed Just Below Title ─── */
+        @media (min-width: 961px) {
             html, body {
-                height: 100vh;
-                height: 100dvh;
-                overflow: hidden !important;
+                min-height: 100vh;
+                min-height: 100dvh;
+                overflow-x: hidden;
             }
 
             .container {
-                height: 100vh;
-                height: 100dvh;
-                max-height: 100dvh;
+                min-height: 100vh;
+                min-height: 100dvh;
                 display: flex;
                 flex-direction: column;
-                justify-content: space-between;
-                padding: clamp(6px, 1.2vh, 16px) clamp(16px, 2vw, 36px);
+                justify-content: flex-start;
+                padding: clamp(12px, 2vh, 24px) clamp(16px, 2.5vw, 40px);
                 max-width: min(1560px, 96vw);
                 margin: 0 auto;
                 box-sizing: border-box;
-                overflow: hidden;
             }
 
             .top-nav-wrapper {
                 position: static;
-                margin: 0 0 clamp(4px, 0.8vh, 10px);
+                margin: 0 0 clamp(8px, 1.2vh, 14px);
                 flex-shrink: 0;
             }
 
@@ -990,7 +988,7 @@
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
                 gap: clamp(8px, 1.2vh, 14px);
-                margin: 0 0 clamp(6px, 1vh, 10px);
+                margin: 0 0 clamp(8px, 1.2vh, 14px);
                 flex-shrink: 0;
             }
 
@@ -1014,7 +1012,7 @@
 
             .tor-exit-banner {
                 padding: clamp(6px, 1vh, 12px) clamp(12px, 1.4vw, 20px);
-                margin-bottom: clamp(6px, 1vh, 10px);
+                margin-bottom: clamp(8px, 1.2vh, 14px);
                 flex-shrink: 0;
             }
 
@@ -1036,20 +1034,20 @@
 
             .section-title {
                 font-size: clamp(0.95rem, 1.1vw, 1.15rem);
-                margin-bottom: clamp(4px, 0.8vh, 8px);
+                margin-top: 0;
+                margin-bottom: clamp(8px, 1.2vh, 14px);
                 flex-shrink: 0;
             }
 
+            /* Tiles start IMMEDIATELY below title */
             .grid {
-                flex: 1;
-                min-height: 0;
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                gap: clamp(8px, 1.3vh, 16px);
-                align-content: center;
-                justify-content: center;
-                margin: 0 auto;
+                gap: clamp(10px, 1.4vh, 16px);
+                margin-top: 0;
+                margin-bottom: 24px;
                 width: 100%;
+                align-content: start;
             }
 
             .card {
@@ -1060,7 +1058,7 @@
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                padding: clamp(10px, 1.4vh, 18px) clamp(14px, 1.4vw, 22px);
+                padding: clamp(12px, 1.5vh, 18px) clamp(14px, 1.4vw, 22px);
                 box-sizing: border-box;
             }
 
@@ -1121,13 +1119,12 @@
             }
         }
 
-        /* ─── Tablet ("Tab") Rules (Min: 641px, Max: 1023px) — Firefox & Chrome ─── */
-        @media (min-width: 641px) and (max-width: 1023px) {
+        /* ─── List Tiles (When Width is Less: max-width: 960px) ─── */
+        @media (max-width: 960px) {
             html, body {
-                height: 100vh;
-                height: 100svh;
-                height: 100dvh;
-                overflow: hidden !important;
+                min-height: 100vh;
+                min-height: 100dvh;
+                overflow-x: hidden;
                 scrollbar-width: none !important;
                 -ms-overflow-style: none !important;
             }
@@ -1138,196 +1135,240 @@
             }
 
             .container {
-                height: 100vh;
-                height: 100svh;
-                height: 100dvh;
-                max-height: 100dvh;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                padding: clamp(6px, 1.2vh, 12px) clamp(12px, 1.8vw, 24px);
-                max-width: 100%;
-                box-sizing: border-box;
-                overflow: hidden;
+                min-height: 100vh;
+                min-height: 100dvh;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                padding: clamp(8px, 1.4vh, 16px) clamp(12px, 2.5vw, 24px) !important;
+                max-width: 100% !important;
+                box-sizing: border-box !important;
             }
 
             .top-nav-wrapper {
-                position: static;
-                margin: 0 0 clamp(4px, 0.8vh, 8px);
-                flex-shrink: 0;
+                position: static !important;
+                margin: 0 0 clamp(6px, 1vh, 10px) !important;
+                flex-shrink: 0 !important;
             }
 
             .stats-bar {
-                display: grid;
+                display: grid !important;
                 grid-template-columns: repeat(5, 1fr) !important;
-                gap: clamp(6px, 1vh, 10px) !important;
-                margin: 0 0 clamp(4px, 0.8vh, 8px) !important;
-                flex-shrink: 0;
+                gap: clamp(4px, 0.8vh, 8px) !important;
+                margin: 0 0 clamp(6px, 1vh, 10px) !important;
+                flex-shrink: 0 !important;
             }
 
             .stat-card {
-                padding: clamp(6px, 1vh, 10px) clamp(6px, 1vw, 12px) !important;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                min-height: 0;
-            }
-
-            .stat-card .stat-label {
-                font-size: clamp(0.62rem, 0.75vw, 0.72rem);
-                margin-bottom: 2px;
-            }
-
-            .stat-card .stat-value {
-                font-size: clamp(0.85rem, 1vw, 1.05rem);
-                margin-bottom: 4px;
+                padding: clamp(4px, 0.8vh, 8px) clamp(4px, 0.8vw, 10px) !important;
+                min-height: 0 !important;
             }
 
             .tor-exit-banner {
-                padding: clamp(5px, 0.8vh, 10px) clamp(10px, 1.2vw, 16px);
-                margin-bottom: clamp(4px, 0.8vh, 8px);
-                flex-shrink: 0;
-            }
-
-            .tor-icon {
-                width: 30px;
-                height: 30px;
-                flex: 0 0 30px;
-                font-size: 1rem;
-            }
-
-            .tor-exit-info h2 {
-                font-size: 0.86rem;
-            }
-
-            .tor-exit-info p {
-                font-size: 0.72rem;
+                padding: clamp(6px, 0.9vh, 10px) clamp(10px, 1.4vw, 16px) !important;
+                margin-bottom: clamp(6px, 1vh, 10px) !important;
+                flex-shrink: 0 !important;
             }
 
             .section-title {
-                font-size: 0.92rem;
-                margin-bottom: clamp(3px, 0.6vh, 6px);
-                flex-shrink: 0;
+                font-size: clamp(0.88rem, 1vw, 1rem) !important;
+                margin-top: 0 !important;
+                margin-bottom: clamp(6px, 0.9vh, 10px) !important;
+                flex-shrink: 0 !important;
             }
 
+            /* Single-column List of tiles, starting directly below title */
             .grid {
-                flex: 1;
-                min-height: 0;
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important;
-                align-content: center !important;
-                justify-content: center !important;
-                gap: clamp(6px, 1vh, 12px) !important;
-                margin: 0 auto !important;
-                width: 100% !important;
-            }
-
-            .card {
-                aspect-ratio: 2.05 / 1 !important;
-                width: 100% !important;
-                height: auto !important;
-                min-height: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
-                justify-content: space-between !important;
-                padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1.2vw, 16px) !important;
-                box-sizing: border-box !important;
-            }
-
-            .service-details p {
-                font-size: 0.74rem;
-                line-height: 1.3;
-                display: -webkit-box;
-                -webkit-line-clamp: 1;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-        }
-
-        /* ─── Separate Phone Rules (Max-Width: 640px) — Fill Screen Without Scrollbar ─── */
-        @media (max-width: 640px) {
-            html, body {
-                height: 100vh;
-                height: 100svh;
-                height: 100dvh;
-                overflow: hidden !important;
-                scrollbar-width: none !important;
-                -ms-overflow-style: none !important;
-            }
-            html::-webkit-scrollbar, body::-webkit-scrollbar {
-                display: none !important;
-                width: 0 !important;
-                height: 0 !important;
-            }
-
-            .container {
-                height: 100vh !important;
-                height: 100svh !important;
-                height: 100dvh !important;
-                max-height: 100dvh !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-                padding: clamp(3px, 0.8vh, 6px) clamp(6px, 2vw, 12px) !important;
-                box-sizing: border-box !important;
-                overflow: hidden !important;
+                gap: clamp(6px, 0.9vh, 10px) !important;
+                margin-top: 0 !important;
+                margin-bottom: 20px !important;
                 width: 100% !important;
                 max-width: 100% !important;
+                flex: none !important;
+            }
+
+            /* Horizontal List Tile */
+            .card {
+                aspect-ratio: auto !important;
+                height: auto !important;
+                min-height: 52px !important;
+                width: 100% !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: clamp(8px, 1vh, 12px) clamp(12px, 1.6vw, 18px) !important;
+                border-radius: 12px !important;
+                box-sizing: border-box !important;
+                gap: clamp(8px, 1.2vw, 14px) !important;
+                transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s, border-color 0.2s !important;
+            }
+
+            .card:hover {
+                transform: translateX(4px) !important;
+                border-color: var(--primary) !important;
+                box-shadow: var(--card-shadow), 0 0 16px var(--primary-glow) !important;
+            }
+
+            /* Flatten header & footer */
+            .card-header {
+                display: contents !important;
+            }
+
+            .card-footer {
+                display: contents !important;
+            }
+
+            /* 1. Leading Service Icon */
+            .service-icon {
+                order: 1 !important;
+                width: clamp(36px, 4.2vh, 42px) !important;
+                height: clamp(36px, 4.2vh, 42px) !important;
+                min-width: clamp(36px, 4.2vh, 42px) !important;
+                font-size: clamp(1.2rem, 1.4vw, 1.4rem) !important;
+                border-radius: 10px !important;
+                flex-shrink: 0 !important;
                 margin: 0 !important;
             }
 
-            /* Top Nav Floating Pill on Mobile */
-            .top-nav-wrapper {
-                position: static !important;
-                margin: 0 0 clamp(2px, 0.5vh, 5px) !important;
-                width: 100% !important;
+            /* 2. Middle Service Details (Title + Description) */
+            .service-details {
+                order: 2 !important;
+                flex: 1 !important;
+                min-width: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                overflow: hidden !important;
+                margin: 0 !important;
+                text-align: left !important;
+            }
+
+            .service-details h2 {
+                font-size: clamp(0.9rem, 1.1vw, 1.05rem) !important;
+                font-weight: 700 !important;
+                margin-bottom: 2px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                color: var(--text) !important;
+            }
+
+            .service-details p {
+                font-size: clamp(0.74rem, 0.82vw, 0.82rem) !important;
+                color: var(--text-muted) !important;
+                margin: 0 !important;
+                line-height: 1.3 !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                display: block !important;
+            }
+
+            .systemd-name {
+                display: none !important;
+            }
+
+            /* 3. Status Badge */
+            .status-badge {
+                order: 3 !important;
+                font-size: clamp(0.64rem, 0.72vw, 0.72rem) !important;
+                padding: 2px clamp(6px, 0.8vw, 10px) !important;
+                border-radius: 999px !important;
+                letter-spacing: 0.04em !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
+            }
+
+            /* 4. Port / Launch Pill */
+            .port {
+                order: 4 !important;
+                font-size: clamp(0.68rem, 0.76vw, 0.76rem) !important;
+                padding: 2px clamp(6px, 0.7vw, 9px) !important;
+                border-radius: 6px !important;
+                flex-shrink: 0 !important;
+                white-space: nowrap !important;
+                margin: 0 !important;
+            }
+
+            /* 5. Trailing Action Controls */
+            .actions {
+                order: 5 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: clamp(6px, 0.8vw, 10px) !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
+            }
+
+            .toggle-switch {
+                width: 38px !important;
+                height: 20px !important;
                 flex-shrink: 0 !important;
             }
+
+            .toggle-switch::after {
+                width: 16px !important;
+                height: 16px !important;
+                top: 1px !important;
+                left: 1px !important;
+            }
+
+            .toggle-switch.on::after {
+                transform: translateX(18px) !important;
+            }
+        }
+
+        /* ─── Compact Controls and Fine-Tuning for Mobile Phone (max-width: 640px) ─── */
+        @media (max-width: 640px) {
+            .container {
+                padding: clamp(4px, 0.8vh, 8px) clamp(8px, 2vw, 14px) !important;
+            }
+
+            .top-nav-wrapper {
+                margin-bottom: 4px !important;
+            }
+
             .top-nav {
-                width: 100% !important;
-                max-width: 100% !important;
                 border-radius: 999px !important;
                 padding: 3px 8px !important;
                 gap: 6px !important;
-                justify-content: space-between !important;
-                box-sizing: border-box !important;
             }
+
             .top-nav .brand {
                 font-size: 0.9rem !important;
                 gap: 5px !important;
-                flex-shrink: 1 !important;
-                min-width: 0 !important;
             }
+
             .top-nav .brand span:nth-child(2) {
                 max-width: clamp(100px, 36vw, 180px) !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
+
             .top-nav .meta {
                 display: none !important;
             }
-            .nav-actions {
-                display: flex !important;
-                gap: 5px !important;
-                align-items: center !important;
-                flex-shrink: 0 !important;
-            }
+
             #nav-user-pill {
                 padding: 0 !important;
                 background: transparent !important;
                 border: none !important;
                 gap: 0 !important;
             }
-            #nav-user-name,
-            #nav-user-role {
+
+            #nav-user-name, #nav-user-role {
                 display: none !important;
             }
+
             #nav-user-avatar {
                 width: 26px !important;
                 height: 26px !important;
-                box-shadow: 0 0 0 1.5px var(--glass-border) !important;
             }
+
             .nav-btn {
                 width: 28px !important;
                 height: 28px !important;
@@ -1335,213 +1376,131 @@
                 padding: 0 !important;
                 border-radius: 50% !important;
                 justify-content: center !important;
-                font-size: 0.82rem !important;
             }
+
             .nav-btn-text {
                 display: none !important;
             }
+
             .nav-btn-icon {
                 display: inline-flex !important;
                 font-size: 0.9rem !important;
-                line-height: 1 !important;
             }
 
-            /* Stats Bar on Phone: 5 columns in 1 single row */
             .stats-bar {
-                display: grid !important;
-                grid-template-columns: repeat(5, 1fr) !important;
                 gap: 3px !important;
-                margin: 0 0 clamp(2px, 0.5vh, 5px) !important;
-                flex-shrink: 0 !important;
+                margin-bottom: 4px !important;
             }
+
             .stat-card {
-                padding: clamp(2px, 0.4vh, 5px) 2px !important;
+                padding: 3px 2px !important;
                 border-radius: 8px !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-                min-width: 0 !important;
-                min-height: 0 !important;
-                overflow: hidden !important;
-                text-align: center !important;
             }
+
             .stat-card .stat-label {
                 font-size: 0.52rem !important;
-                margin-bottom: 1px !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
             }
+
             .stat-value {
                 font-size: clamp(0.66rem, 2.2vw, 0.82rem) !important;
-                margin-bottom: 1px !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
             }
-            .stat-card .progress-bar {
-                height: 2px !important;
-            }
-            .drive-sync-val {
-                justify-content: center !important;
-                gap: 3px !important;
-                margin-bottom: 1px !important;
-            }
-            .drive-sync-sub {
-                display: none !important;
-            }
-            .drive-sync-btn {
-                padding: 2px 4px !important;
-                font-size: 0.62rem !important;
-                margin-top: 1px !important;
-                border-radius: 4px !important;
-                width: 100% !important;
-            }
-            #sync-btn-label {
+
+            .drive-sync-sub, #sync-btn-label {
                 display: none !important;
             }
 
-            /* Tor Exit Banner */
             .tor-exit-banner {
-                padding: clamp(3px, 0.5vh, 5px) clamp(6px, 1.5vw, 10px) !important;
-                margin-bottom: clamp(2px, 0.5vh, 5px) !important;
-                border-radius: 10px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                flex-shrink: 0 !important;
+                padding: 4px 8px !important;
+                margin-bottom: 4px !important;
             }
-            .tor-exit-info {
-                gap: 8px !important;
-                flex: 1 !important;
-                min-width: 0 !important;
-            }
+
             .tor-icon {
                 width: 24px !important;
                 height: 24px !important;
                 flex: 0 0 24px !important;
                 font-size: 0.85rem !important;
-                border-radius: 6px !important;
             }
+
             .tor-exit-info h2 {
                 font-size: 0.74rem !important;
-                margin-bottom: 0 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
             }
+
             .tor-exit-info p {
                 display: none !important;
             }
+
             #tor-exit-btn {
-                width: 34px !important;
+                width: 32px !important;
                 height: 18px !important;
-                flex-shrink: 0 !important;
             }
+
             #tor-exit-btn::after {
-                top: 1px !important;
-                left: 1px !important;
                 width: 14px !important;
                 height: 14px !important;
-            }
-            #tor-exit-btn.on::after {
-                transform: translateX(16px) !important;
+                top: 1px !important;
+                left: 1px !important;
             }
 
-            /* Section Title */
+            #tor-exit-btn.on::after {
+                transform: translateX(14px) !important;
+            }
+
             .section-title {
                 font-size: 0.78rem !important;
-                margin-bottom: clamp(2px, 0.4vh, 4px) !important;
-                flex-shrink: 0 !important;
+                margin-bottom: 4px !important;
             }
 
-            /* Service Cards: 2 columns, aspect-ratio 2.05:1 */
             .grid {
-                flex: 1 !important;
-                min-height: 0 !important;
-                display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
-                align-content: center !important;
-                justify-content: center !important;
-                gap: clamp(4px, 0.8vh, 8px) !important;
-                margin: 0 auto !important;
-                width: 100% !important;
+                gap: 5px !important;
             }
+
+            /* Compact Phone List Tile */
             .card {
-                aspect-ratio: 2.05 / 1 !important;
-                width: 100% !important;
-                height: auto !important;
-                min-height: 0 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: space-between !important;
-                padding: clamp(4px, 0.8vh, 8px) clamp(6px, 1.5vw, 10px) !important;
-                border-radius: 8px !important;
-                box-sizing: border-box !important;
-                overflow: hidden !important;
+                padding: 6px 10px !important;
+                min-height: 44px !important;
+                border-radius: 10px !important;
+                gap: 8px !important;
             }
-            .card-header {
-                margin-bottom: 2px !important;
-                flex-shrink: 0 !important;
-            }
+
             .service-icon {
-                width: 22px !important;
-                height: 22px !important;
-                font-size: 0.88rem !important;
-                border-radius: 5px !important;
+                width: 30px !important;
+                height: 30px !important;
+                min-width: 30px !important;
+                font-size: 1.05rem !important;
+                border-radius: 8px !important;
             }
-            .status-badge {
-                font-size: 0.55rem !important;
-                padding: 1px 4px !important;
-                letter-spacing: 0 !important;
-            }
-            .service-details {
-                flex: 1 !important;
-                min-height: 0 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                overflow: hidden !important;
-            }
+
             .service-details h2 {
-                font-size: clamp(0.74rem, 2.6vw, 0.84rem) !important;
-                margin-bottom: 0 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
+                font-size: 0.82rem !important;
             }
-            /* Description removed on phone to fit screen without scrollbar */
+
             .service-details p {
                 display: none !important;
             }
-            .systemd-name {
+
+            .status-badge {
+                font-size: 0.58rem !important;
+                padding: 1px 5px !important;
+            }
+
+            .port {
                 display: none !important;
             }
-            .card-footer {
-                padding-top: clamp(2px, 0.4vh, 4px) !important;
-                border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
-                flex-shrink: 0 !important;
-            }
-            .port {
-                font-size: 0.6rem !important;
-                padding: 1px 3px !important;
-                border-radius: 3px !important;
-            }
-            .actions {
-                gap: 4px !important;
-            }
+
             .toggle-switch {
-                width: 34px !important;
+                width: 32px !important;
                 height: 18px !important;
             }
+
             .toggle-switch::after {
-                top: 1px !important;
-                left: 1px !important;
                 width: 14px !important;
                 height: 14px !important;
+                top: 1px !important;
+                left: 1px !important;
             }
+
             .toggle-switch.on::after {
-                transform: translateX(16px) !important;
+                transform: translateX(14px) !important;
             }
         }
     </style>
@@ -2044,60 +2003,37 @@
             if (!grid || !container) return;
             const count = typeof serviceCount === 'number' ? serviceCount : (grid.children.length || 6);
             const w = window.innerWidth;
-            const h = window.innerHeight;
 
-            // Determine columns based on device width & service count
-            let cols = 3;
-            if (w <= 640) {
-                cols = 2;
-            } else if (w <= 1023) {
-                cols = count <= 4 ? 2 : 3;
-            } else {
-                cols = count <= 2 ? count : 3;
-            }
-
-            const rows = Math.max(1, Math.ceil(count / cols));
-            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-            grid.style.gridTemplateRows = ''; // Allow aspect-ratio: 2.05 / 1 to strictly control height!
-
-            // Classic landscape aspect ratio: width / height = 2.05
-            const AR = 2.05;
-
-            // Dynamic scaling: If viewport height is constrained, cap grid width so tiles scale
-            // down proportionally without ever clipping, overflowing, or stretching vertically!
-            const nav = document.querySelector('.top-nav-wrapper');
-            const stats = document.querySelector('.stats-bar');
-            const tor = document.querySelector('.tor-exit-banner');
-            const title = document.querySelector('.section-title');
-
-            const navH = nav ? (nav.offsetHeight + parseFloat(getComputedStyle(nav).marginBottom || 0)) : 0;
-            const statsH = stats ? (stats.offsetHeight + parseFloat(getComputedStyle(stats).marginBottom || 0)) : 0;
-            const torH = tor ? (tor.offsetHeight + parseFloat(getComputedStyle(tor).marginBottom || 0)) : 0;
-            const titleH = title ? (title.offsetHeight + parseFloat(getComputedStyle(title).marginBottom || 0)) : 0;
-
-            const cStyle = getComputedStyle(container);
-            const padY = parseFloat(cStyle.paddingTop || 0) + parseFloat(cStyle.paddingBottom || 0);
-
-            const gap = w <= 640 ? 6 : (w <= 1023 ? 10 : 14);
-            const availH = h - (navH + statsH + torH + titleH + padY + 14);
-
-            if (availH > 0 && rows > 0) {
-                const minCardH = w <= 640 ? 68 : 120;
-                const maxCardH = Math.max(minCardH, (availH - (rows - 1) * gap) / rows);
-                const maxCardW = maxCardH * AR;
-                const maxGridW = cols * maxCardW + (cols - 1) * gap;
-                grid.style.maxWidth = `${Math.floor(maxGridW)}px`;
-                grid.style.margin = '0 auto';
+            if (w <= 960) {
+                // List tiles mode when width is less (1 column, full-width rows)
+                grid.style.display = 'flex';
+                grid.style.flexDirection = 'column';
+                grid.style.gridTemplateColumns = '';
+                grid.style.gridTemplateRows = '';
+                grid.style.maxWidth = '100%';
+                grid.style.margin = '0';
                 grid.style.width = '100%';
             } else {
-                grid.style.maxWidth = '';
+                // Desktop parallel tiles (3 columns, fixed directly below title)
+                grid.style.display = 'grid';
+                grid.style.flexDirection = '';
+                const cols = (count <= 2) ? count : 3;
+                grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                grid.style.gridTemplateRows = '';
+                grid.style.maxWidth = '100%';
+                grid.style.margin = '0 auto';
+                grid.style.width = '100%';
             }
         }
 
         function adjustViewportFit() {
-            document.documentElement.style.overflow = 'hidden';
-            document.body.style.overflow = 'hidden';
             updateGridLayout();
+            const c = document.querySelector('.container');
+            if (c) {
+                const fits = window.innerHeight >= c.scrollHeight;
+                document.documentElement.style.overflowY = fits ? 'hidden' : 'auto';
+                document.body.style.overflowY = fits ? 'hidden' : 'auto';
+            }
         }
         window.addEventListener('resize', adjustViewportFit);
 
