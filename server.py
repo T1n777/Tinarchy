@@ -615,6 +615,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return True
 
+        if clean_path == '/settings':
+            self.send_response(302)
+            self.send_header('Location', '/settings.html')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
         if clean_path in ['/tor', '/tor-proxy', '/socks5', '/guides/tor', '/guides/tor.html']:
             return self.serve_guide_page('tor.html')
 
