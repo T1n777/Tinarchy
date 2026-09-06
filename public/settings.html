@@ -457,31 +457,10 @@
             <main class="content-panel glass">
                 <!-- 🌐 Tailnet Access & Roles Tab -->
                 <div id="tab-users" class="tab-pane active">
-                    <!-- Current User Identity Banner -->
-                    <div id="current-user-banner" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); padding: 18px 24px; border-radius: 16px; margin-bottom: 24px;">
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <div id="current-user-avatar" style="width: 46px; height: 46px; border-radius: 50%; background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; overflow: hidden; border: 2px solid var(--primary);">
-                                Y
-                            </div>
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <h3 id="current-user-name" style="font-size: 1.1rem; font-weight: 800; color: var(--text);">Owner</h3>
-                                    <span id="current-user-role-badge" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 100px; background: rgba(174, 158, 92, 0.2); color: #AE9E5C; border: 1px solid #AE9E5C;">👑 Owner</span>
-                                </div>
-                                <div id="current-user-email" style="font-size: 0.82rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">loading...</div>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <span style="font-size: 0.75rem; background: rgba(78, 222, 163, 0.15); color: var(--online); border: 1px solid var(--online); padding: 4px 10px; border-radius: 100px; font-weight: 700;">Tailscale SSO Active</span>
-                        </div>
-                    </div>
-
                     <!-- Tailscale Network Members & Permissions -->
-                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
                         <span>Tailnet Members & Role Permissions</span>
-                        <span id="role-manage-badge" style="font-size: 0.75rem; background: rgba(105, 180, 195, 0.15); color: var(--primary); border: 1px solid var(--primary); padding: 3px 10px; border-radius: 6px; font-weight: 700;">👑 Owner Privileges Active</span>
                     </div>
-                    <p class="section-sub">Users authenticated automatically via Tailscale WireGuard. As Owner, you can assign Admin or Viewer roles to members.</p>
                     
                     <div id="tailscale-users-container" style="display: grid; flex-direction: column; gap: 16px; margin-bottom: 24px;">
                         <div style="color: var(--text-muted); font-size: 0.85rem;">Discovering Tailscale peers…</div>
@@ -828,11 +807,29 @@
                 container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.85rem;">No remote Tailscale peers active.</div>';
                 return;
             }
+
+            // Order strictly based on Role (Owner -> Admin -> Viewer) then Name (A-Z)
+            const roleOrder = { 'owner': 0, 'admin': 1, 'viewer': 2 };
+            tsUsers.sort((a, b) => {
+                const rA = roleOrder[a.role] ?? 99;
+                const rB = roleOrder[b.role] ?? 99;
+                if (rA !== rB) return rA - rB;
+                const nameA = (a.display_name || a.login_name || '').toLowerCase();
+                const nameB = (b.display_name || b.login_name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
             container.innerHTML = '';
             tsUsers.forEach(u => {
+                const isCurrent = currentUser && (
+                    (u.login_name && currentUser.login_name && u.login_name.toLowerCase() === currentUser.login_name.toLowerCase()) ||
+                    (u.id && currentUser.user_id && String(u.id) === String(currentUser.user_id)) ||
+                    (u.display_name && currentUser.display_name && u.display_name === currentUser.display_name)
+                );
+
                 const card = document.createElement('div');
                 card.className = 'glass';
-                card.style.cssText = 'padding: 18px; border-radius: 14px; border: 1px solid var(--glass-border); display:flex; flex-direction:column; justify-content:space-between;';
+                card.style.cssText = `padding: 18px; border-radius: 14px; border: 1px solid ${isCurrent ? 'var(--primary)' : 'var(--glass-border)'}; display:flex; flex-direction:column; justify-content:space-between; ${isCurrent ? 'box-shadow: 0 0 16px var(--primary-glow);' : ''}`;
                 
                 let devicesHTML = '';
                 (u.devices || []).forEach(d => {
@@ -944,7 +941,10 @@
                             <div style="display: flex; align-items: center; gap: 12px;">
                                 ${avatarHTML}
                                 <div>
-                                    <div style="font-weight: 700; font-size: 1rem; color: var(--text);">${u.display_name}</div>
+                                    <div style="font-weight: 700; font-size: 1rem; color: var(--text); display: flex; align-items: center; gap: 8px;">
+                                        ${u.display_name}
+                                        ${isCurrent ? '<span style="font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em; background:rgba(78,222,163,0.15); color:var(--online); border:1px solid rgba(78,222,163,0.4); padding:2px 8px; border-radius:100px;">You</span>' : ''}
+                                    </div>
                                     <div style="color: var(--text-muted); font-size: 0.76rem; font-family: var(--font-mono);">${u.login_name}</div>
                                 </div>
                             </div>
@@ -1024,41 +1024,6 @@
                 
                 CACHED_USERS = data.tailscale_users || [];
                 CACHED_SERVICES = data.available_services || [];
-
-                // Update Current User Banner
-                const nameEl = document.getElementById('current-user-name');
-                const emailEl = document.getElementById('current-user-email');
-                const avatarEl = document.getElementById('current-user-avatar');
-                const badgeEl = document.getElementById('current-user-role-badge');
-                
-                if (nameEl) nameEl.textContent = cur.display_name || 'Tailscale User';
-                if (emailEl) emailEl.textContent = cur.login_name || 'Authenticated via WireGuard';
-                if (avatarEl && cur.avatar) {
-                    avatarEl.innerHTML = `<img src="${cur.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
-                }
-                if (badgeEl) {
-                    if (cur.role === 'owner') {
-                        badgeEl.textContent = '👑 Owner';
-                        badgeEl.style.color = '#AE9E5C';
-                        badgeEl.style.borderColor = '#AE9E5C';
-                        badgeEl.style.background = 'rgba(174, 158, 92, 0.2)';
-                    } else if (cur.role === 'admin') {
-                        badgeEl.textContent = '🛡️ Admin';
-                        badgeEl.style.color = 'var(--online)';
-                        badgeEl.style.borderColor = 'var(--online)';
-                        badgeEl.style.background = 'rgba(78, 222, 163, 0.2)';
-                    } else {
-                        badgeEl.textContent = '👁️ Viewer';
-                        badgeEl.style.color = 'var(--text-muted)';
-                        badgeEl.style.borderColor = 'rgba(255,255,255,0.2)';
-                        badgeEl.style.background = 'rgba(255,255,255,0.06)';
-                    }
-                }
-
-                const roleBadge = document.getElementById('role-manage-badge');
-                if (roleBadge) {
-                    roleBadge.textContent = cur.role === 'owner' ? '👑 Owner Privileges Active' : (cur.role === 'admin' ? '🛡️ Admin Privileges Active' : '👁️ Read-Only Mode');
-                }
 
                 renderTailscaleUsers(
                     CACHED_USERS,

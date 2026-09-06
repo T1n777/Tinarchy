@@ -524,6 +524,11 @@ def get_tailscale_users():
                 'devices': user_devices
             })
             
+        role_priority = {'owner': 0, 'admin': 1, 'viewer': 2}
+        ts_users.sort(key=lambda u: (
+            role_priority.get(u.get('role', 'viewer'), 99),
+            (u.get('display_name') or u.get('login_name') or '').lower()
+        ))
         return ts_users
     except Exception as e:
         print(f"Tailscale status error: {e}")
