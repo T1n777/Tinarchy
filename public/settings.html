@@ -446,17 +446,57 @@
 
         <div class="settings-layout">
             <aside class="sidebar glass">
-                <button class="tab-btn active" onclick="switchTab('appearance', this)">
-                    <span>🎨</span> Appearance
-                </button>
-                <button class="tab-btn" onclick="switchTab('users', this)">
+                <button class="tab-btn active" onclick="switchTab('users', this)">
                     <span>👥</span> Users
+                </button>
+                <button class="tab-btn" onclick="switchTab('appearance', this)">
+                    <span>🎨</span> Appearance
                 </button>
             </aside>
 
             <main class="content-panel glass">
+                <!-- 🌐 Tailnet Access & Roles Tab -->
+                <div id="tab-users" class="tab-pane active">
+                    <!-- Current User Identity Banner -->
+                    <div id="current-user-banner" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); padding: 18px 24px; border-radius: 16px; margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <div id="current-user-avatar" style="width: 46px; height: 46px; border-radius: 50%; background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; overflow: hidden; border: 2px solid var(--primary);">
+                                Y
+                            </div>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <h3 id="current-user-name" style="font-size: 1.1rem; font-weight: 800; color: var(--text);">Owner</h3>
+                                    <span id="current-user-role-badge" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 100px; background: rgba(174, 158, 92, 0.2); color: #AE9E5C; border: 1px solid #AE9E5C;">👑 Owner</span>
+                                </div>
+                                <div id="current-user-email" style="font-size: 0.82rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">loading...</div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.75rem; background: rgba(78, 222, 163, 0.15); color: var(--online); border: 1px solid var(--online); padding: 4px 10px; border-radius: 100px; font-weight: 700;">Tailscale SSO Active</span>
+                        </div>
+                    </div>
+
+                    <!-- Tailscale Network Members & Permissions -->
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Tailnet Members & Role Permissions</span>
+                        <span id="role-manage-badge" style="font-size: 0.75rem; background: rgba(105, 180, 195, 0.15); color: var(--primary); border: 1px solid var(--primary); padding: 3px 10px; border-radius: 6px; font-weight: 700;">👑 Owner Privileges Active</span>
+                    </div>
+                    <p class="section-sub">Users authenticated automatically via Tailscale WireGuard. As Owner, you can assign Admin or Viewer roles to members.</p>
+                    
+                    <div id="tailscale-users-container" style="display: grid; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">Discovering Tailscale peers…</div>
+                    </div>
+
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+                        <strong style="color: var(--text);">Role Hierarchy:</strong><br>
+                        • <strong>👑 Owner:</strong> Immutable full control; exclusively manages user permissions and server branding.<br>
+                        • <strong>🛡️ Admin:</strong> Can start/stop background services, toggle Tor exit routing, and upload wallpapers.<br>
+                        • <strong>👁️ Viewer:</strong> Read-only access; can view telemetry and launch application web links.
+                    </div>
+                </div>
+
                 <!-- 🎨 Appearance Tab -->
-                <div id="tab-appearance" class="tab-pane active">
+                <div id="tab-appearance" class="tab-pane">
                     <div class="section-header">Theme</div>
                     <p class="section-sub">Choose a visual style for this device. Saved locally.</p>
                     <div class="theme-cards">
@@ -540,46 +580,6 @@
                     <p class="section-sub">Click any wallpaper to apply it. The server automatically runs Pywal to adapt all accent colors!</p>
                     <div id="wallpaper-grid-wrap">
                         <div style="color: var(--text-muted); font-size: 0.85rem;">Loading wallpapers…</div>
-                    </div>
-                </div>
-
-                <!-- 🌐 Tailnet Access & Roles Tab -->
-                <div id="tab-users" class="tab-pane">
-                    <!-- Current User Identity Banner -->
-                    <div id="current-user-banner" style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); padding: 18px 24px; border-radius: 16px; margin-bottom: 24px;">
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <div id="current-user-avatar" style="width: 46px; height: 46px; border-radius: 50%; background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; overflow: hidden; border: 2px solid var(--primary);">
-                                Y
-                            </div>
-                            <div>
-                                <div style="display: flex; align-items: center; gap: 10px;">
-                                    <h3 id="current-user-name" style="font-size: 1.1rem; font-weight: 800; color: var(--text);">Owner</h3>
-                                    <span id="current-user-role-badge" style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 100px; background: rgba(174, 158, 92, 0.2); color: #AE9E5C; border: 1px solid #AE9E5C;">👑 Owner</span>
-                                </div>
-                                <div id="current-user-email" style="font-size: 0.82rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">loading...</div>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <span style="font-size: 0.75rem; background: rgba(78, 222, 163, 0.15); color: var(--online); border: 1px solid var(--online); padding: 4px 10px; border-radius: 100px; font-weight: 700;">Tailscale SSO Active</span>
-                        </div>
-                    </div>
-
-                    <!-- Tailscale Network Members & Permissions -->
-                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Tailnet Members & Role Permissions</span>
-                        <span id="role-manage-badge" style="font-size: 0.75rem; background: rgba(105, 180, 195, 0.15); color: var(--primary); border: 1px solid var(--primary); padding: 3px 10px; border-radius: 6px; font-weight: 700;">👑 Owner Privileges Active</span>
-                    </div>
-                    <p class="section-sub">Users authenticated automatically via Tailscale WireGuard. As Owner, you can assign Admin or Viewer roles to members.</p>
-                    
-                    <div id="tailscale-users-container" style="display: grid; flex-direction: column; gap: 16px; margin-bottom: 24px;">
-                        <div style="color: var(--text-muted); font-size: 0.85rem;">Discovering Tailscale peers…</div>
-                    </div>
-
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
-                        <strong style="color: var(--text);">Role Hierarchy:</strong><br>
-                        • <strong>👑 Owner:</strong> Immutable full control; exclusively manages user permissions and server branding.<br>
-                        • <strong>🛡️ Admin:</strong> Can start/stop background services, toggle Tor exit routing, and upload wallpapers.<br>
-                        • <strong>👁️ Viewer:</strong> Read-only access; can view telemetry and launch application web links.
                     </div>
                 </div>
             </main>

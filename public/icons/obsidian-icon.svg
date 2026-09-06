@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="obs-p1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="obs-p2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a5b4fc" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+    <linearGradient id="obs-p3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4338ca" />
+      <stop offset="100%" stop-color="#312e81" />
+    </linearGradient>
+    <filter id="obs-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+  <g filter="url(#obs-glow)">
+    <!-- Crystal Facets -->
+    <polygon points="32,4 48,18 36,28 32,4" fill="url(#obs-p2)" />
+    <polygon points="32,4 16,18 28,28 32,4" fill="url(#obs-p1)" />
+    <polygon points="16,18 8,38 24,46 28,28" fill="url(#obs-p3)" />
+    <polygon points="48,18 56,38 40,46 36,28" fill="url(#obs-p1)" />
+    <polygon points="28,28 36,28 40,46 24,46" fill="url(#obs-p2)" />
+    <polygon points="24,46 32,60 40,46" fill="url(#obs-p3)" />
+    <polygon points="8,38 24,46 32,60" fill="url(#obs-p1)" opacity="0.9" />
+    <polygon points="56,38 40,46 32,60" fill="url(#obs-p3)" opacity="0.9" />
+  </g>
+</svg>
