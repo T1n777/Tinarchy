@@ -208,6 +208,7 @@
             --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
             background-color: var(--bg) !important;
         }
+        body[data-theme="solid"] .wallpaper-container,
         body[data-theme="solid"] .wallpaper,
         body[data-theme="solid"] .wallpaper-tint {
             display: none !important;
@@ -235,6 +236,7 @@
             --card-shadow: none;
             background-color: var(--bg) !important;
         }
+        body[data-theme="ultra"] .wallpaper-container,
         body[data-theme="ultra"] .wallpaper,
         body[data-theme="ultra"] .wallpaper-tint {
             display: none !important;
@@ -294,36 +296,56 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html {
+            height: 100%;
+        }
+
         body {
             font-family: var(--font-family);
             color: var(--text);
-            min-height: 100vh;
+            min-height: 100%;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-rendering: optimizeLegibility;
         }
 
+        @media (min-width: 1024px) and (min-height: 620px) {
+            body {
+                overflow-y: hidden;
+            }
+        }
+
+        .wallpaper-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            z-index: -2;
+            pointer-events: none;
+        }
+
         /* Razor-sharp Wallpaper Background */
         .wallpaper {
-            position: fixed;
+            position: absolute;
             inset: -20px;
+            width: calc(100% + 40px);
+            height: calc(100% + 40px);
             background: var(--wp-url, url('/dashboard-bg.jpg')) no-repeat center center;
             background-size: cover;
             filter: blur(var(--wp-blur));
-            z-index: -2;
             transform: translateZ(0);
             transition: filter 0.2s ease;
         }
 
         .wallpaper-video {
-            position: fixed;
+            position: absolute;
             inset: -20px;
-            width: calc(100vw + 40px);
-            height: calc(100vh + 40px);
+            width: calc(100% + 40px);
+            height: calc(100% + 40px);
             object-fit: cover;
             filter: blur(var(--wp-blur));
-            z-index: -2;
             transform: translateZ(0);
             pointer-events: none;
         }
@@ -358,7 +380,7 @@
             z-index: 1;
             max-width: 1240px;
             margin: 0 auto;
-            padding: 0 20px 6px;
+            padding: 6px 20px 12px;
         }
 
         /* Universal Text Selection (Pywal Accented) */
@@ -376,11 +398,11 @@
         /* Top Nav Pill */
         .top-nav-wrapper {
             position: sticky;
-            top: 6px;
+            top: 8px;
             z-index: 50;
             display: flex;
             justify-content: center;
-            margin: 6px 0 8px;
+            margin: 0 0 10px;
             pointer-events: none;
         }
 
@@ -388,21 +410,21 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 4px 16px;
+            padding: 6px 20px;
             background: rgba(var(--glass-rgb), 0.75);
             backdrop-filter: blur(24px) saturate(180%);
             -webkit-backdrop-filter: blur(24px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: 999px;
             box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.35);
-            gap: 16px;
+            gap: 18px;
             pointer-events: all;
             width: fit-content;
             max-width: calc(100% - 32px);
         }
 
         .top-nav .brand {
-            font-size: 1.12rem;
+            font-size: 1.18rem;
             font-weight: 800;
             color: #ffffff;
             letter-spacing: -0.02em;
@@ -441,13 +463,13 @@
 
         .nav-btn {
             font-family: inherit;
-            font-size: 1rem;
+            font-size: 1.05rem;
             color: #ffffff;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             cursor: pointer;
-            width: 34px;
-            height: 34px;
+            width: 36px;
+            height: 36px;
             padding: 0;
             display: inline-flex;
             align-items: center;
@@ -503,19 +525,19 @@
 
         .drive-sync-btn {
             width: 100%;
-            padding: 3px 10px;
+            padding: 4px 12px;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid var(--glass-border);
-            border-radius: 6px;
+            border-radius: 8px;
             color: #ffffff;
-            font-size: 0.74rem;
+            font-size: 0.78rem;
             font-weight: 700;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            margin-top: 2px;
+            margin-top: 4px;
             transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
             font-family: inherit;
         }
@@ -546,13 +568,13 @@
         .stats-bar {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 10px;
-            margin: 0 0 8px;
+            gap: 12px;
+            margin: 0 0 10px;
         }
 
         .stat-card {
-            border-radius: 12px;
-            padding: 10px 14px;
+            border-radius: 14px;
+            padding: 12px 16px;
             transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
         }
 
@@ -563,21 +585,21 @@
         }
 
         .stat-card .stat-label {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--text-muted);
-            margin-bottom: 3px;
+            margin-bottom: 4px;
         }
 
         .stat-card .stat-value {
-            font-size: 1.08rem;
+            font-size: 1.15rem;
             font-weight: 800;
             font-feature-settings: "tnum";
             font-variant-numeric: tabular-nums;
             color: var(--text);
-            margin-bottom: 5px;
+            margin-bottom: 6px;
         }
 
         .progress-bar {
@@ -597,9 +619,9 @@
 
         /* ─── Tor Exit Banner ─── */
         .tor-exit-banner {
-            border-radius: 12px;
-            padding: 8px 16px;
-            margin-bottom: 8px;
+            border-radius: 14px;
+            padding: 10px 18px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -613,35 +635,35 @@
             box-shadow: 0 0 20px rgba(214, 169, 255, 0.25);
         }
 
-        .tor-exit-info { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .tor-exit-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
         .tor-exit-text { flex: 1; min-width: 0; }
 
         .tor-icon {
-            width: 34px; height: 34px;
-            border-radius: 8px;
+            width: 38px; height: 38px;
+            border-radius: 10px;
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--tor-border);
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.05rem; flex: 0 0 34px;
+            font-size: 1.15rem; flex: 0 0 38px;
         }
 
         .tor-exit-info h2 {
-            font-size: 0.95rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--tor-purple);
             margin-bottom: 2px;
         }
 
         .tor-exit-info p {
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
         }
 
         /* ─── Services Grid ─── */
         .section-title {
-            font-size: 1.05rem;
+            font-size: 1.12rem;
             font-weight: 800;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             color: var(--text);
             letter-spacing: -0.02em;
         }
@@ -649,18 +671,18 @@
         .grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 10px;
+            gap: 12px;
         }
         @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
         .card {
-            border-radius: 12px;
-            padding: 12px 16px;
+            border-radius: 14px;
+            padding: 15px 18px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 125px;
+            min-height: 140px;
             transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -674,14 +696,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
         .service-icon {
-            font-size: 1.25rem;
-            width: 34px;
-            height: 34px;
-            border-radius: 8px;
+            font-size: 1.4rem;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--glass-border);
             display: flex;
@@ -690,21 +712,21 @@
         }
 
         .status-badge {
-            font-size: 0.7rem;
+            font-size: 0.72rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 100px;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
         }
 
         .status-badge::before {
             content: '';
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
         }
 
@@ -728,7 +750,7 @@
         }
 
         .service-details h2 {
-            font-size: 1rem;
+            font-size: 1.05rem;
             font-weight: 800;
             letter-spacing: -0.02em;
             margin-bottom: 2px;
@@ -745,35 +767,35 @@
         }
 
         .service-details p {
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-bottom: 4px;
-            line-height: 1.3;
+            margin-bottom: 6px;
+            line-height: 1.35;
         }
 
         .systemd-name {
             font-family: var(--font-mono);
-            font-size: 0.68rem;
+            font-size: 0.7rem;
             color: rgba(255,255,255,0.4);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
 
         .card-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-top: 8px;
+            padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.06);
         }
 
         .port {
             font-family: var(--font-mono);
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             font-weight: 600;
             color: #ffffff;
             background: rgba(255, 255, 255, 0.08);
-            padding: 2px 7px;
-            border-radius: 5px;
+            padding: 2px 8px;
+            border-radius: 6px;
             border: 1px solid rgba(255, 255, 255, 0.16);
             letter-spacing: 0.02em;
             text-decoration: none;
@@ -792,7 +814,7 @@
         .actions {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         /* ─── Tactile Organic Toggle Switch with Fluid Physics ─── */
@@ -1086,7 +1108,9 @@
     </style>
 </head>
 <body>
-    <div class="wallpaper"><video class="wallpaper-video" autoplay loop muted playsinline style="display:none;"></video></div>
+    <div class="wallpaper-container">
+        <div class="wallpaper"><video class="wallpaper-video" autoplay loop muted playsinline style="display:none;"></video></div>
+    </div>
     <div class="wallpaper-tint"></div>
 
     <div class="container">
@@ -1103,8 +1127,8 @@
                     <span class="meta-badge" id="sys-uptime">Up: ...</span>
                 </div>
                 <div class="nav-actions" style="display: flex; gap: 8px; align-items: center;">
-                    <div id="nav-user-pill" title="User Profile" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--glass-border); flex-shrink: 0; cursor: default;">
-                        <div id="nav-user-avatar" style="width: 26px; height: 26px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.75rem; overflow:hidden;">Y</div>
+                    <div id="nav-user-pill" title="User Profile" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-border); flex-shrink: 0; cursor: default;">
+                        <div id="nav-user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.8rem; overflow:hidden;">Y</div>
                         <span id="nav-user-name" style="display:none;">Owner</span>
                         <span id="nav-user-role" style="display:none;">👑 Owner</span>
                     </div>
@@ -1335,6 +1359,7 @@
                 `;
                 container.appendChild(card);
             });
+            adjustViewportFit();
         }
 
         async function toggleService(id, action, btnElement, serviceName) {
@@ -1574,6 +1599,19 @@
             } catch(e) {}
         }
 
+        function adjustViewportFit() {
+            if (window.innerWidth >= 1024) {
+                const c = document.querySelector('.container');
+                if (c) {
+                    const fits = (window.innerHeight + 2) >= c.offsetHeight;
+                    document.body.style.overflowY = fits ? 'hidden' : 'auto';
+                }
+            } else {
+                document.body.style.overflowY = 'auto';
+            }
+        }
+        window.addEventListener('resize', adjustViewportFit);
+
         // Global shortcuts
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
@@ -1593,6 +1631,7 @@
                 fetchTorExitStatus();
             }
             setInterval(fetchSystemStats, 2000);
+            setTimeout(adjustViewportFit, 150);
         });
     </script>
 </body>
