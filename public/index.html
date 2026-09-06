@@ -842,253 +842,6 @@
             to { opacity: 1; transform: scale(1.03); }
         }
 
-        /* ─── Tailnet Devices Ribbon ─── */
-        .tailnet-drawer {
-            border-radius: 18px;
-            padding: 18px 22px;
-            margin-top: 28px;
-        }
-
-        .drawer-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .drawer-title {
-            font-size: clamp(0.78rem, 2.5vw, 0.85rem);
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-            min-width: 0;
-        }
-
-        .drawer-title-short { display: none; }
-        .drawer-badge-enc { display: none; }
-
-        .drawer-badge {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            white-space: nowrap;
-            flex-shrink: 0;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            padding: 2px 8px;
-            border-radius: 6px;
-        }
-
-        .role-badge {
-            font-size: 0.65rem;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-weight: 700;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            flex-shrink: 0;
-            line-height: 1.4;
-        }
-        .role-badge.role-owner {
-            background: rgba(174,158,92,0.2);
-            color: #AE9E5C;
-            border: 1px solid #AE9E5C;
-        }
-        .role-badge.role-admin {
-            background: rgba(78,222,163,0.2);
-            color: var(--online);
-            border: 1px solid var(--online);
-        }
-        .role-badge.role-viewer {
-            background: rgba(255,255,255,0.06);
-            color: var(--text-muted);
-            border: 1px solid rgba(255,255,255,0.1);
-            font-weight: 600;
-        }
-        }
-
-        .devices-ribbon {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .user-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            width: 100%;
-        }
-
-        .user-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 6px;
-            margin-top: 2px;
-            gap: 8px;
-            min-width: 0;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            flex: 1;
-        }
-
-        .user-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 1px solid var(--glass-border);
-            flex-shrink: 0;
-        }
-
-        .user-avatar-fallback {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.75rem;
-            flex-shrink: 0;
-        }
-
-        .user-details {
-            min-width: 0;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        .user-name {
-            font-weight: 700;
-            color: var(--text);
-            font-size: 0.88rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .user-email {
-            color: var(--text-muted);
-            font-size: 0.72rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .user-role-badge {
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
-        .device-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 9px 14px;
-            min-height: 52px;
-            box-sizing: border-box;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            font-size: 0.85rem;
-            gap: 10px;
-            transition: background 0.2s, transform 0.2s;
-        }
-        .device-row:hover {
-            background: rgba(255, 255, 255, 0.06);
-            transform: translateX(2px);
-        }
-
-        .device-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-            flex: 1;
-        }
-
-        .device-icon {
-            font-size: 1.2rem;
-            flex-shrink: 0;
-            line-height: 1;
-        }
-
-        .device-meta {
-            min-width: 0;
-            flex: 1;
-        }
-
-        .device-name-line {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            min-width: 0;
-            flex-wrap: nowrap;
-        }
-
-        .device-name {
-            font-weight: 600;
-            color: var(--text);
-            font-size: 0.86rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .tag-self {
-            font-size: 0.62rem;
-            background: rgba(255, 255, 255, 0.08);
-            padding: 1px 6px;
-            border-radius: 4px;
-            color: var(--text-muted);
-            font-weight: 600;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
-        .tag-shared {
-            font-size: 0.62rem;
-            padding: 1px 6px;
-            border-radius: 4px;
-            background: rgba(105, 180, 195, 0.15);
-            color: var(--primary);
-            font-weight: 600;
-            border: 1px solid rgba(105, 180, 195, 0.3);
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
-        .device-sub {
-            color: var(--text-muted);
-            font-size: 0.74rem;
-            font-family: var(--font-mono);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-top: 2px;
-        }
-
-        .device-status {
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-
         /* Toast */
         .toast-container {
             position: fixed;
@@ -1283,9 +1036,6 @@
             .stat-card {
                 padding: 10px 10px !important;
             }
-            .device-row {
-                padding: 8px 10px !important;
-            }
         }
     </style>
 </head>
@@ -1394,20 +1144,6 @@
         <!-- Services Grid -->
         <h2 class="section-title">Server Applications</h2>
         <div class="grid" id="services-container"></div>
-
-        <!-- Tailnet Devices Ribbon -->
-        <div class="tailnet-drawer glass" id="tailnet-drawer">
-            <div class="drawer-header">
-                <div class="drawer-title">
-                    <span>🌐 <span class="drawer-title-full">Connected Tailnet Devices</span><span class="drawer-title-short">Tailnet Mesh</span></span>
-                    <span class="pulse-beacon"></span>
-                </div>
-                <span class="drawer-badge">🔒 <span class="drawer-badge-mesh">Encrypted Mesh</span><span class="drawer-badge-enc">Encrypted</span></span>
-            </div>
-            <div class="devices-ribbon" id="devices-ribbon">
-                <div style="font-size: 0.8rem; color: var(--text-muted);">Discovering mesh peers…</div>
-            </div>
-        </div>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
@@ -1731,86 +1467,6 @@
             } catch(e) {}
         }
 
-        async function fetchTailnetDevices() {
-            if (CURRENT_USER && CURRENT_USER.role === 'guest') return;
-            try {
-                const res = await fetch('/api/users');
-                if (!res.ok) return;
-                const data = await res.json();
-                const tsUsers = data.tailscale_users || [];
-                const ribbon = document.getElementById('devices-ribbon');
-                if (!ribbon) return;
-
-                if (tsUsers.length === 0) {
-                    ribbon.innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); padding:10px 0;">No peer devices discovered.</div>';
-                    return;
-                }
-
-                ribbon.innerHTML = '';
-                tsUsers.forEach(u => {
-                    const userGroup = document.createElement('div');
-                    userGroup.className = 'user-group';
-                    
-                    const avatarHTML = u.avatar 
-                        ? `<img src="${u.avatar}" class="user-avatar" alt="${u.display_name}">`
-                        : `<div class="user-avatar-fallback">${(u.display_name||'U')[0]}</div>`;
-                    
-                    const roleBadge = u.is_owner 
-                        ? '<span class="role-badge role-owner">👑 Owner</span>'
-                        : (u.role === 'admin' 
-                            ? '<span class="role-badge role-admin">🛡️ Admin</span>' 
-                            : '<span class="role-badge role-viewer">👁️ Viewer</span>');
-
-                    let devicesHTML = '';
-                    (u.devices || []).forEach(d => {
-                        const os = (d.os || '').toLowerCase();
-                        const osIcon = os === 'android' ? '📱' : (os === 'linux' ? '🐧' : (os === 'windows' ? '🪟' : (os === 'apple' || os === 'darwin' || os === 'ios' || os === 'macos' ? '🍎' : '💻')));
-                        const selfTag = d.is_self ? '<span class="tag-self">This Server</span>' : '';
-                        const sharedTag = d.is_shared ? '<span class="tag-shared">Shared</span>' : '';
-                        const statusDot = d.online 
-                            ? '<span style="display:flex; align-items:center; gap:5px; color:var(--online); font-size:0.75rem; font-weight:600;"><span style="color:var(--online); font-size:0.65rem;">●</span> Online</span>' 
-                            : '<span style="display:flex; align-items:center; gap:5px; color:var(--text-muted); font-size:0.75rem;"><span style="font-size:0.65rem;">○</span> Offline</span>';
-
-                        const osLabel = (d.os && d.os !== 'unknown') ? ` • <span style="text-transform:capitalize;">${d.os}</span>` : '';
-
-                        devicesHTML += `
-                            <div class="device-row">
-                                <div class="device-info">
-                                    <span class="device-icon">${osIcon}</span>
-                                    <div class="device-meta">
-                                        <div class="device-name-line">
-                                            <span class="device-name" title="${d.name}">${d.name}</span>
-                                            ${selfTag}
-                                            ${sharedTag}
-                                        </div>
-                                        <div class="device-sub">${d.ip}${osLabel}</div>
-                                    </div>
-                                </div>
-                                <div class="device-status">${statusDot}</div>
-                            </div>
-                        `;
-                    });
-
-                    userGroup.innerHTML = `
-                        <div class="user-header">
-                            <div class="user-info">
-                                ${avatarHTML}
-                                <div class="user-details">
-                                    <div class="user-name">${u.display_name}</div>
-                                    <div class="user-email">${u.login_name}</div>
-                                </div>
-                            </div>
-                            <div class="user-role-badge">${roleBadge}</div>
-                        </div>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            ${devicesHTML}
-                        </div>
-                    `;
-                    ribbon.appendChild(userGroup);
-                });
-            } catch(e) {}
-        }
-
         let CURRENT_USER = { role: 'viewer', is_owner: false };
 
         async function fetchCurrentUser() {
@@ -1841,13 +1497,10 @@
                     }
                 }
 
-                // Guests (Kimi): Remove Tor exit banner & Connected Tailnet Devices
+                // Guests (Kimi): Remove Tor exit banner
                 if (u.role === 'guest') {
                     const torBanner = document.getElementById('tor-exit-banner');
                     if (torBanner) torBanner.remove();
-
-                    const tailnetDrawer = document.getElementById('tailnet-drawer');
-                    if (tailnetDrawer) tailnetDrawer.remove();
                 } else {
                     const torBtn = document.getElementById('tor-exit-btn');
                     if (torBtn && u.role === 'viewer') {
@@ -1877,8 +1530,6 @@
             fetchServices();
             if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
                 fetchTorExitStatus();
-                fetchTailnetDevices();
-                setInterval(fetchTailnetDevices, 10000);
             }
             setInterval(fetchSystemStats, 2000);
         });
