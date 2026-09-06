@@ -565,17 +565,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         client_ip = self.get_client_ip()
         return resolve_tailscale_client(client_ip)
 
-    def serve_guide_page(self, filename):
-        guide_file = os.path.join(PUBLIC_DIR, 'guides', filename)
-        if not os.path.isfile(guide_file):
+    def serve_html_file(self, rel_path):
+        target_file = os.path.join(PUBLIC_DIR, rel_path)
+        if not os.path.isfile(target_file):
             self.send_response(404)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
             self.end_headers()
             if self.command != 'HEAD':
-                self.wfile.write(b"<h1>404 Not Found</h1><p>Guide page not found.</p>")
+                self.wfile.write(b"<h1>404 Not Found</h1><p>Page not found.</p>")
             return True
         try:
-            with open(guide_file, 'rb') as f:
+            with open(target_file, 'rb') as f:
                 content = f.read()
             self.send_compressed(content, "text/html; charset=utf-8")
         except Exception as e:
@@ -585,6 +585,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if self.command != 'HEAD':
                 self.wfile.write(str(e).encode())
         return True
+
+    def serve_guide_page(self, filename):
+        return self.serve_html_file(os.path.join('guides', filename))
 
     def handle_service_routes(self):
         # Extract path without query or fragment, strip trailing slashes
@@ -604,6 +607,25 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return True
             clean_path = '/' + sub
 
+        # Canonical URL redirects to hide .html from URL bar
+        if clean_path in ['/index.html', '/public/index.html']:
+            self.send_response(301)
+            self.send_header('Location', '/')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
+        if clean_path in ['/settings.html', '/public/settings.html']:
+            self.send_response(301)
+            self.send_header('Location', '/settings')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
+        # Clean /settings route: directly serve settings.html without URL change
+        if clean_path == '/settings':
+            return self.serve_html_file('settings.html')
+
         # 1. Dedicated Static Guide Pages for non-HTTP / setup services
         if clean_path in ['/ssh', '/sshd', '/tailscale-ssh']:
             return self.serve_guide_page('ssh.html')
@@ -611,13 +633,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if clean_path in ['/guides/ssh', '/guides/ssh.html']:
             self.send_response(301)
             self.send_header('Location', '/ssh')
-            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            self.end_headers()
-            return True
-
-        if clean_path == '/settings':
-            self.send_response(302)
-            self.send_header('Location', '/settings.html')
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.end_headers()
             return True
@@ -665,7 +680,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         # Allow static assets and public endpoints
-        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt')):
+        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp')):
             super().do_GET()
             return
 

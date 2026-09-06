@@ -7,6 +7,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <title>Dashboard</title>
 
     <script>
@@ -412,17 +416,22 @@
 
         .nav-btn {
             font-family: inherit;
-            font-size: 0.85rem;
-            font-weight: 700;
+            font-size: 1.05rem;
             color: #ffffff;
             background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.15);
             cursor: pointer;
-            padding: 5px 14px;
-            border-radius: 100px;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
             transition: all 0.2s ease;
             text-decoration: none;
             text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+            flex-shrink: 0;
         }
 
         .nav-btn:hover {
@@ -432,6 +441,18 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 14px var(--primary-glow);
             text-shadow: none;
+        }
+
+        .nav-btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .nav-btn-text {
+            display: none !important;
         }
 
         .drive-sync-tile {
@@ -1056,19 +1077,17 @@
                     <span class="meta-badge" id="sys-tailscale">IP: ...</span>
                     <span class="meta-badge" id="sys-uptime">Up: ...</span>
                 </div>
-                <div class="nav-actions" style="display: flex; gap: 10px; align-items: center;">
-                    <div id="nav-user-pill" style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 3px 12px 3px 4px; border-radius: 999px; border: 1px solid var(--glass-border);">
-                        <div id="nav-user-avatar" style="width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.75rem; overflow:hidden;">Y</div>
-                        <span id="nav-user-name" style="font-size: 0.82rem; font-weight: 700; color: var(--text);">Owner</span>
-                        <span id="nav-user-role" style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: #AE9E5C; letter-spacing:0.04em;">👑 Owner</span>
+                <div class="nav-actions" style="display: flex; gap: 8px; align-items: center;">
+                    <div id="nav-user-pill" title="User Profile" style="display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--glass-border); flex-shrink: 0; cursor: default;">
+                        <div id="nav-user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:0.8rem; overflow:hidden;">Y</div>
+                        <span id="nav-user-name" style="display:none;">Owner</span>
+                        <span id="nav-user-role" style="display:none;">👑 Owner</span>
                     </div>
-                    <a href="/settings.html" class="nav-btn nav-btn-settings" title="Settings">
+                    <a href="/settings" class="nav-btn nav-btn-settings" title="Settings" aria-label="Settings">
                         <span class="nav-btn-icon">⚙️</span>
-                        <span class="nav-btn-text">Settings</span>
                     </a>
-                    <button class="nav-btn nav-btn-refresh" onclick="fetchSystemStats(true)" title="Refresh Telemetry">
+                    <button class="nav-btn nav-btn-refresh" onclick="fetchSystemStats(true)" title="Refresh Telemetry" aria-label="Refresh Telemetry">
                         <span class="nav-btn-icon">↻</span>
-                        <span class="nav-btn-text">Refresh</span>
                     </button>
                 </div>
             </nav>
@@ -1479,10 +1498,17 @@
                 const nameEl = document.getElementById('nav-user-name');
                 const roleEl = document.getElementById('nav-user-role');
                 const avatarEl = document.getElementById('nav-user-avatar');
+                const pillEl = document.getElementById('nav-user-pill');
 
-                if (nameEl) nameEl.textContent = u.display_name || 'User';
-                if (avatarEl && u.avatar) {
-                    avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
+                const displayName = u.display_name || u.username || 'User';
+                if (pillEl) pillEl.title = `${displayName} (${u.role || 'user'})`;
+                if (nameEl) nameEl.textContent = displayName;
+                if (avatarEl) {
+                    if (u.avatar) {
+                        avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%; height:100%; object-fit:cover;">`;
+                    } else {
+                        avatarEl.textContent = displayName.charAt(0).toUpperCase();
+                    }
                 }
                 if (roleEl) {
                     if (u.role === 'owner') {
@@ -1520,7 +1546,7 @@
                 fetchSystemStats(true);
                 fetchServices();
             } else if (e.key === 's' || e.key === 'S') {
-                window.location.href = '/settings.html';
+                window.location.href = '/settings';
             }
         });
 
