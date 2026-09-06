@@ -14,6 +14,7 @@ import time
 import http.cookies
 import ssl
 import threading
+import html
 
 # --- Load Environment Variables ---
 def load_env():
@@ -284,16 +285,34 @@ def get_tailscale_host_owner():
     }
     return fallback
 
+def get_all_service_ids():
+    global SERVICES
+    try:
+        return [s['id'] for s in SERVICES]
+    except Exception:
+        return ['suwayomi', 'jellyfin', 'tor', 'filebrowser', 'couchdb', 'tailscale-ssh']
+
 def get_roles_config():
     default_cfg = {
         "admin_accounts": [],
         "roles": {},
-        "default_role": "viewer"
+        "default_role": "viewer",
+        "user_permissions": {},
+        "default_permissions": get_all_service_ids()
     }
     if os.path.exists(ROLES_CONFIG_FILE):
         try:
             with open(ROLES_CONFIG_FILE, 'r') as f:
-                return json.load(f)
+                cfg = json.load(f)
+                if 'admin_accounts' not in cfg:
+                    cfg['admin_accounts'] = []
+                if 'roles' not in cfg:
+                    cfg['roles'] = {}
+                if 'user_permissions' not in cfg:
+                    cfg['user_permissions'] = {}
+                if 'default_permissions' not in cfg:
+                    cfg['default_permissions'] = get_all_service_ids()
+                return cfg
         except Exception:
             pass
     return default_cfg
@@ -305,12 +324,27 @@ def save_roles_config(cfg):
     except Exception as e:
         print(f"Error saving roles config: {e}")
 
-def get_user_role(login_name, display_name=""):
+def get_user_allowed_services(login_name, role=None):
+    if role is None:
+        role = get_user_role(login_name)
+    # 👑 Owner and 🛡️ Admin ALWAYS have unrestricted access to ALL sites and services!
+    if role in ['owner', 'admin']:
+        return get_all_service_ids()
+    
+    cfg = get_roles_config()
+    user_perms = cfg.get('user_permissions', {})
+    if login_name and login_name in user_perms:
+        return user_perms[login_name]
+    
+    return cfg.get('default_permissions', get_all_service_ids())
+
+def get_user_role(login_name, display_name="", user_id=None):
     host_owner = get_tailscale_host_owner()
     # 1. The Tailscale account hosting the server is ALWAYS dynamically the Owner!
-    if login_name and login_name == host_owner.get('login_name'):
+    # Strict matching by unique user_id or unique login_name email (never match on non-unique display name):
+    if user_id and host_owner.get('user_id') and str(user_id) == str(host_owner.get('user_id')):
         return 'owner'
-    if display_name and display_name == host_owner.get('display_name'):
+    if login_name and host_owner.get('login_name') and login_name.strip().lower() == host_owner.get('login_name').strip().lower():
         return 'owner'
 
     # 2. Check if the Owner granted Admin permissions
@@ -337,7 +371,8 @@ def resolve_tailscale_client(ip):
             'device_ip': ip,
             'role': 'owner',
             'is_owner': True,
-            'is_tailscale': True
+            'is_tailscale': True,
+            'allowed_services': get_all_service_ids()
         }
 
     now = time.time()
@@ -350,12 +385,13 @@ def resolve_tailscale_client(ip):
             raw = json.loads(res.stdout)
             u = raw.get('UserProfile', {})
             node = raw.get('Node', {})
+            user_id = u.get('ID')
             login_name = u.get('LoginName', '')
             display_name = u.get('DisplayName', login_name)
             avatar = u.get('ProfilePicURL', '')
             device = node.get('ComputedName', '')
 
-            role = get_user_role(login_name, display_name)
+            role = get_user_role(login_name, display_name, user_id=user_id)
             user_info = {
                 'login_name': login_name,
                 'display_name': display_name,
@@ -364,7 +400,8 @@ def resolve_tailscale_client(ip):
                 'device_ip': ip,
                 'role': role,
                 'is_owner': (role == 'owner'),
-                'is_tailscale': True
+                'is_tailscale': True,
+                'allowed_services': get_user_allowed_services(login_name, role)
             }
             WHOIS_CACHE[ip] = {'data': user_info, 'ts': now}
             return user_info
@@ -373,15 +410,17 @@ def resolve_tailscale_client(ip):
 
     # Fallback for LAN Wi-Fi / Local Subnet (e.g. 10.14.143.x)
     is_lan = ip.startswith(('10.', '192.168.', '172.'))
+    lan_role = 'owner' if is_lan else 'viewer'
     fallback = {
         'login_name': 'lan_client',
         'display_name': f'Local LAN ({ip})',
         'avatar': '',
         'device_name': ip,
         'device_ip': ip,
-        'role': 'owner' if is_lan else 'viewer',
+        'role': lan_role,
         'is_owner': is_lan,
-        'is_tailscale': False
+        'is_tailscale': False,
+        'allowed_services': get_all_service_ids() if is_lan else get_user_allowed_services('lan_client', 'viewer')
     }
     return fallback
 
@@ -472,7 +511,7 @@ def get_tailscale_users():
             
             l_name = uinfo.get('LoginName', '')
             d_name = uinfo.get('DisplayName') or l_name or 'User'
-            role = get_user_role(l_name, d_name)
+            role = get_user_role(l_name, d_name, user_id=uid)
             
             ts_users.append({
                 'id': uid,
@@ -481,6 +520,7 @@ def get_tailscale_users():
                 'avatar': uinfo.get('ProfilePicURL', ''),
                 'role': role,
                 'is_owner': (role == 'owner'),
+                'allowed_services': get_user_allowed_services(l_name, role),
                 'devices': user_devices
             })
             
@@ -589,6 +629,78 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def serve_guide_page(self, filename):
         return self.serve_html_file(os.path.join('guides', filename))
 
+    def serve_access_denied(self, service_name="this service"):
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Restricted - Server Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        :root {{
+            --bg: #0b0f14;
+            --surface: rgba(20, 26, 33, 0.85);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-muted: #8892b0;
+            --accent: #69B4C3;
+            --font: system-ui, -apple-system, sans-serif;
+        }}
+        body {{
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }}
+        .card {{
+            background: var(--surface);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(20px);
+            padding: 36px 32px;
+            border-radius: 20px;
+            max-width: 460px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }}
+        .icon {{ font-size: 3rem; margin-bottom: 14px; }}
+        h1 {{ margin: 0 0 10px 0; font-size: 1.35rem; }}
+        p {{ color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0 0 24px 0; }}
+        .btn {{
+            display: inline-block;
+            background: var(--accent);
+            color: #0b0f14;
+            text-decoration: none;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: opacity 0.2s;
+        }}
+        .btn:hover {{ opacity: 0.9; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">🔒</div>
+        <h1>Access Restricted</h1>
+        <p>Your account does not have permission to access <strong>{html.escape(service_name)}</strong>.<br>Please contact the server owner to request access.</p>
+        <a href="/" class="btn">Back to Dashboard</a>
+    </div>
+</body>
+</html>"""
+        self.send_response(403)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(html_content.encode('utf-8'))
+        return True
+
     def handle_service_routes(self):
         # Extract path without query or fragment, strip trailing slashes
         raw_path = self.path.split('?')[0].split('#')[0]
@@ -626,11 +738,20 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if clean_path == '/settings':
             return self.serve_html_file('settings.html')
 
+        session = self.check_auth()
+        role = session.get('role', 'viewer')
+        login_name = session.get('login_name', '')
+        allowed_services = get_user_allowed_services(login_name, role)
+
         # 1. Dedicated Static Guide Pages for non-HTTP / setup services
         if clean_path in ['/ssh', '/sshd', '/tailscale-ssh']:
+            if 'tailscale-ssh' not in allowed_services:
+                return self.serve_access_denied('Tailscale SSH')
             return self.serve_guide_page('ssh.html')
 
         if clean_path in ['/guides/ssh', '/guides/ssh.html']:
+            if 'tailscale-ssh' not in allowed_services:
+                return self.serve_access_denied('Tailscale SSH')
             self.send_response(301)
             self.send_header('Location', '/ssh')
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -638,9 +759,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return True
 
         if clean_path in ['/tor', '/tor-proxy', '/socks5', '/guides/tor', '/guides/tor.html']:
+            if 'tor' not in allowed_services:
+                return self.serve_access_denied('Tor Proxy')
             return self.serve_guide_page('tor.html')
 
         if clean_path in ['/obsidian', '/livesync', '/notes', '/guides/obsidian', '/guides/obsidian.html']:
+            if 'couchdb' not in allowed_services:
+                return self.serve_access_denied('Obsidian LiveSync')
             return self.serve_guide_page('obsidian.html')
 
         # 2. Top-Level Web Application Redirects
@@ -649,17 +774,27 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         target_url = None
         if clean_path in ['/files', '/file', '/drive', '/quantum', '/filebrowser']:
+            if 'filebrowser' not in allowed_services:
+                return self.serve_access_denied('File Manager')
             target_url = f"https://{host}:8081/"
         elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
+            if 'suwayomi' not in allowed_services:
+                return self.serve_access_denied('Suwayomi Server')
             target_url = f"https://{host}:4567/"
         elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
+            if 'jellyfin' not in allowed_services:
+                return self.serve_access_denied('Jellyfin Media Server')
             target_url = f"https://{host}:8096/"
         elif clean_path in ['/navidrome', '/music', '/audio']:
+            if 'navidrome' not in allowed_services:
+                return self.serve_access_denied('Navidrome Music')
             svc = next((s for s in SERVICES if 'navidrome' in s.get('id', '')), None)
             port = svc.get('port', 4533) if svc else 4533
             scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
             target_url = f"{scheme}://{host}:{port}/"
         elif clean_path == '/couchdb':
+            if 'couchdb' not in allowed_services:
+                return self.serve_access_denied('Obsidian LiveSync')
             target_url = "/couchdb/_utils/"
 
         if target_url:
@@ -744,24 +879,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 _SERVICES_STATUS_CACHE = {'data': base_results, 'ts': now}
 
             role = session.get('role', 'viewer')
-            filtered_results = []
-            for s in _SERVICES_STATUS_CACHE['data']:
-                if role == 'guest' and s['id'] not in ['navidrome', 'filebrowser']:
-                    continue
-                if role == 'friend' and s['id'] == 'jellyfin':
-                    continue
-                filtered_results.append(s)
+            login_name = session.get('login_name', '')
+            allowed_services = get_user_allowed_services(login_name, role)
+            filtered_results = [s for s in _SERVICES_STATUS_CACHE['data'] if s['id'] in allowed_services]
 
             self.send_compressed(json.dumps(filtered_results).encode(), "application/json")
             
         elif self.path == '/api/me':
+            role = session.get('role', 'viewer')
+            login_name = session.get('login_name', '')
             self.send_compressed(json.dumps({
-                "role": session.get('role', 'viewer'),
+                "role": role,
                 "display_name": session.get('display_name', 'User'),
-                "login_name": session.get('login_name', ''),
+                "login_name": login_name,
                 "avatar": session.get('avatar', ''),
                 "is_owner": session.get('is_owner', False),
-                "device_name": session.get('device_name', '')
+                "device_name": session.get('device_name', ''),
+                "allowed_services": get_user_allowed_services(login_name, role)
             }).encode(), "application/json")
 
         elif self.path == '/api/users':
@@ -771,7 +905,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "current_user": session,
                 "tailscale_users": ts_users,
                 "roles_config": get_roles_config(),
-                "can_manage_roles": (session.get('role') == 'owner')
+                "can_manage_roles": (session.get('role') == 'owner'),
+                "can_manage_site_access": (session.get('role') in ['owner', 'admin']),
+                "available_services": [
+                    {
+                        "id": s['id'],
+                        "name": s['name'],
+                        "icon": s.get('icon', '🌐'),
+                        "description": s.get('description', '')
+                    }
+                    for s in SERVICES
+                ]
             }).encode(), "application/json")
 
         elif self.path == '/api/app/config':
@@ -995,7 +1139,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             host_owner = get_tailscale_host_owner()
-            if target_user in [host_owner.get('login_name'), host_owner.get('display_name')]:
+            if target_user.lower() == str(host_owner.get('login_name', '')).lower():
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
@@ -1024,6 +1168,61 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({"success": True, "user": target_user, "role": new_role}).encode())
+            return
+
+        # ─── Site Access Management: OWNER & ADMIN ───
+        elif self.path in ['/api/users/site-access', '/api/users/permissions']:
+            if session.get('role') not in ['owner', 'admin']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required to manage site access"}')
+                return
+
+            target_user = str(data.get('user', '')).strip()
+            allowed_services = data.get('allowed_services')
+
+            if not target_user:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Missing user parameter"}')
+                return
+
+            if not isinstance(allowed_services, list):
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "allowed_services must be a list of service IDs"}')
+                return
+
+            host_owner = get_tailscale_host_owner()
+            if target_user.lower() == str(host_owner.get('login_name', '')).lower():
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Cannot modify site permissions for the host Owner"}')
+                return
+
+            valid_ids = get_all_service_ids()
+            sanitized = [s for s in allowed_services if s in valid_ids]
+
+            cfg = get_roles_config()
+            if 'user_permissions' not in cfg:
+                cfg['user_permissions'] = {}
+
+            cfg['user_permissions'][target_user] = sanitized
+            save_roles_config(cfg)
+            WHOIS_CACHE.clear()
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": True,
+                "user": target_user,
+                "allowed_services": sanitized
+            }).encode())
             return
 
         # ─── Wallpapers: ADMIN & OWNER ───

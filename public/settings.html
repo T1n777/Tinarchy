@@ -487,11 +487,11 @@
                         <div style="color: var(--text-muted); font-size: 0.85rem;">Discovering Tailscale peers…</div>
                     </div>
 
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
-                        <strong style="color: var(--text);">Role Hierarchy:</strong><br>
-                        • <strong>👑 Owner:</strong> Immutable full control; exclusively manages user permissions and server branding.<br>
-                        • <strong>🛡️ Admin:</strong> Can start/stop background services, toggle Tor exit routing, and upload wallpapers.<br>
-                        • <strong>👁️ Viewer:</strong> Read-only access; can view telemetry and launch application web links.
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
+                        <strong style="color: var(--text);">Role Hierarchy & Access Rules:</strong><br>
+                        • <strong>👑 Owner:</strong> Immutable full control. Has unrestricted access to all sites, services, user roles, site permissions, and server branding.<br>
+                        • <strong>🛡️ Admin:</strong> Full access to all sites and services. Can manage services, wallpapers, Tor exit routing, and site access delegation.<br>
+                        • <strong>👁️ Viewer:</strong> Read-only access. Access is restricted exclusively to the specific sites granted below by the Owner or Admin.
                     </div>
                 </div>
 
@@ -818,7 +818,10 @@
             }
         }
 
-        function renderTailscaleUsers(tsUsers, canManageRoles, currentUser) {
+        let CACHED_USERS = [];
+        let CACHED_SERVICES = [];
+
+        function renderTailscaleUsers(tsUsers, canManageRoles, currentUser, availableServices, canManageSiteAccess) {
             const container = document.getElementById('tailscale-users-container');
             if (!container) return;
             if (!tsUsers || tsUsers.length === 0) {
@@ -863,6 +866,78 @@
                     roleControlHTML = `<span style="font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:100px; background:${isAdm ? 'rgba(78,222,163,0.15)' : 'rgba(255,255,255,0.08)'}; color:${isAdm ? 'var(--online)' : 'var(--text-muted)'}; border:1px solid ${isAdm ? 'var(--online)' : 'rgba(255,255,255,0.15)'};">${isAdm ? '🛡️ Admin' : '👁️ Viewer'}</span>`;
                 }
 
+                let siteAccessHTML = '';
+                if (u.is_owner) {
+                    siteAccessHTML = `
+                        <div style="margin-top: 14px; padding: 10px 14px; background: rgba(174,158,92,0.1); border: 1px solid rgba(174,158,92,0.25); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.1rem;">👑</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.82rem; color: #AE9E5C;">Full Site Access (Unrestricted Host Owner)</div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">Owner automatically has access to all sites, settings, and services.</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (u.role === 'admin') {
+                    siteAccessHTML = `
+                        <div style="margin-top: 14px; padding: 10px 14px; background: rgba(78,222,163,0.08); border: 1px solid rgba(78,222,163,0.25); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.1rem;">🛡️</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.82rem; color: var(--online);">All Sites Allowed (Administrator)</div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">Administrators automatically have full access to all sites and services.</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const userAllowed = u.allowed_services || [];
+                    const svcs = availableServices || [];
+                    if (canManageSiteAccess) {
+                        let chipsHTML = '';
+                        svcs.forEach(s => {
+                            const isChecked = userAllowed.includes(s.id);
+                            chipsHTML += `
+                                <label style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px; border:1px solid ${isChecked ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; background:${isChecked ? 'rgba(105,180,195,0.14)' : 'rgba(255,255,255,0.02)'}; color:${isChecked ? 'var(--text)' : 'var(--text-muted)'}; font-size:0.78rem; font-weight:600; cursor:pointer; user-select:none; transition:all 0.2s;">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSiteForUser('${u.login_name}', '${s.id}', this.checked)" style="accent-color:var(--primary); cursor:pointer; width:14px; height:14px;">
+                                    <span>${s.icon || '🌐'}</span>
+                                    <span>${s.name}</span>
+                                </label>
+                            `;
+                        });
+
+                        siteAccessHTML = `
+                            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06);">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
+                                    <div>
+                                        <span style="font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text); font-weight:700;">Allowed Sites & Services:</span>
+                                        <span style="font-size:0.72rem; color:var(--text-muted); margin-left:4px;">(${userAllowed.length} of ${svcs.length} active)</span>
+                                    </div>
+                                    <div style="display:flex; gap:6px;">
+                                        <button class="btn" type="button" style="font-size:0.68rem; padding:2px 8px; border-radius:6px;" onclick="setAllSitesForUser('${u.login_name}', true)">Select All</button>
+                                        <button class="btn" type="button" style="font-size:0.68rem; padding:2px 8px; border-radius:6px;" onclick="setAllSitesForUser('${u.login_name}', false)">Deselect All</button>
+                                    </div>
+                                </div>
+                                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                    ${chipsHTML}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        let badgesHTML = '';
+                        svcs.forEach(s => {
+                            if (userAllowed.includes(s.id)) {
+                                badgesHTML += `<span style="font-size:0.74rem; padding:3px 10px; border-radius:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:var(--text);">${s.icon || '🌐'} ${s.name}</span> `;
+                            }
+                        });
+                        siteAccessHTML = `
+                            <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+                                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:6px;">Allowed Sites:</div>
+                                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                    ${badgesHTML || '<span style="font-size:0.74rem; color:var(--text-muted);">No sites granted</span>'}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
                 card.innerHTML = `
                     <div>
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
@@ -877,10 +952,47 @@
                         </div>
                         <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px; font-weight: 700;">Tailnet Devices</div>
                         ${devicesHTML || '<div style="font-size:0.8rem; color:var(--text-muted);">No devices connected</div>'}
+                        ${siteAccessHTML}
                     </div>
                 `;
                 container.appendChild(card);
             });
+        }
+
+        async function toggleSiteForUser(userEmail, serviceId, isChecked) {
+            const user = CACHED_USERS.find(x => x.login_name === userEmail);
+            if (!user) return;
+            let current = user.allowed_services ? [...user.allowed_services] : [];
+            if (isChecked) {
+                if (!current.includes(serviceId)) current.push(serviceId);
+            } else {
+                current = current.filter(id => id !== serviceId);
+            }
+            await saveUserSiteAccess(userEmail, current);
+        }
+
+        async function setAllSitesForUser(userEmail, selectAll) {
+            const allIds = selectAll ? CACHED_SERVICES.map(s => s.id) : [];
+            await saveUserSiteAccess(userEmail, allIds);
+        }
+
+        async function saveUserSiteAccess(userEmail, allowedServices) {
+            try {
+                const res = await fetch('/api/users/site-access', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user: userEmail, allowed_services: allowedServices })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Site access updated for ${userEmail} (${allowedServices.length} sites)`, 'success');
+                    loadUsers();
+                } else {
+                    showToast(data.error || 'Failed to update site permissions', 'error');
+                }
+            } catch(e) {
+                showToast('Error updating site permissions: ' + e, 'error');
+            }
         }
 
         async function updateUserRole(userEmail, newRole) {
@@ -910,6 +1022,9 @@
                 const data = await res.json();
                 const cur = data.current_user || {};
                 
+                CACHED_USERS = data.tailscale_users || [];
+                CACHED_SERVICES = data.available_services || [];
+
                 // Update Current User Banner
                 const nameEl = document.getElementById('current-user-name');
                 const emailEl = document.getElementById('current-user-email');
@@ -942,10 +1057,16 @@
 
                 const roleBadge = document.getElementById('role-manage-badge');
                 if (roleBadge) {
-                    roleBadge.textContent = cur.role === 'owner' ? '👑 Owner Privileges Active' : '👁️ Read-Only Mode';
+                    roleBadge.textContent = cur.role === 'owner' ? '👑 Owner Privileges Active' : (cur.role === 'admin' ? '🛡️ Admin Privileges Active' : '👁️ Read-Only Mode');
                 }
 
-                renderTailscaleUsers(data.tailscale_users || [], data.can_manage_roles, cur);
+                renderTailscaleUsers(
+                    CACHED_USERS,
+                    data.can_manage_roles,
+                    cur,
+                    CACHED_SERVICES,
+                    data.can_manage_site_access
+                );
             } catch(e) {}
         }
 

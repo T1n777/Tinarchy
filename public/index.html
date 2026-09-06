@@ -1268,6 +1268,16 @@
 
         function renderServices(services) {
             container.innerHTML = '';
+            if (!services || services.length === 0) {
+                container.innerHTML = `
+                    <div class="card glass" style="grid-column: 1 / -1; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
+                        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔒</div>
+                        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">No Sites Assigned</h2>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 420px; margin: 0 auto; line-height: 1.5;">You currently do not have access to any sites on this server. Contact the server owner to grant you access.</p>
+                    </div>
+                `;
+                return;
+            }
             services.forEach(s => {
                 const isOnline = s.status === 'online';
                 const isSuwayomi = s.id === 'suwayomi';
