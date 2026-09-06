@@ -49,13 +49,15 @@
 
         function applyThemeAndColors(root, pywal) {
             if (!pywal || !pywal.colors) return;
-            const pColor = pywal.colors.color4 || '#69B4C3';
-            const fg = pywal.special?.foreground || '#d3d7d8';
+            const userAccent = localStorage.getItem('dashboard-primary-color');
+            const pColor = userAccent || pywal.colors.color4 || '#69B4C3';
+            const fg = '#ffffff';
+            const muted = '#c5d1de';
             root.style.setProperty('--primary', pColor);
             root.style.setProperty('--primary-glow', pColor + '40');
             root.style.setProperty('--text', fg);
-            root.style.setProperty('--text-muted', '#9da7b3');
-            root.style.setProperty('--glass-border', pColor + '30');
+            root.style.setProperty('--text-muted', muted);
+            root.style.setProperty('--glass-border', pColor + '35');
         }
 
         function applyMediaToBackground(mediaUrl, isVid = false) {
@@ -119,13 +121,17 @@
                 } catch(e) {}
             }
 
-            // Crisp 6px default blur
-            const blur = localStorage.getItem('dashboard-blur') || '6';
+            // Blur & Translucency
+            const blur = localStorage.getItem('dashboard-blur') || '16';
             root.style.setProperty('--wp-blur', `${blur}px`);
             const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
-            const t = parseInt(transRaw, 10) / 100;
+            const val = parseInt(transRaw, 10);
+            const t = val / 100;
+            const alpha = (0.95 - (t * 0.80)).toFixed(2);
             root.style.setProperty('--ui-translucency', t);
-            root.style.setProperty('--ui-blur', t <= 0 ? '0px' : '20px');
+            root.style.setProperty('--glass-alpha', alpha);
+            root.style.setProperty('--glass', `rgba(var(--glass-rgb, 14, 19, 34), ${alpha})`);
+            root.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
             root.style.setProperty('--ui-saturate', '180%');
 
             const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
@@ -166,6 +172,24 @@
                 const theme = e.newValue || 'glass';
                 document.documentElement.setAttribute('data-theme', theme);
                 if (document.body) document.body.setAttribute('data-theme', theme);
+            } else if (e.key === 'dashboard-blur') {
+                document.documentElement.style.setProperty('--wp-blur', `${e.newValue}px`);
+                const bg = document.querySelector('.wallpaper');
+                if (bg) bg.style.filter = `blur(${e.newValue}px)`;
+                const vid = document.querySelector('.wallpaper-video');
+                if (vid) vid.style.filter = `blur(${e.newValue}px)`;
+            } else if (e.key === 'dashboard-glass-translucency') {
+                const t = parseInt(e.newValue, 10) / 100;
+                const alpha = (0.95 - (t * 0.80)).toFixed(2);
+                document.documentElement.style.setProperty('--ui-translucency', t);
+                document.documentElement.style.setProperty('--glass-alpha', alpha);
+                document.documentElement.style.setProperty('--glass', `rgba(var(--glass-rgb, 14, 19, 34), ${alpha})`);
+                document.documentElement.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
+            } else if (e.key === 'dashboard-primary-color' || e.key === 'dashboard-pywal') {
+                try {
+                    const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                    applyThemeAndColors(document.documentElement, pywal);
+                } catch(err) {}
             }
         });
     </script>
@@ -239,10 +263,11 @@
         :root, body[data-theme="glass"] {
             --bg: #0a0f1e;
             --glass-rgb: 14, 19, 34;
+            --glass-alpha: 0.65;
             --ui-translucency: 0.6;
             --ui-blur: 24px;
             --ui-saturate: 180%;
-            --glass: rgba(14, 19, 34, 0.65);
+            --glass: rgba(var(--glass-rgb), var(--glass-alpha));
             --glass-hover: rgba(22, 28, 44, 0.85);
             --glass-border: rgba(105, 180, 195, 0.25);
             --glass-border-hover: rgba(105, 180, 195, 0.55);
@@ -250,8 +275,8 @@
             --shadow-outer: 0 12px 40px rgba(0, 0, 0, 0.45);
             --card-shadow: var(--shadow-inner), var(--shadow-outer);
 
-            --text: #dee1f7;
-            --text-muted: #8c909f;
+            --text: #ffffff;
+            --text-muted: #c5d1de;
             --primary: #69B4C3;
             --primary-hover: #7fc3d1;
             --primary-glow: rgba(105, 180, 195, 0.35);
@@ -264,7 +289,7 @@
 
             --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-mono: 'JetBrains Mono', monospace;
-            --wp-blur: 6px;
+            --wp-blur: 16px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -318,7 +343,7 @@
             -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
             border: 1px solid var(--glass-border);
             box-shadow: var(--card-shadow);
-            border-radius: 18px;
+            border-radius: 16px;
             transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -333,7 +358,7 @@
             z-index: 1;
             max-width: 1240px;
             margin: 0 auto;
-            padding: 0 24px 40px;
+            padding: 0 20px 16px;
         }
 
         /* Universal Text Selection (Pywal Accented) */
@@ -351,11 +376,11 @@
         /* Top Nav Pill */
         .top-nav-wrapper {
             position: sticky;
-            top: 16px;
+            top: 10px;
             z-index: 50;
             display: flex;
             justify-content: center;
-            margin: 16px -24px 24px;
+            margin: 10px 0 12px;
             pointer-events: none;
         }
 
@@ -363,14 +388,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px 24px;
+            padding: 6px 20px;
             background: rgba(var(--glass-rgb), 0.75);
             backdrop-filter: blur(24px) saturate(180%);
             -webkit-backdrop-filter: blur(24px) saturate(180%);
             border: 1px solid var(--glass-border);
             border-radius: 999px;
             box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.35);
-            gap: 28px;
+            gap: 20px;
             pointer-events: all;
             width: fit-content;
             max-width: calc(100% - 32px);
@@ -520,14 +545,14 @@
         /* ─── Stats Bar ─── */
         .stats-bar {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 16px;
-            margin: 24px 0;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+            margin: 12px 0;
         }
 
         .stat-card {
-            border-radius: 16px;
-            padding: 18px 20px;
+            border-radius: 14px;
+            padding: 12px 16px;
             transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
         }
 
@@ -538,12 +563,12 @@
         }
 
         .stat-card .stat-label {
-            font-size: 0.82rem;
+            font-size: 0.75rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.06em;
             color: var(--text-muted);
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .stat-card .stat-value {
@@ -552,7 +577,7 @@
             font-feature-settings: "tnum";
             font-variant-numeric: tabular-nums;
             color: var(--text);
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .progress-bar {
@@ -572,9 +597,9 @@
 
         /* ─── Tor Exit Banner ─── */
         .tor-exit-banner {
-            border-radius: 16px;
-            padding: 18px 24px;
-            margin-bottom: 24px;
+            border-radius: 14px;
+            padding: 10px 18px;
+            margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -588,35 +613,35 @@
             box-shadow: 0 0 20px rgba(214, 169, 255, 0.25);
         }
 
-        .tor-exit-info { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+        .tor-exit-info { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
         .tor-exit-text { flex: 1; min-width: 0; }
 
         .tor-icon {
-            width: 44px; height: 44px;
-            border-radius: 12px;
+            width: 38px; height: 38px;
+            border-radius: 10px;
             background: rgba(255,255,255,0.06);
             border: 1px solid var(--tor-border);
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; flex: 0 0 44px;
+            font-size: 1.15rem; flex: 0 0 38px;
         }
 
         .tor-exit-info h2 {
-            font-size: 1.05rem;
+            font-size: 1rem;
             font-weight: 700;
             color: var(--tor-purple);
             margin-bottom: 2px;
         }
 
         .tor-exit-info p {
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
         }
 
         /* ─── Services Grid ─── */
         .section-title {
-            font-size: 1.25rem;
+            font-size: 1.12rem;
             font-weight: 800;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             color: var(--text);
             letter-spacing: -0.02em;
         }
@@ -624,18 +649,18 @@
         .grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 16px;
+            gap: 12px;
         }
         @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
         .card {
-            border-radius: 18px;
-            padding: 22px;
+            border-radius: 14px;
+            padding: 15px 18px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 180px;
+            min-height: 140px;
             transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -649,14 +674,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .service-icon {
-            font-size: 1.6rem;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            font-size: 1.4rem;
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             background: rgba(255,255,255,0.05);
             border: 1px solid var(--glass-border);
             display: flex;
@@ -703,10 +728,10 @@
         }
 
         .service-details h2 {
-            font-size: 1.15rem;
+            font-size: 1.05rem;
             font-weight: 800;
             letter-spacing: -0.02em;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             color: var(--text);
         }
 
@@ -720,24 +745,24 @@
         }
 
         .service-details p {
-            font-size: 0.84rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-bottom: 10px;
-            line-height: 1.4;
+            margin-bottom: 6px;
+            line-height: 1.35;
         }
 
         .systemd-name {
             font-family: var(--font-mono);
-            font-size: 0.72rem;
+            font-size: 0.7rem;
             color: rgba(255,255,255,0.4);
-            margin-bottom: 14px;
+            margin-bottom: 8px;
         }
 
         .card-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-top: 14px;
+            padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.06);
         }
 

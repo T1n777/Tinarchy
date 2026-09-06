@@ -45,7 +45,7 @@ def generate_pywal_palette(img_path):
         base_name = os.path.basename(img_path).rsplit('.', 1)[0]
         
         # 1. Prioritize pre-rendered 2KB .webp thumbnail for instant 10ms execution
-        possible_webp = f"/home/tin/server-dashboard/public/thumbnails/{base_name}.webp"
+        possible_webp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public', 'thumbnails', f'{base_name}.webp')
         if os.path.exists(possible_webp):
             actual_img = possible_webp
         elif img_path.lower().endswith('.mp4'):
@@ -85,9 +85,9 @@ def generate_pywal_palette(img_path):
         acc3 = adjust_lightness(*candidates[2] if len(candidates) > 2 else candidates[0], min_light=0.72, max_light=0.84)
         acc4 = adjust_lightness(*candidates[3] if len(candidates) > 3 else candidates[0], min_light=0.68, max_light=0.80)
 
-        # Pure crisp high-contrast foreground text (#f0f6fc)
-        fg_rgb = (240, 246, 252) # Clean bright white-silver #f0f6fc
-        muted_rgb = (163, 179, 194) # Readable soft slate #a3b3c2
+        # Pure crisp high-contrast foreground text (#ffffff) and readable subtext (#c5d1de)
+        fg_rgb = (255, 255, 255) # Pure bright crisp white
+        muted_rgb = (197, 209, 222) # Readable soft slate #c5d1de
         
         # Build standard 16-color Pywal dictionary
         c0 = rgb_to_hex(*bg_rgb)

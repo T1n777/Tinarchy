@@ -44,13 +44,15 @@
 
         function applyThemeAndColors(root, pywal) {
             if (!pywal || !pywal.colors) return;
-            const pColor = pywal.colors.color4 || '#69B4C3';
-            const fg = pywal.special?.foreground || '#d3d7d8';
+            const userAccent = localStorage.getItem('dashboard-primary-color');
+            const pColor = userAccent || pywal.colors.color4 || '#69B4C3';
+            const fg = '#ffffff';
+            const muted = '#c5d1de';
             root.style.setProperty('--primary', pColor);
             root.style.setProperty('--primary-glow', pColor + '40');
             root.style.setProperty('--text', fg);
-            root.style.setProperty('--text-muted', '#9da7b3');
-            root.style.setProperty('--glass-border', pColor + '30');
+            root.style.setProperty('--text-muted', muted);
+            root.style.setProperty('--glass-border', pColor + '35');
         }
 
         function applyMediaToBackground(mediaUrl, isVid = false) {
@@ -113,12 +115,16 @@
             } catch(e) {}
 
             // 2. Blur & Translucency
-            const blur = localStorage.getItem('dashboard-blur') || '6';
+            const blur = localStorage.getItem('dashboard-blur') || '16';
             root.style.setProperty('--wp-blur', `${blur}px`);
             const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
-            const t = parseInt(transRaw, 10) / 100;
+            const val = parseInt(transRaw, 10);
+            const t = val / 100;
+            const alpha = (0.95 - (t * 0.80)).toFixed(2);
             root.style.setProperty('--ui-translucency', t);
-            root.style.setProperty('--ui-blur', t <= 0 ? '0px' : '24px');
+            root.style.setProperty('--glass-alpha', alpha);
+            root.style.setProperty('--glass', `rgba(var(--glass-rgb, 17, 21, 25), ${alpha})`);
+            root.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
             root.style.setProperty('--ui-saturate', '180%');
 
             // 3. Media Loading
@@ -161,24 +167,27 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-        :root {
+        :root, body[data-theme="glass"] {
             --bg: #111519;
-            --glass: rgba(17, 21, 25, 0.72);
+            --glass-rgb: 17, 21, 25;
+            --glass-alpha: 0.65;
+            --glass: rgba(var(--glass-rgb), var(--glass-alpha));
             --glass-hover: rgba(25, 31, 38, 0.88);
             --glass-border: rgba(105, 180, 195, 0.22);
             --primary: #69B4C3;
             --primary-hover: #569ea9;
             --primary-glow: rgba(105, 180, 195, 0.35);
-            --text: #cae5ef;
-            --text-muted: rgba(202, 229, 239, 0.62);
+            --text: #ffffff;
+            --text-muted: #c5d1de;
             --online: #5af78e;
             --offline: #ff5555;
             --danger: #ffb4ab;
             --danger-bg: rgba(255,180,171,0.08);
             --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
             --font-family: 'Inter', -apple-system, system-ui, sans-serif;
-            /* dynamic --wp-url */
-            --wp-blur: 6px;
+            --wp-blur: 16px;
+            --ui-blur: 24px;
+            --ui-saturate: 180%;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -189,7 +198,7 @@
             min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
-            background: var(--bg);
+            background: transparent;
         }
 
         .wallpaper {
@@ -200,6 +209,7 @@
             filter: blur(var(--wp-blur));
             z-index: -2;
             transform: translateZ(0);
+            transition: filter 0.15s ease-out;
         }
 
         .wallpaper-tint {
@@ -212,8 +222,8 @@
 
         .glass {
             background: var(--glass);
-            backdrop-filter: blur(24px) saturate(180%) contrast(105%);
-            -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(105%);
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate)) contrast(105%);
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate)) contrast(105%);
             border: 1px solid var(--glass-border);
             box-shadow: var(--card-shadow);
         }
@@ -488,6 +498,35 @@
 
                     <hr class="divider">
 
+                    <!-- Pywal Palette & Text Accent -->
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Pywal Palette & Text Accent</span>
+                        <button class="btn" style="font-size: 0.75rem; padding: 4px 10px;" onclick="resetPywalAccent()">↺ Reset to Wallpaper Default</button>
+                    </div>
+                    <p class="section-sub">Colors extracted from your active wallpaper. Click any swatch to set your text and UI accent, or pick a custom tone.</p>
+                    
+                    <div style="margin-bottom: 14px;">
+                        <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 8px;">Extracted Palette Swatches (Click to Apply):</label>
+                        <div id="pywal-swatches" style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Loading swatches…</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); padding: 10px 14px; border-radius: 10px; border: 1px solid var(--glass-border); flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="custom-accent-color" style="font-size: 0.82rem; font-weight: 600; color: var(--text); cursor: pointer;">Custom Accent:</label>
+                            <input type="color" id="custom-accent-color" style="width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; background: transparent; padding: 0;" oninput="setCustomAccent(this.value)">
+                            <span id="custom-accent-hex" style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--primary);">#69B4C3</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Preview:</span>
+                            <span id="accent-preview-badge" style="padding: 3px 10px; border-radius: 100px; font-size: 0.76rem; font-weight: 800; background: var(--primary); color: #0b0f14;">Active Accent</span>
+                            <span style="font-size: 0.76rem; font-weight: 700; color: var(--primary); border: 1px solid var(--primary); padding: 2px 8px; border-radius: 6px;">Readable Text</span>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
                     <!-- Wallpaper Selector -->
                     <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <span>Wallpaper & Pywal Themes</span>
@@ -607,16 +646,99 @@
         }
 
         function saveTranslucency(val) {
-            document.getElementById('translucency-label').innerText = val + '%';
+            val = parseInt(val, 10);
+            const label = document.getElementById('translucency-label');
+            if (label) label.innerText = val + '%';
             localStorage.setItem('dashboard-glass-translucency', val);
-            const t = parseInt(val, 10) / 100;
+            const t = val / 100;
+            const alpha = (0.95 - (t * 0.80)).toFixed(2);
+            const blurPx = Math.round(t * 30);
             document.documentElement.style.setProperty('--ui-translucency', t);
+            document.documentElement.style.setProperty('--glass-alpha', alpha);
+            document.documentElement.style.setProperty('--glass', `rgba(var(--glass-rgb, 17, 21, 25), ${alpha})`);
+            document.documentElement.style.setProperty('--ui-blur', `${blurPx}px`);
         }
 
         function saveBlur(val) {
-            document.getElementById('blur-label').innerText = val + 'px';
+            val = parseInt(val, 10);
+            const label = document.getElementById('blur-label');
+            if (label) label.innerText = val + 'px';
             localStorage.setItem('dashboard-blur', val);
             document.documentElement.style.setProperty('--wp-blur', val + 'px');
+            const bgDiv = document.querySelector('.wallpaper');
+            if (bgDiv) bgDiv.style.filter = `blur(${val}px)`;
+            const vidEl = document.querySelector('.wallpaper-video');
+            if (vidEl) vidEl.style.filter = `blur(${val}px)`;
+        }
+
+        function renderPywalSwatches() {
+            const wrap = document.getElementById('pywal-swatches');
+            if (!wrap) return;
+            try {
+                const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                const userAccent = localStorage.getItem('dashboard-primary-color');
+                const activeAccent = userAccent || (pywal.colors ? pywal.colors.color4 : '#69B4C3');
+                
+                const customInput = document.getElementById('custom-accent-color');
+                const customHex = document.getElementById('custom-accent-hex');
+                if (customInput) customInput.value = (activeAccent && activeAccent.startsWith('#')) ? activeAccent : '#69B4C3';
+                if (customHex) customHex.textContent = activeAccent.toUpperCase();
+
+                if (!pywal.colors) {
+                    wrap.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No active wallpaper palette found.</span>';
+                    return;
+                }
+
+                const swatchKeys = ['color1', 'color2', 'color3', 'color4', 'color5', 'color6'];
+                let html = '';
+                swatchKeys.forEach((k) => {
+                    const hex = pywal.colors[k];
+                    if (!hex) return;
+                    const isSelected = hex.toLowerCase() === activeAccent.toLowerCase();
+                    html += `
+                        <div onclick="selectPywalAccent('${hex}')" title="${hex} (Pywal ${k})" 
+                             style="width:38px; height:38px; border-radius:8px; background:${hex}; cursor:pointer; border: 2px solid ${isSelected ? '#ffffff' : 'rgba(255,255,255,0.2)'}; box-shadow: ${isSelected ? '0 0 12px ' + hex + ', 0 0 0 2px #fff' : '0 2px 6px rgba(0,0,0,0.3)'}; transition:all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            ${isSelected ? '<span style="color:#000; font-weight:900; font-size:0.85rem; text-shadow:0 0 2px #fff;">✓</span>' : ''}
+                        </div>
+                    `;
+                });
+                wrap.innerHTML = html;
+            } catch(e) {
+                wrap.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">Unable to load swatches.</span>';
+            }
+        }
+
+        function selectPywalAccent(hex) {
+            localStorage.setItem('dashboard-primary-color', hex);
+            applyPrimaryColor(hex);
+            renderPywalSwatches();
+            showToast(`Accent color updated to ${hex.toUpperCase()}`, 'success');
+        }
+
+        function setCustomAccent(hex) {
+            localStorage.setItem('dashboard-primary-color', hex);
+            applyPrimaryColor(hex);
+            renderPywalSwatches();
+        }
+
+        function resetPywalAccent() {
+            localStorage.removeItem('dashboard-primary-color');
+            const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+            const def = (pywal.colors && pywal.colors.color4) ? pywal.colors.color4 : '#69B4C3';
+            applyPrimaryColor(def);
+            renderPywalSwatches();
+            showToast('Reset accent to wallpaper default', 'success');
+        }
+
+        function applyPrimaryColor(hex) {
+            const root = document.documentElement;
+            root.style.setProperty('--primary', hex);
+            root.style.setProperty('--primary-glow', hex + '40');
+            root.style.setProperty('--glass-border', hex + '35');
+            const customHex = document.getElementById('custom-accent-hex');
+            const customInput = document.getElementById('custom-accent-color');
+            if (customHex) customHex.textContent = hex.toUpperCase();
+            if (customInput) customInput.value = hex;
         }
 
         
@@ -889,7 +1011,9 @@
 
                     if (data.pywal && data.pywal.colors) {
                         localStorage.setItem("dashboard-pywal", JSON.stringify(data.pywal));
+                        localStorage.removeItem('dashboard-primary-color');
                         applyThemeAndColors(root, data.pywal);
+                        renderPywalSwatches();
                     }
 
                     document.querySelectorAll(".wallpaper-item").forEach(el => el.classList.remove("active"));
@@ -916,6 +1040,9 @@
                         localStorage.setItem("dashboard-wallpaper", data.url);
                         if (data.pywal) {
                             localStorage.setItem("dashboard-pywal", JSON.stringify(data.pywal));
+                            localStorage.removeItem('dashboard-primary-color');
+                            applyThemeAndColors(document.documentElement, data.pywal);
+                            renderPywalSwatches();
                         }
                         showToast("Wallpaper uploaded & Pywal applied!", "success");
                         initWallpapers();
@@ -937,6 +1064,23 @@
             document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
             const matchedCard = document.getElementById(`theme-card-${savedTheme}`);
             if (matchedCard) matchedCard.classList.add('selected');
+
+            // Initialize sliders from localStorage
+            const savedBlur = localStorage.getItem('dashboard-blur') || '16';
+            const blurSlider = document.getElementById('blur-slider');
+            const blurLabel = document.getElementById('blur-label');
+            if (blurSlider) blurSlider.value = savedBlur;
+            if (blurLabel) blurLabel.innerText = savedBlur + 'px';
+            saveBlur(savedBlur);
+
+            const savedTrans = localStorage.getItem('dashboard-glass-translucency') || '60';
+            const transSlider = document.getElementById('translucency-slider');
+            const transLabel = document.getElementById('translucency-label');
+            if (transSlider) transSlider.value = savedTrans;
+            if (transLabel) transLabel.innerText = savedTrans + '%';
+            saveTranslucency(savedTrans);
+
+            renderPywalSwatches();
         })();
     </script>
 </body>
