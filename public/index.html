@@ -686,17 +686,22 @@
             display: grid;
             grid-template-columns: 1fr;
             gap: 12px;
+            align-content: center;
         }
         @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1024px) { .grid { grid-template-columns: repeat(3, 1fr); } }
 
         .card {
+            aspect-ratio: 2.05 / 1;
+            width: 100%;
+            height: auto;
+            min-height: 0;
             border-radius: 14px;
             padding: 15px 18px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 140px;
+            box-sizing: border-box;
             transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -1040,18 +1045,22 @@
                 min-height: 0;
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: repeat(2, 1fr);
                 gap: clamp(8px, 1.3vh, 16px);
-                margin-bottom: 2px;
+                align-content: center;
+                justify-content: center;
+                margin: 0 auto;
+                width: 100%;
             }
 
             .card {
-                height: 100%;
+                aspect-ratio: 2.05 / 1;
+                width: 100%;
+                height: auto;
                 min-height: 0;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                padding: clamp(10px, 1.6vh, 20px) clamp(14px, 1.5vw, 22px);
+                padding: clamp(10px, 1.4vh, 18px) clamp(14px, 1.4vw, 22px);
                 box-sizing: border-box;
             }
 
@@ -1206,19 +1215,23 @@
                 min-height: 0;
                 display: grid !important;
                 grid-template-columns: repeat(3, 1fr) !important;
-                grid-template-rows: repeat(2, 1fr) !important;
+                align-content: center !important;
+                justify-content: center !important;
                 gap: clamp(6px, 1vh, 12px) !important;
-                margin-bottom: 2px;
+                margin: 0 auto !important;
+                width: 100% !important;
             }
 
             .card {
-                height: 100% !important;
+                aspect-ratio: 2.05 / 1 !important;
+                width: 100% !important;
+                height: auto !important;
                 min-height: 0 !important;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1.2vw, 16px);
-                box-sizing: border-box;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1.2vw, 16px) !important;
+                box-sizing: border-box !important;
             }
 
             .service-details p {
@@ -1442,18 +1455,22 @@
                 flex-shrink: 0 !important;
             }
 
-            /* Service Cards: 2 columns x 3 rows to fill screen */
+            /* Service Cards: 2 columns, aspect-ratio 2.05:1 */
             .grid {
                 flex: 1 !important;
                 min-height: 0 !important;
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
-                grid-template-rows: repeat(3, 1fr) !important;
-                gap: clamp(3px, 0.6vh, 6px) !important;
-                margin-bottom: 2px !important;
+                align-content: center !important;
+                justify-content: center !important;
+                gap: clamp(4px, 0.8vh, 8px) !important;
+                margin: 0 auto !important;
+                width: 100% !important;
             }
             .card {
-                height: 100% !important;
+                aspect-ratio: 2.05 / 1 !important;
+                width: 100% !important;
+                height: auto !important;
                 min-height: 0 !important;
                 display: flex !important;
                 flex-direction: column !important;
@@ -1716,7 +1733,7 @@
             container.innerHTML = '';
             if (!services || services.length === 0) {
                 container.innerHTML = `
-                    <div class="card glass" style="grid-column: 1 / -1; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
+                    <div class="card glass" style="grid-column: 1 / -1; aspect-ratio: auto !important; height: auto !important; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
                         <div style="font-size: 2.5rem; margin-bottom: 10px;">🔒</div>
                         <h2 style="font-size: 1.15rem; margin-bottom: 6px;">No Sites Assigned</h2>
                         <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 420px; margin: 0 auto; line-height: 1.5;">You currently do not have access to any sites on this server. Contact the server owner to grant you access.</p>
@@ -2023,35 +2040,57 @@
 
         function updateGridLayout(serviceCount) {
             const grid = document.getElementById('services-container');
-            if (!grid) return;
-            const count = typeof serviceCount === 'number' ? serviceCount : grid.children.length;
+            const container = document.querySelector('.container');
+            if (!grid || !container) return;
+            const count = typeof serviceCount === 'number' ? serviceCount : (grid.children.length || 6);
             const w = window.innerWidth;
+            const h = window.innerHeight;
 
+            // Determine columns based on device width & service count
+            let cols = 3;
             if (w <= 640) {
-                // Phone layout: 2 columns, dynamic rows (3 rows for 6 services)
-                grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-                const rows = Math.max(1, Math.ceil(count / 2));
-                grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+                cols = 2;
             } else if (w <= 1023) {
-                // Tablet ("Tab") layout: 2 or 3 columns
-                if (count <= 4) {
-                    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-                    grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.ceil(count / 2))}, 1fr)`;
-                } else {
-                    grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                    grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.ceil(count / 3))}, 1fr)`;
-                }
+                cols = count <= 4 ? 2 : 3;
             } else {
-                // Desktop layout: 3 columns
-                grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                if (count <= 3) {
-                    grid.style.gridTemplateRows = '1fr';
-                } else if (count <= 6) {
-                    grid.style.gridTemplateRows = 'repeat(2, 1fr)';
-                } else {
-                    const rows = Math.ceil(count / 3);
-                    grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-                }
+                cols = count <= 2 ? count : 3;
+            }
+
+            const rows = Math.max(1, Math.ceil(count / cols));
+            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            grid.style.gridTemplateRows = ''; // Allow aspect-ratio: 2.05 / 1 to strictly control height!
+
+            // Classic landscape aspect ratio: width / height = 2.05
+            const AR = 2.05;
+
+            // Dynamic scaling: If viewport height is constrained, cap grid width so tiles scale
+            // down proportionally without ever clipping, overflowing, or stretching vertically!
+            const nav = document.querySelector('.top-nav-wrapper');
+            const stats = document.querySelector('.stats-bar');
+            const tor = document.querySelector('.tor-exit-banner');
+            const title = document.querySelector('.section-title');
+
+            const navH = nav ? (nav.offsetHeight + parseFloat(getComputedStyle(nav).marginBottom || 0)) : 0;
+            const statsH = stats ? (stats.offsetHeight + parseFloat(getComputedStyle(stats).marginBottom || 0)) : 0;
+            const torH = tor ? (tor.offsetHeight + parseFloat(getComputedStyle(tor).marginBottom || 0)) : 0;
+            const titleH = title ? (title.offsetHeight + parseFloat(getComputedStyle(title).marginBottom || 0)) : 0;
+
+            const cStyle = getComputedStyle(container);
+            const padY = parseFloat(cStyle.paddingTop || 0) + parseFloat(cStyle.paddingBottom || 0);
+
+            const gap = w <= 640 ? 6 : (w <= 1023 ? 10 : 14);
+            const availH = h - (navH + statsH + torH + titleH + padY + 14);
+
+            if (availH > 0 && rows > 0) {
+                const minCardH = w <= 640 ? 68 : 120;
+                const maxCardH = Math.max(minCardH, (availH - (rows - 1) * gap) / rows);
+                const maxCardW = maxCardH * AR;
+                const maxGridW = cols * maxCardW + (cols - 1) * gap;
+                grid.style.maxWidth = `${Math.floor(maxGridW)}px`;
+                grid.style.margin = '0 auto';
+                grid.style.width = '100%';
+            } else {
+                grid.style.maxWidth = '';
             }
         }
 
