@@ -295,19 +295,10 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        html {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-
         body {
             font-family: var(--font-family);
             color: var(--text);
-            height: 100%;
-            min-height: 100%;
-            margin: 0;
-            padding: 0;
+            min-height: 100vh;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -394,7 +385,7 @@
             z-index: 1;
             max-width: 1240px;
             margin: 0 auto;
-            padding: 6px 20px 12px;
+            padding: 10px 20px 24px;
         }
 
         /* Universal Text Selection (Pywal Accented) */
@@ -684,24 +675,28 @@
 
         .grid {
             display: grid;
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            align-content: start;
-            margin-top: 0;
         }
-        @media (min-width: 961px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+        }
 
         .card {
-            aspect-ratio: 2.05 / 1;
-            width: 100%;
-            height: auto;
-            min-height: 0;
             border-radius: 14px;
             padding: 15px 18px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            box-sizing: border-box;
+            min-height: 140px;
             transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
@@ -958,362 +953,76 @@
         .toast.success { border-color: var(--online); color: var(--online); }
         .toast.error { border-color: var(--offline); color: var(--offline); }
 
-        /* ─── Desktop Parallel Tiles (min-width: 961px) — Fixed Just Below Title ─── */
-        @media (min-width: 961px) {
-            html, body {
-                min-height: 100vh;
-                min-height: 100dvh;
-                overflow-x: hidden;
-            }
-
-            .container {
-                min-height: 100vh;
-                min-height: 100dvh;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-                padding: clamp(12px, 2vh, 24px) clamp(16px, 2.5vw, 40px);
-                max-width: min(1560px, 96vw);
-                margin: 0 auto;
-                box-sizing: border-box;
-            }
-
-            .top-nav-wrapper {
-                position: static;
-                margin: 0 0 clamp(8px, 1.2vh, 14px);
-                flex-shrink: 0;
-            }
-
-            .stats-bar {
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
-                gap: clamp(8px, 1.2vh, 14px);
-                margin: 0 0 clamp(8px, 1.2vh, 14px);
-                flex-shrink: 0;
-            }
-
-            .stat-card {
-                padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1.1vw, 16px);
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                min-height: 0;
-            }
-
-            .stat-card .stat-label {
-                font-size: clamp(0.68rem, 0.8vw, 0.78rem);
-                margin-bottom: clamp(2px, 0.4vh, 4px);
-            }
-
-            .stat-card .stat-value {
-                font-size: clamp(0.95rem, 1.1vw, 1.25rem);
-                margin-bottom: clamp(3px, 0.5vh, 6px);
-            }
-
-            .tor-exit-banner {
-                padding: clamp(6px, 1vh, 12px) clamp(12px, 1.4vw, 20px);
-                margin-bottom: clamp(8px, 1.2vh, 14px);
-                flex-shrink: 0;
-            }
-
-            .tor-icon {
-                width: clamp(32px, 3.8vh, 40px);
-                height: clamp(32px, 3.8vh, 40px);
-                flex: 0 0 clamp(32px, 3.8vh, 40px);
-                font-size: clamp(1rem, 1.2vw, 1.25rem);
-            }
-
-            .tor-exit-info h2 {
-                font-size: clamp(0.88rem, 1vw, 1.05rem);
-                margin-bottom: clamp(1px, 0.3vh, 3px);
-            }
-
-            .tor-exit-info p {
-                font-size: clamp(0.72rem, 0.8vw, 0.82rem);
-            }
-
-            .section-title {
-                font-size: clamp(0.95rem, 1.1vw, 1.15rem);
-                margin-top: 0;
-                margin-bottom: clamp(8px, 1.2vh, 14px);
-                flex-shrink: 0;
-            }
-
-            /* Tiles start IMMEDIATELY below title */
+        /* ─── Responsive Styles ─── */
+        /* Tablet & Small Screens (≤ 768px): List Layout + Smaller Tiles */
+        @media (max-width: 768px) {
             .grid {
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: clamp(10px, 1.4vh, 16px);
-                margin-top: 0;
-                margin-bottom: 24px;
-                width: 100%;
-                align-content: start;
+                grid-template-columns: 1fr !important;
+                gap: 10px !important;
             }
 
+            /* Scaled-down Tiles for Small Screens */
             .card {
-                aspect-ratio: 2.05 / 1;
-                width: 100%;
-                height: auto;
-                min-height: 0;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                padding: clamp(12px, 1.5vh, 18px) clamp(14px, 1.4vw, 22px);
-                box-sizing: border-box;
-            }
-
-            .card-header {
-                margin-bottom: clamp(4px, 0.8vh, 8px);
-                flex-shrink: 0;
-            }
-
-            .service-icon {
-                width: clamp(34px, 4vh, 44px);
-                height: clamp(34px, 4vh, 44px);
-                font-size: clamp(1.15rem, 1.4vw, 1.5rem);
-            }
-
-            .status-badge {
-                font-size: clamp(0.68rem, 0.75vw, 0.74rem);
-                padding: clamp(2px, 0.4vh, 4px) clamp(8px, 0.8vw, 12px);
-            }
-
-            .service-details {
-                flex: 1;
-                min-height: 0;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                overflow: hidden;
-            }
-
-            .service-details h2 {
-                font-size: clamp(0.98rem, 1.15vw, 1.25rem);
-                margin-bottom: clamp(2px, 0.4vh, 5px);
-            }
-
-            .service-details p {
-                font-size: clamp(0.76rem, 0.85vw, 0.88rem);
-                margin-bottom: clamp(3px, 0.5vh, 6px);
-                line-height: 1.35;
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-
-            .systemd-name {
-                font-size: clamp(0.65rem, 0.72vw, 0.74rem);
-                margin-bottom: clamp(3px, 0.5vh, 6px);
-            }
-
-            .card-footer {
-                padding-top: clamp(6px, 1vh, 12px);
-                border-top: 1px solid rgba(255, 255, 255, 0.06);
-                flex-shrink: 0;
-            }
-
-            .port {
-                font-size: clamp(0.72rem, 0.8vw, 0.82rem);
-                padding: clamp(2px, 0.3vh, 3px) clamp(6px, 0.6vw, 10px);
-            }
-        }
-
-        /* ─── List Tiles (When Width is Less: max-width: 960px) ─── */
-        @media (max-width: 960px) {
-            html, body {
-                min-height: 100vh;
-                min-height: 100dvh;
-                overflow-x: hidden;
-                scrollbar-width: none !important;
-                -ms-overflow-style: none !important;
-            }
-            html::-webkit-scrollbar, body::-webkit-scrollbar {
-                display: none !important;
-                width: 0 !important;
-                height: 0 !important;
-            }
-
-            .container {
-                min-height: 100vh;
-                min-height: 100dvh;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: flex-start !important;
-                padding: clamp(8px, 1.4vh, 16px) clamp(12px, 2.5vw, 24px) !important;
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
-
-            .top-nav-wrapper {
-                position: static !important;
-                margin: 0 0 clamp(6px, 1vh, 10px) !important;
-                flex-shrink: 0 !important;
-            }
-
-            .stats-bar {
-                display: grid !important;
-                grid-template-columns: repeat(5, 1fr) !important;
-                gap: clamp(4px, 0.8vh, 8px) !important;
-                margin: 0 0 clamp(6px, 1vh, 10px) !important;
-                flex-shrink: 0 !important;
-            }
-
-            .stat-card {
-                padding: clamp(4px, 0.8vh, 8px) clamp(4px, 0.8vw, 10px) !important;
-                min-height: 0 !important;
-            }
-
-            .tor-exit-banner {
-                padding: clamp(6px, 0.9vh, 10px) clamp(10px, 1.4vw, 16px) !important;
-                margin-bottom: clamp(6px, 1vh, 10px) !important;
-                flex-shrink: 0 !important;
-            }
-
-            .section-title {
-                font-size: clamp(0.88rem, 1vw, 1rem) !important;
-                margin-top: 0 !important;
-                margin-bottom: clamp(6px, 0.9vh, 10px) !important;
-                flex-shrink: 0 !important;
-            }
-
-            /* Single-column List of tiles, starting directly below title */
-            .grid {
-                display: flex !important;
-                flex-direction: column !important;
-                gap: clamp(6px, 0.9vh, 10px) !important;
-                margin-top: 0 !important;
-                margin-bottom: 20px !important;
-                width: 100% !important;
-                max-width: 100% !important;
-                flex: none !important;
-            }
-
-            /* Horizontal List Tile */
-            .card {
-                aspect-ratio: auto !important;
-                height: auto !important;
-                min-height: 52px !important;
-                width: 100% !important;
-                display: flex !important;
-                flex-direction: row !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                padding: clamp(8px, 1vh, 12px) clamp(12px, 1.6vw, 18px) !important;
+                padding: 10px 14px !important;
+                min-height: 104px !important;
                 border-radius: 12px !important;
-                box-sizing: border-box !important;
-                gap: clamp(8px, 1.2vw, 14px) !important;
-                transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s, border-color 0.2s !important;
             }
 
-            .card:hover {
-                transform: translateX(4px) !important;
-                border-color: var(--primary) !important;
-                box-shadow: var(--card-shadow), 0 0 16px var(--primary-glow) !important;
-            }
-
-            /* Flatten header & footer */
             .card-header {
-                display: contents !important;
+                margin-bottom: 4px !important;
             }
 
-            .card-footer {
-                display: contents !important;
-            }
-
-            /* 1. Leading Service Icon */
             .service-icon {
-                order: 1 !important;
-                width: clamp(36px, 4.2vh, 42px) !important;
-                height: clamp(36px, 4.2vh, 42px) !important;
-                min-width: clamp(36px, 4.2vh, 42px) !important;
-                font-size: clamp(1.2rem, 1.4vw, 1.4rem) !important;
-                border-radius: 10px !important;
-                flex-shrink: 0 !important;
-                margin: 0 !important;
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 1.15rem !important;
+                border-radius: 8px !important;
             }
 
-            /* 2. Middle Service Details (Title + Description) */
-            .service-details {
-                order: 2 !important;
-                flex: 1 !important;
-                min-width: 0 !important;
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                overflow: hidden !important;
-                margin: 0 !important;
-                text-align: left !important;
+            .status-badge {
+                font-size: 0.65rem !important;
+                padding: 2px 8px !important;
             }
 
             .service-details h2 {
-                font-size: clamp(0.9rem, 1.1vw, 1.05rem) !important;
-                font-weight: 700 !important;
+                font-size: 0.95rem !important;
                 margin-bottom: 2px !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                color: var(--text) !important;
             }
 
             .service-details p {
-                font-size: clamp(0.74rem, 0.82vw, 0.82rem) !important;
-                color: var(--text-muted) !important;
-                margin: 0 !important;
+                font-size: 0.74rem !important;
+                margin-bottom: 4px !important;
                 line-height: 1.3 !important;
-                white-space: nowrap !important;
-                overflow: hidden !important;
-                text-overflow: ellipsis !important;
-                display: block !important;
             }
 
             .systemd-name {
-                display: none !important;
+                font-size: 0.64rem !important;
+                margin-bottom: 4px !important;
             }
 
-            /* 3. Status Badge */
-            .status-badge {
-                order: 3 !important;
-                font-size: clamp(0.64rem, 0.72vw, 0.72rem) !important;
-                padding: 2px clamp(6px, 0.8vw, 10px) !important;
-                border-radius: 999px !important;
-                letter-spacing: 0.04em !important;
-                flex-shrink: 0 !important;
-                margin: 0 !important;
+            .card-footer {
+                padding-top: 6px !important;
             }
 
-            /* 4. Port / Launch Pill */
             .port {
-                order: 4 !important;
-                font-size: clamp(0.68rem, 0.76vw, 0.76rem) !important;
-                padding: 2px clamp(6px, 0.7vw, 9px) !important;
-                border-radius: 6px !important;
-                flex-shrink: 0 !important;
-                white-space: nowrap !important;
-                margin: 0 !important;
+                font-size: 0.72rem !important;
+                padding: 2px 6px !important;
             }
 
-            /* 5. Trailing Action Controls */
             .actions {
-                order: 5 !important;
-                display: flex !important;
-                align-items: center !important;
-                gap: clamp(6px, 0.8vw, 10px) !important;
-                flex-shrink: 0 !important;
-                margin: 0 !important;
+                gap: 8px !important;
             }
 
             .toggle-switch {
-                width: 38px !important;
-                height: 20px !important;
-                flex-shrink: 0 !important;
+                width: 40px !important;
+                height: 22px !important;
             }
 
             .toggle-switch::after {
                 width: 16px !important;
                 height: 16px !important;
-                top: 1px !important;
-                left: 1px !important;
+                top: 2px !important;
+                left: 2px !important;
             }
 
             .toggle-switch.on::after {
@@ -1321,186 +1030,168 @@
             }
         }
 
-        /* ─── Compact Controls and Fine-Tuning for Mobile Phone (max-width: 640px) ─── */
+        /* Mobile Screens (≤ 640px) */
         @media (max-width: 640px) {
             .container {
-                padding: clamp(4px, 0.8vh, 8px) clamp(8px, 2vw, 14px) !important;
+                padding: 8px 12px 24px !important;
             }
 
+            /* Top Nav Floating Pill on Mobile */
             .top-nav-wrapper {
-                margin-bottom: 4px !important;
+                margin: 6px 0 12px !important;
+                top: 8px !important;
+                width: 100% !important;
             }
-
             .top-nav {
+                width: 100% !important;
+                max-width: 100% !important;
                 border-radius: 999px !important;
-                padding: 3px 8px !important;
-                gap: 6px !important;
+                padding: 6px 12px !important;
+                gap: 8px !important;
+                justify-content: space-between !important;
+                box-sizing: border-box !important;
             }
-
             .top-nav .brand {
-                font-size: 0.9rem !important;
-                gap: 5px !important;
+                font-size: 0.95rem !important;
+                gap: 6px !important;
+                flex-shrink: 1 !important;
+                min-width: 0 !important;
             }
-
             .top-nav .brand span:nth-child(2) {
-                max-width: clamp(100px, 36vw, 180px) !important;
+                max-width: clamp(120px, 40vw, 200px) !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
             }
-
             .top-nav .meta {
                 display: none !important;
             }
-
+            .nav-actions {
+                display: flex !important;
+                gap: 6px !important;
+                align-items: center !important;
+                flex-shrink: 0 !important;
+            }
             #nav-user-pill {
                 padding: 0 !important;
                 background: transparent !important;
                 border: none !important;
                 gap: 0 !important;
             }
-
-            #nav-user-name, #nav-user-role {
+            #nav-user-name,
+            #nav-user-role {
                 display: none !important;
             }
-
             #nav-user-avatar {
                 width: 26px !important;
                 height: 26px !important;
+                box-shadow: 0 0 0 1.5px var(--glass-border) !important;
             }
-
             .nav-btn {
+                padding: 0 !important;
                 width: 28px !important;
                 height: 28px !important;
                 min-width: 28px !important;
-                padding: 0 !important;
                 border-radius: 50% !important;
                 justify-content: center !important;
+                font-size: 0.85rem !important;
             }
-
             .nav-btn-text {
                 display: none !important;
             }
-
             .nav-btn-icon {
-                display: inline-flex !important;
-                font-size: 0.9rem !important;
+                display: inline-block !important;
+                font-size: 0.95rem !important;
+                line-height: 1 !important;
             }
 
+            /* Stats Grid on Mobile: 2 per row */
             .stats-bar {
-                gap: 3px !important;
-                margin-bottom: 4px !important;
-            }
-
-            .stat-card {
-                padding: 3px 2px !important;
-                border-radius: 8px !important;
-            }
-
-            .stat-card .stat-label {
-                font-size: 0.52rem !important;
-            }
-
-            .stat-value {
-                font-size: clamp(0.66rem, 2.2vw, 0.82rem) !important;
-            }
-
-            .drive-sync-sub, #sync-btn-label {
-                display: none !important;
-            }
-
-            .tor-exit-banner {
-                padding: 4px 8px !important;
-                margin-bottom: 4px !important;
-            }
-
-            .tor-icon {
-                width: 24px !important;
-                height: 24px !important;
-                flex: 0 0 24px !important;
-                font-size: 0.85rem !important;
-            }
-
-            .tor-exit-info h2 {
-                font-size: 0.74rem !important;
-            }
-
-            .tor-exit-info p {
-                display: none !important;
-            }
-
-            #tor-exit-btn {
-                width: 32px !important;
-                height: 18px !important;
-            }
-
-            #tor-exit-btn::after {
-                width: 14px !important;
-                height: 14px !important;
-                top: 1px !important;
-                left: 1px !important;
-            }
-
-            #tor-exit-btn.on::after {
-                transform: translateX(14px) !important;
-            }
-
-            .section-title {
-                font-size: 0.78rem !important;
-                margin-bottom: 4px !important;
-            }
-
-            .grid {
-                gap: 5px !important;
-            }
-
-            /* Compact Phone List Tile */
-            .card {
-                padding: 6px 10px !important;
-                min-height: 44px !important;
-                border-radius: 10px !important;
+                grid-template-columns: repeat(2, 1fr) !important;
                 gap: 8px !important;
+                margin: 0 0 10px !important;
+            }
+            .stat-card {
+                padding: 10px 12px !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+            }
+            .stat-card:last-child {
+                grid-column: span 2 !important;
+            }
+            .stat-card .stat-label {
+                font-size: 0.72rem !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+            .stat-value {
+                font-size: clamp(0.9rem, 3.4vw, 1.1rem) !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
 
+            /* Tor Exit Banner */
+            .tor-exit-banner {
+                padding: 8px 12px !important;
+                gap: 10px !important;
+                margin-bottom: 10px !important;
+            }
+            .tor-icon {
+                width: 32px !important;
+                height: 32px !important;
+                font-size: 1rem !important;
+                flex: 0 0 32px !important;
+            }
+            .tor-exit-info h2 {
+                font-size: 0.88rem !important;
+            }
+            .tor-exit-info p {
+                font-size: 0.72rem !important;
+                line-height: 1.25 !important;
+            }
+            #tor-exit-btn {
+                flex-shrink: 0 !important;
+            }
+
+            /* Extra Tile Compactness on Mobile */
+            .card {
+                padding: 9px 12px !important;
+                min-height: 96px !important;
+            }
             .service-icon {
                 width: 30px !important;
                 height: 30px !important;
-                min-width: 30px !important;
-                font-size: 1.05rem !important;
-                border-radius: 8px !important;
+                font-size: 1.1rem !important;
             }
-
             .service-details h2 {
-                font-size: 0.82rem !important;
+                font-size: 0.92rem !important;
             }
-
             .service-details p {
-                display: none !important;
+                font-size: 0.72rem !important;
+                line-height: 1.25 !important;
+                margin-bottom: 3px !important;
             }
+        }
 
-            .status-badge {
-                font-size: 0.58rem !important;
-                padding: 1px 5px !important;
+        /* Small Phones (≤ 380px) */
+        @media (max-width: 380px) {
+            .container {
+                padding: 6px 8px 20px !important;
             }
-
-            .port {
-                display: none !important;
+            .top-nav .brand span:nth-child(2) {
+                max-width: clamp(90px, 32vw, 130px) !important;
             }
-
-            .toggle-switch {
-                width: 32px !important;
-                height: 18px !important;
+            .top-nav {
+                padding: 4px 8px !important;
             }
-
-            .toggle-switch::after {
-                width: 14px !important;
-                height: 14px !important;
-                top: 1px !important;
-                left: 1px !important;
+            .stat-card {
+                padding: 8px 10px !important;
             }
-
-            .toggle-switch.on::after {
-                transform: translateX(14px) !important;
+            .card {
+                padding: 8px 10px !important;
+                min-height: 90px !important;
             }
         }
     </style>
@@ -1692,7 +1383,7 @@
             container.innerHTML = '';
             if (!services || services.length === 0) {
                 container.innerHTML = `
-                    <div class="card glass" style="grid-column: 1 / -1; aspect-ratio: auto !important; height: auto !important; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
+                    <div class="card glass" style="grid-column: 1 / -1; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
                         <div style="font-size: 2.5rem; margin-bottom: 10px;">🔒</div>
                         <h2 style="font-size: 1.15rem; margin-bottom: 6px;">No Sites Assigned</h2>
                         <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 420px; margin: 0 auto; line-height: 1.5;">You currently do not have access to any sites on this server. Contact the server owner to grant you access.</p>
@@ -1757,7 +1448,6 @@
                 `;
                 container.appendChild(card);
             });
-            adjustViewportFit();
         }
 
         async function toggleService(id, action, btnElement, serviceName) {
@@ -1997,46 +1687,6 @@
             } catch(e) {}
         }
 
-        function updateGridLayout(serviceCount) {
-            const grid = document.getElementById('services-container');
-            const container = document.querySelector('.container');
-            if (!grid || !container) return;
-            const count = typeof serviceCount === 'number' ? serviceCount : (grid.children.length || 6);
-            const w = window.innerWidth;
-
-            if (w <= 960) {
-                // List tiles mode when width is less (1 column, full-width rows)
-                grid.style.display = 'flex';
-                grid.style.flexDirection = 'column';
-                grid.style.gridTemplateColumns = '';
-                grid.style.gridTemplateRows = '';
-                grid.style.maxWidth = '100%';
-                grid.style.margin = '0';
-                grid.style.width = '100%';
-            } else {
-                // Desktop parallel tiles (3 columns, fixed directly below title)
-                grid.style.display = 'grid';
-                grid.style.flexDirection = '';
-                const cols = (count <= 2) ? count : 3;
-                grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                grid.style.gridTemplateRows = '';
-                grid.style.maxWidth = '100%';
-                grid.style.margin = '0 auto';
-                grid.style.width = '100%';
-            }
-        }
-
-        function adjustViewportFit() {
-            updateGridLayout();
-            const c = document.querySelector('.container');
-            if (c) {
-                const fits = window.innerHeight >= c.scrollHeight;
-                document.documentElement.style.overflowY = fits ? 'hidden' : 'auto';
-                document.body.style.overflowY = fits ? 'hidden' : 'auto';
-            }
-        }
-        window.addEventListener('resize', adjustViewportFit);
-
         // Global shortcuts
         window.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
@@ -2056,7 +1706,6 @@
                 fetchTorExitStatus();
             }
             setInterval(fetchSystemStats, 2000);
-            setTimeout(adjustViewportFit, 150);
         });
     </script>
 </body>
