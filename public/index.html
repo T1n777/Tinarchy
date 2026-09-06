@@ -121,17 +121,7 @@
             }
 
             // Blur & Translucency
-            const blur = localStorage.getItem('dashboard-blur') || '16';
-            root.style.setProperty('--wp-blur', `${blur}px`);
-            const transRaw = localStorage.getItem('dashboard-glass-translucency') || '60';
-            const val = parseInt(transRaw, 10);
-            const t = val / 100;
-            const alpha = (0.95 - (t * 0.80)).toFixed(2);
-            root.style.setProperty('--ui-translucency', t);
-            root.style.setProperty('--glass-alpha', alpha);
-            root.style.setProperty('--glass', `rgba(var(--glass-rgb, 14, 19, 34), ${alpha})`);
-            root.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
-            root.style.setProperty('--ui-saturate', '180%');
+            applyGlassAndBlur();
 
             const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
             const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
@@ -161,10 +151,39 @@
             }
         })();
 
+        function applyGlassAndBlur(blurVal, transVal) {
+            const blur = blurVal !== undefined ? blurVal : (localStorage.getItem('dashboard-blur') || '16');
+            const transRaw = transVal !== undefined ? transVal : (localStorage.getItem('dashboard-glass-translucency') || '60');
+            const val = parseInt(transRaw, 10);
+            const t = isNaN(val) ? 0.6 : val / 100;
+            const alpha = (0.95 - (t * 0.80)).toFixed(2);
+            const uiBlur = `${Math.round(t * 30)}px`;
+            const wpBlur = `${blur}px`;
+
+            [document.documentElement, document.body].forEach(el => {
+                if (!el) return;
+                el.style.setProperty('--wp-blur', wpBlur);
+                el.style.setProperty('--ui-translucency', t);
+                el.style.setProperty('--glass-alpha', alpha);
+                el.style.setProperty('--glass', `rgba(var(--glass-rgb, 14, 19, 34), ${alpha})`);
+                el.style.setProperty('--ui-blur', uiBlur);
+                el.style.setProperty('--ui-saturate', '180%');
+            });
+
+            const bg = document.querySelector('.wallpaper');
+            if (bg) bg.style.filter = `blur(${wpBlur})`;
+        }
+
         window.addEventListener('pageshow', () => {
             const theme = localStorage.getItem('dashboard-theme') || 'glass';
             document.documentElement.setAttribute('data-theme', theme);
             if (document.body) document.body.setAttribute('data-theme', theme);
+            applyGlassAndBlur();
+            try {
+                const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
+                applyThemeAndColors(document.documentElement, pywal);
+                if (document.body) applyThemeAndColors(document.body, pywal);
+            } catch(err) {}
         });
         window.addEventListener('storage', (e) => {
             if (e.key === 'dashboard-theme') {
@@ -172,24 +191,23 @@
                 document.documentElement.setAttribute('data-theme', theme);
                 if (document.body) document.body.setAttribute('data-theme', theme);
             } else if (e.key === 'dashboard-blur') {
-                document.documentElement.style.setProperty('--wp-blur', `${e.newValue}px`);
-                const bg = document.querySelector('.wallpaper');
-                if (bg) bg.style.filter = `blur(${e.newValue}px)`;
-                const vid = document.querySelector('.wallpaper-video');
-                if (vid) vid.style.filter = `blur(${e.newValue}px)`;
+                applyGlassAndBlur(e.newValue, undefined);
             } else if (e.key === 'dashboard-glass-translucency') {
-                const t = parseInt(e.newValue, 10) / 100;
-                const alpha = (0.95 - (t * 0.80)).toFixed(2);
-                document.documentElement.style.setProperty('--ui-translucency', t);
-                document.documentElement.style.setProperty('--glass-alpha', alpha);
-                document.documentElement.style.setProperty('--glass', `rgba(var(--glass-rgb, 14, 19, 34), ${alpha})`);
-                document.documentElement.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
+                applyGlassAndBlur(undefined, e.newValue);
             } else if (e.key === 'dashboard-primary-color' || e.key === 'dashboard-pywal') {
                 try {
                     const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
                     applyThemeAndColors(document.documentElement, pywal);
+                    if (document.body) applyThemeAndColors(document.body, pywal);
                 } catch(err) {}
+            } else if (e.key === 'dashboard-wallpaper' || e.key === 'dashboard-wallpaper-is-video') {
+                const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+                const wpUrl = localStorage.getItem('dashboard-wallpaper');
+                if (wpUrl) applyMediaToBackground(wpUrl, isVideo);
             }
+        });
+        document.addEventListener('DOMContentLoaded', () => {
+            applyGlassAndBlur();
         });
     </script>
 
@@ -261,7 +279,7 @@
             border-radius: 8px !important;
         }
 
-        :root, body[data-theme="glass"] {
+        :root, :root[data-theme="glass"] {
             --bg: #0a0f1e;
             --glass-rgb: 14, 19, 34;
             --glass-alpha: 0.65;
@@ -337,14 +355,10 @@
 
         .wallpaper-video {
             position: absolute;
-            top: -20px;
-            left: -20px;
-            right: -20px;
-            bottom: -20px;
-            width: calc(100% + 40px);
-            height: calc(100% + 40px);
+            inset: 0;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            filter: blur(var(--wp-blur));
             transform: translateZ(0);
             pointer-events: none;
         }
@@ -371,7 +385,7 @@
             border: 1px solid var(--glass-border);
             box-shadow: var(--card-shadow);
             border-radius: 16px;
-            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .glass:hover {
@@ -416,9 +430,9 @@
             justify-content: space-between;
             align-items: center;
             padding: 6px 20px;
-            background: rgba(var(--glass-rgb), 0.75);
-            backdrop-filter: blur(24px) saturate(180%);
-            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            background: var(--glass);
+            backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
+            -webkit-backdrop-filter: blur(var(--ui-blur)) saturate(var(--ui-saturate));
             border: 1px solid var(--glass-border);
             border-radius: 999px;
             box-shadow: var(--shadow-inner), 0 8px 32px rgba(0, 0, 0, 0.35);
@@ -697,7 +711,7 @@
             flex-direction: column;
             justify-content: space-between;
             min-height: 140px;
-            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .card:hover {
@@ -956,6 +970,19 @@
         /* ─── Responsive Styles ─── */
         /* Tablet & Small Screens (≤ 768px): List Layout + Smaller Tiles */
         @media (max-width: 768px) {
+            /* Lightweight GPU blur for silky-smooth phone scrolling */
+            .glass, .card, .stat-card, .tor-exit-banner {
+                backdrop-filter: blur(8px) saturate(130%) !important;
+                -webkit-backdrop-filter: blur(8px) saturate(130%) !important;
+                background: rgba(var(--glass-rgb), 0.85) !important;
+                transform: translateZ(0);
+            }
+            .top-nav {
+                backdrop-filter: blur(10px) saturate(140%) !important;
+                -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+                background: rgba(var(--glass-rgb), 0.88) !important;
+            }
+
             .grid {
                 grid-template-columns: 1fr !important;
                 gap: 10px !important;
@@ -1321,7 +1348,9 @@
             }, 3000);
         }
 
+        let LAST_SYS_STATS = {};
         async function fetchSystemStats(manual = false) {
+            if (document.hidden && !manual) return;
             try {
                 const res = await fetch('/api/system');
                 if(!res.ok) return;
@@ -1329,41 +1358,87 @@
 
                 // Dynamic Name
                 const serverName = stats.display_name || stats.server_name || 'Server';
-                document.getElementById('sys-hostname').textContent = serverName;
-                document.title = `${serverName} - Dashboard`;
+                if (LAST_SYS_STATS.serverName !== serverName) {
+                    const hostEl = document.getElementById('sys-hostname');
+                    if (hostEl) hostEl.textContent = serverName;
+                    document.title = `${serverName} - Dashboard`;
+                    LAST_SYS_STATS.serverName = serverName;
+                }
 
-                document.getElementById('sys-tailscale').textContent = `IP: ${stats.tailscale_ip}`;
-                document.getElementById('sys-uptime').textContent = `Up: ${stats.uptime}`;
+                if (LAST_SYS_STATS.tailscale_ip !== stats.tailscale_ip) {
+                    const tsEl = document.getElementById('sys-tailscale');
+                    if (tsEl) tsEl.textContent = `IP: ${stats.tailscale_ip}`;
+                    LAST_SYS_STATS.tailscale_ip = stats.tailscale_ip;
+                }
+                if (LAST_SYS_STATS.uptime !== stats.uptime) {
+                    const upEl = document.getElementById('sys-uptime');
+                    if (upEl) upEl.textContent = `Up: ${stats.uptime}`;
+                    LAST_SYS_STATS.uptime = stats.uptime;
+                }
 
                 // RAM
-                document.getElementById('ram-text').textContent = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
+                const ramTxt = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
+                if (LAST_SYS_STATS.ramTxt !== ramTxt) {
+                    const ramEl = document.getElementById('ram-text');
+                    if (ramEl) ramEl.textContent = ramTxt;
+                    LAST_SYS_STATS.ramTxt = ramTxt;
+                }
+                const ramPercentStr = `${stats.ram_percent}%`;
                 const ramBar = document.getElementById('ram-bar');
-                ramBar.style.width = `${stats.ram_percent}%`;
-                ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+                if (ramBar && ramBar.style.width !== ramPercentStr) {
+                    ramBar.style.width = ramPercentStr;
+                    ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+                }
 
                 // Disk
-                document.getElementById('disk-text').textContent = `${stats.disk_used} / ${stats.disk_total}`;
+                const diskTxt = `${stats.disk_used} / ${stats.disk_total}`;
+                if (LAST_SYS_STATS.diskTxt !== diskTxt) {
+                    const diskEl = document.getElementById('disk-text');
+                    if (diskEl) diskEl.textContent = diskTxt;
+                    LAST_SYS_STATS.diskTxt = diskTxt;
+                }
+                const diskPercentStr = `${stats.disk_percent}%`;
                 const diskBar = document.getElementById('disk-bar');
-                diskBar.style.width = `${stats.disk_percent}%`;
+                if (diskBar && diskBar.style.width !== diskPercentStr) {
+                    diskBar.style.width = diskPercentStr;
+                }
 
                 // CPU Load
-                document.getElementById('cpu-text').textContent = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
+                const cpuTxt = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
+                if (LAST_SYS_STATS.cpuTxt !== cpuTxt) {
+                    const cpuEl = document.getElementById('cpu-text');
+                    if (cpuEl) cpuEl.textContent = cpuTxt;
+                    LAST_SYS_STATS.cpuTxt = cpuTxt;
+                }
+                const cpuPercentStr = `${stats.cpu_percent}%`;
                 const cpuBar = document.getElementById('cpu-bar');
-                cpuBar.style.width = `${stats.cpu_percent}%`;
+                if (cpuBar && cpuBar.style.width !== cpuPercentStr) {
+                    cpuBar.style.width = cpuPercentStr;
+                }
 
                 // CPU Temp
                 if (stats.cpu_temp) {
-                    document.getElementById('temp-text').textContent = stats.cpu_temp;
+                    if (LAST_SYS_STATS.cpu_temp !== stats.cpu_temp) {
+                        const tempEl = document.getElementById('temp-text');
+                        if (tempEl) tempEl.textContent = stats.cpu_temp;
+                        LAST_SYS_STATS.cpu_temp = stats.cpu_temp;
+                    }
                     const tempBar = document.getElementById('temp-bar');
-                    const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
-                    tempBar.style.width = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
-                    tempBar.style.backgroundColor = tempVal > 78 ? '#ffb4ab' : (tempVal > 65 ? '#fcc419' : 'var(--primary)');
+                    if (tempBar) {
+                        const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
+                        const tempPercentStr = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
+                        if (tempBar.style.width !== tempPercentStr) {
+                            tempBar.style.width = tempPercentStr;
+                            tempBar.style.backgroundColor = tempVal > 78 ? '#ffb4ab' : (tempVal > 65 ? '#fcc419' : 'var(--primary)');
+                        }
+                    }
                 }
 
                 // Drive Sync
-                if (stats.drive_last_sync_human) {
+                if (stats.drive_last_sync_human && LAST_SYS_STATS.driveSync !== stats.drive_last_sync_human) {
                     const timeEl = document.getElementById('drive-sync-time');
                     if (timeEl) timeEl.textContent = stats.drive_last_sync_human;
+                    LAST_SYS_STATS.driveSync = stats.drive_last_sync_human;
                 }
 
                 if (manual) showToast('Telemetry synchronized', 'success');
@@ -1705,7 +1780,10 @@
             if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
                 fetchTorExitStatus();
             }
-            setInterval(fetchSystemStats, 2000);
+            setInterval(fetchSystemStats, 4000);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) fetchSystemStats();
+            });
         });
     </script>
 </body>
