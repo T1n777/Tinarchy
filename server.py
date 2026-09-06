@@ -508,7 +508,7 @@ SERVICES = [
     {'id': 'tor', 'name': 'Tor Proxy', 'port': 9050, 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
     {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
-    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': 22, 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': 'https://login.tailscale.com/admin/machines', 'link_text': 'Tailscale SSH ↗'},
+    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': 22, 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
 ]
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
@@ -606,14 +606,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         # 1. Dedicated Static Guide Pages for non-HTTP / setup services
         if clean_path in ['/ssh', '/sshd', '/tailscale-ssh']:
-            self.send_response(302)
-            self.send_header('Location', 'https://login.tailscale.com/admin/machines')
+            return self.serve_guide_page('ssh.html')
+
+        if clean_path in ['/guides/ssh', '/guides/ssh.html']:
+            self.send_response(301)
+            self.send_header('Location', '/ssh')
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.end_headers()
             return True
-
-        if clean_path in ['/guides/ssh', '/guides/ssh.html']:
-            return self.serve_guide_page('ssh.html')
 
         if clean_path in ['/tor', '/tor-proxy', '/socks5', '/guides/tor', '/guides/tor.html']:
             return self.serve_guide_page('tor.html')
