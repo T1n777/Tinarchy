@@ -364,6 +364,7 @@ def resolve_tailscale_client(ip):
     # Localhost / loopback / server self
     if ip in ['127.0.0.1', '::1', os.environ.get('TAILSCALE_IP', '127.0.0.1')]:
         return {
+            'user_id': host_owner.get('user_id'),
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
             'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
@@ -393,6 +394,7 @@ def resolve_tailscale_client(ip):
 
             role = get_user_role(login_name, display_name, user_id=user_id)
             user_info = {
+                'user_id': user_id,
                 'login_name': login_name,
                 'display_name': display_name,
                 'avatar': avatar,
@@ -897,6 +899,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "role": role,
                 "display_name": session.get('display_name', 'User'),
                 "login_name": login_name,
+                "user_id": session.get('user_id'),
                 "avatar": session.get('avatar', ''),
                 "is_owner": session.get('is_owner', False),
                 "device_name": session.get('device_name', ''),

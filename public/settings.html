@@ -823,8 +823,7 @@
             tsUsers.forEach(u => {
                 const isCurrent = currentUser && (
                     (u.login_name && currentUser.login_name && u.login_name.toLowerCase() === currentUser.login_name.toLowerCase()) ||
-                    (u.id && currentUser.user_id && String(u.id) === String(currentUser.user_id)) ||
-                    (u.display_name && currentUser.display_name && u.display_name === currentUser.display_name)
+                    (u.id && currentUser.user_id && String(u.id) === String(currentUser.user_id))
                 );
 
                 const card = document.createElement('div');
@@ -846,7 +845,7 @@
 
                 const avatarHTML = u.avatar 
                     ? `<img src="${u.avatar}" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid var(--glass-border);">`
-                    : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem;">${u.display_name[0] || 'U'}</div>`;
+                    : `<div style="width: 42px; height: 42px; border-radius: 50%; background: var(--primary); color: #000; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.1rem;">${(u.display_name || u.login_name || 'U')[0]}</div>`;
 
                 let roleControlHTML = '';
                 if (u.is_owner) {
