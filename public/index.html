@@ -1524,10 +1524,10 @@
                     <div class="service-details">
                         ${titleHTML}
                         <p>${s.description}</p>
-                        <div class="systemd-name">${s.systemd}.service</div>
+                        <div class="systemd-name">${s.systemd_name || (s.systemd + '.service')}</div>
                     </div>
                     <div class="card-footer">
-                        <a href="${launchUrl}" target="_blank" class="port" title="Open ${serviceLink}">${serviceLink}</a>
+                        <a href="${launchUrl}" target="_blank" class="port" title="Open ${serviceLink}">${s.link_text || serviceLink}</a>
                         <div class="actions">
                             ${torButtonHTML}
                             ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `

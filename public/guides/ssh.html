@@ -518,7 +518,7 @@
             </a>
             <div class="badge">
                 <span class="dot"></span>
-                OpenSSH Port 22 Active
+                Tailscale SSH Active
             </div>
         </nav>
 
@@ -526,8 +526,9 @@
         <div class="header-card">
             <div class="header-icon">🔑</div>
             <div class="header-info">
-                <h1>SSH Remote Access</h1>
-                <p>Fast, encrypted command-line shell access to <code style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code> over your private Tailscale mesh network and local Wi-Fi.</p>
+                <h1>Tailscale SSH Access</h1>
+                <p>Keyless, authenticated command-line shell access to <code style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code> over your private Tailscale mesh network.</p>
+                <a href="https://login.tailscale.com/admin/machines" target="_blank" style="display:inline-flex; align-items:center; gap:8px; margin-top:12px; background:var(--primary); color:#0b0f14; padding:8px 16px; border-radius:8px; text-decoration:none; font-weight:700; font-size:0.85rem; box-shadow:0 0 16px var(--primary-glow);">Open In-Browser Terminal in Tailscale Console ↗</a>
             </div>
         </div>
 
@@ -542,8 +543,8 @@
                 <div class="meta-val" id="tsIp">100.112.193.54</div>
             </div>
             <div class="meta-box">
-                <div class="meta-label">Local Wi-Fi LAN IP</div>
-                <div class="meta-val" id="lanIp">10.14.143.130</div>
+                <div class="meta-label">Auth Method</div>
+                <div class="meta-val">Tailscale Identity</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Port & Default User</div>
@@ -554,58 +555,26 @@
         <!-- 1. Quick Connect Command -->
         <div class="card">
             <h2><span class="sec-num">1</span> Quick Connect via Terminal</h2>
-            <p>Select your connection method below, then paste the command into your terminal (macOS Terminal, Linux Bash/Zsh, Windows Terminal or PowerShell):</p>
+            <p>Connect instantly with Tailscale SSH. No SSH keys or passwords required:</p>
             
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchSshTab('magic')">Tailscale MagicDNS</button>
-                <button class="tab-btn" onclick="switchSshTab('tsip')">Tailscale IP</button>
-                <button class="tab-btn" onclick="switchSshTab('lan')">Local LAN IP</button>
+                <button class="tab-btn active" onclick="switchSshTab('tailscale')">Tailscale CLI</button>
+                <button class="tab-btn" onclick="switchSshTab('magic')">Standard SSH (MagicDNS)</button>
+                <button class="tab-btn" onclick="switchSshTab('tsip')">Standard SSH (IP)</button>
             </div>
 
             <div class="code-container">
-                <code id="sshCommand">ssh pineapple@pineapple-station.taildb42a2.ts.net</code>
+                <code id="sshCommand">tailscale ssh pineapple@pineapple-station</code>
                 <button class="copy-btn" onclick="copyCode('sshCommand')">📋 Copy</button>
             </div>
         </div>
 
-        <!-- 2. Passwordless Authentication (SSH Keys) -->
+        <!-- 2. Zero Key Management -->
         <div class="card">
-            <h2><span class="sec-num">2</span> Setup Passwordless SSH Keys</h2>
-            <p>For seamless login without typing your password every time, copy your local machine's public key to the server authorized keys:</p>
-            
-            <div class="step-list">
-                <div class="step-item">
-                    <div class="step-circle">A</div>
-                    <div class="step-content">
-                        <strong>Linux / macOS (One command):</strong>
-                        <div class="code-container">
-                            <code id="sshCopyId">ssh-copy-id -i ~/.ssh/id_ed25519.pub pineapple@pineapple-station.taildb42a2.ts.net</code>
-                            <button class="copy-btn" onclick="copyCode('sshCopyId')">📋 Copy</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-item">
-                    <div class="step-circle">B</div>
-                    <div class="step-content">
-                        <strong>Windows PowerShell:</strong>
-                        <div class="code-container">
-                            <code id="sshWin">type :USERPROFILE\.ssh\id_ed25519.pub | ssh pineapple@pineapple-station.taildb42a2.ts.net "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"</code>
-                            <button class="copy-btn" onclick="copyCode('sshWin')">📋 Copy</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-item">
-                    <div class="step-circle">C</div>
-                    <div class="step-content">
-                        <strong>Don't have an SSH key yet? Generate one on your computer:</strong>
-                        <div class="code-container">
-                            <code id="sshGen">ssh-keygen -t ed25519 -C "laptop-key"</code>
-                            <button class="copy-btn" onclick="copyCode('sshGen')">📋 Copy</button>
-                        </div>
-                    </div>
-                </div>
+            <h2><span class="sec-num">2</span> Keyless Authentication (Zero Config)</h2>
+            <p>Tailscale SSH manages authentication and ephemeral encryption keys automatically. Your terminal session verifies against your Tailnet identity without managing <code style="color:var(--primary); font-family:var(--font-mono);">~/.ssh/authorized_keys</code>.</p>
+            <div style="background:rgba(105, 180, 195, 0.08); border:1px solid var(--glass-border); padding:1rem; border-radius:12px; font-size:0.9rem; line-height:1.6;">
+                <strong>Web Browser Terminal:</strong> You can also SSH into this machine from any web browser without opening a local terminal by visiting the <a href="https://login.tailscale.com/admin/machines" target="_blank" style="color:var(--primary); font-weight:600;">Tailscale Machines Console</a> and clicking <strong>SSH...</strong> next to <code style="font-family:var(--font-mono); color:var(--text);">pineapple-station</code>.
             </div>
         </div>
 
@@ -676,12 +645,12 @@
             event.target.classList.add('active');
             
             const el = document.getElementById('sshCommand');
-            if (type === 'magic') {
+            if (type === 'tailscale') {
+                el.textContent = 'tailscale ssh pineapple@pineapple-station';
+            } else if (type === 'magic') {
                 el.textContent = 'ssh pineapple@pineapple-station.taildb42a2.ts.net';
             } else if (type === 'tsip') {
                 el.textContent = 'ssh pineapple@100.112.193.54';
-            } else if (type === 'lan') {
-                el.textContent = 'ssh pineapple@10.14.143.130';
             }
         }
 

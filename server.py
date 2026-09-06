@@ -489,6 +489,15 @@ def get_tailscale_users():
         print(f"Tailscale status error: {e}")
         return []
 
+def is_tailscale_ssh_active():
+    try:
+        res = subprocess.run(['tailscale', 'debug', 'prefs'], capture_output=True, text=True, timeout=1)
+        if res.returncode == 0:
+            return '"RunSSH": true' in res.stdout
+    except Exception:
+        pass
+    return False
+
 PORT = int(os.environ.get('PORT', 8085))
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
@@ -499,7 +508,7 @@ SERVICES = [
     {'id': 'tor', 'name': 'Tor Proxy', 'port': 9050, 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
     {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
-    {'id': 'sshd', 'name': 'SSH Server', 'port': 22, 'systemd': 'sshd', 'icon': '🔑', 'description': 'Secure shell access'},
+    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': 22, 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': 'https://login.tailscale.com/admin/machines', 'link_text': 'Tailscale SSH ↗'},
 ]
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
@@ -596,7 +605,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             clean_path = '/' + sub
 
         # 1. Dedicated Static Guide Pages for non-HTTP / setup services
-        if clean_path in ['/ssh', '/sshd', '/guides/ssh', '/guides/ssh.html']:
+        if clean_path in ['/ssh', '/sshd', '/tailscale-ssh']:
+            self.send_response(302)
+            self.send_header('Location', 'https://login.tailscale.com/admin/machines')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
+        if clean_path in ['/guides/ssh', '/guides/ssh.html']:
             return self.serve_guide_page('ssh.html')
 
         if clean_path in ['/tor', '/tor-proxy', '/socks5', '/guides/tor', '/guides/tor.html']:
@@ -675,25 +691,31 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     pass
 
                 base_results = []
+                ts_ssh_on = is_tailscale_ssh_active()
                 for s in SERVICES:
                     status_obj = s.copy()
-                    status_obj['status'] = unit_status.get(s['systemd'], 'offline')
+                    if s['id'] == 'tailscale-ssh':
+                        status_obj['status'] = 'online' if (unit_status.get('tailscaled') == 'online' and ts_ssh_on) else 'offline'
+                    else:
+                        status_obj['status'] = unit_status.get(s['systemd'], 'offline')
+
                     if s['id'] == 'suwayomi':
                         status_obj['torProxyEnabled'] = tor_proxy_enabled
 
-                    service_link = f"/{s['id']}"
-                    if s['id'] == 'filebrowser':
-                        service_link = '/files'
-                    elif s['id'] == 'suwayomi':
-                        service_link = '/manga'
-                    elif s['id'] == 'couchdb':
-                        service_link = '/obsidian'
-                    elif s['id'] == 'sshd':
-                        service_link = '/ssh'
-                    elif s['id'] == 'tor':
-                        service_link = '/tor'
-                    elif 'navidrome' in s['id']:
-                        service_link = '/navidrome'
+                    if 'link' in s:
+                        service_link = s['link']
+                    else:
+                        service_link = f"/{s['id']}"
+                        if s['id'] == 'filebrowser':
+                            service_link = '/files'
+                        elif s['id'] == 'suwayomi':
+                            service_link = '/manga'
+                        elif s['id'] == 'couchdb':
+                            service_link = '/obsidian'
+                        elif s['id'] == 'tor':
+                            service_link = '/tor'
+                        elif 'navidrome' in s['id']:
+                            service_link = '/navidrome'
                     status_obj['link'] = service_link
                     base_results.append(status_obj)
 
@@ -1071,14 +1093,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             try:
-                subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
+                if service_id == 'tailscale-ssh':
+                    ssh_val = 'true' if action == 'start' else 'false'
+                    subprocess.run(['tailscale', 'set', f'--ssh={ssh_val}', '--accept-risk=lose-ssh'], check=True, timeout=5)
+                else:
+                    subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
                 global _SERVICES_STATUS_CACHE
                 _SERVICES_STATUS_CACHE['ts'] = 0
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(b'{"success": true}')
-            except subprocess.CalledProcessError as e:
+            except (subprocess.CalledProcessError, Exception) as e:
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
