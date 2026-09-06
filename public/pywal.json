@@ -1,27 +1,27 @@
 {
-  "wallpaper": "/home/pineapple/server-dashboard/public/Wallpapers/aurora_borealis_lake_16x10.png",
+  "wallpaper": "/home/pineapple/server-dashboard/public/Wallpapers/cyber_aesthetic_girl_16x10.png",
   "alpha": "100",
   "special": {
-    "background": "#121018",
+    "background": "#151810",
     "foreground": "#ffffff",
     "cursor": "#ffffff"
   },
   "colors": {
-    "color0": "#121018",
-    "color1": "#a6bdd4",
-    "color2": "#e9d1dd",
-    "color3": "#a6ddf1",
-    "color4": "#debad1",
-    "color5": "#a6bdd4",
-    "color6": "#e9d1dd",
+    "color0": "#151810",
+    "color1": "#b3dac0",
+    "color2": "#aed8b3",
+    "color3": "#a4d3aa",
+    "color4": "#badfc7",
+    "color5": "#b3dac0",
+    "color6": "#aed8b3",
     "color7": "#ffffff",
     "color8": "#c5d1de",
-    "color9": "#a6bdd4",
-    "color10": "#e9d1dd",
-    "color11": "#a6ddf1",
-    "color12": "#debad1",
-    "color13": "#a6bdd4",
-    "color14": "#e9d1dd",
+    "color9": "#b3dac0",
+    "color10": "#aed8b3",
+    "color11": "#a4d3aa",
+    "color12": "#badfc7",
+    "color13": "#b3dac0",
+    "color14": "#aed8b3",
     "color15": "#ffffff"
   }
 }
