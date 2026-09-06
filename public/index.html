@@ -74,7 +74,6 @@
                     vidEl.loop = true;
                     vidEl.muted = true;
                     vidEl.playsInline = true;
-                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
                     bgDiv.appendChild(vidEl);
                 }
                 if (vidEl) {
@@ -298,29 +297,32 @@
 
         html {
             height: 100%;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             font-family: var(--font-family);
             color: var(--text);
+            height: 100%;
             min-height: 100%;
+            margin: 0;
+            padding: 0;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-rendering: optimizeLegibility;
         }
 
-        @media (min-width: 1024px) and (min-height: 620px) {
-            body {
-                overflow-y: hidden;
-            }
-        }
-
         .wallpaper-container {
             position: fixed;
-            inset: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
             overflow: hidden;
             z-index: -2;
             pointer-events: none;
@@ -329,7 +331,10 @@
         /* Razor-sharp Wallpaper Background */
         .wallpaper {
             position: absolute;
-            inset: -20px;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
             width: calc(100% + 40px);
             height: calc(100% + 40px);
             background: var(--wp-url, url('/dashboard-bg.jpg')) no-repeat center center;
@@ -341,7 +346,10 @@
 
         .wallpaper-video {
             position: absolute;
-            inset: -20px;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
             width: calc(100% + 40px);
             height: calc(100% + 40px);
             object-fit: cover;
@@ -352,7 +360,13 @@
 
         .wallpaper-tint {
             position: fixed;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
             background: rgba(0, 0, 0, 0.42);
             z-index: -1;
             pointer-events: none;
@@ -938,6 +952,165 @@
 
         .toast.success { border-color: var(--online); color: var(--online); }
         .toast.error { border-color: var(--offline); color: var(--offline); }
+
+        /* ─── Dynamic Full-Page Viewport Rescaling (Desktop / Laptop) ─── */
+        @media (min-width: 1024px) and (min-height: 520px) {
+            html, body {
+                height: 100vh;
+                height: 100dvh;
+                overflow: hidden !important;
+            }
+
+            .container {
+                height: 100vh;
+                height: 100dvh;
+                max-height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: clamp(6px, 1.2vh, 16px) clamp(16px, 2vw, 36px);
+                max-width: min(1560px, 96vw);
+                margin: 0 auto;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            .top-nav-wrapper {
+                position: static;
+                margin: 0 0 clamp(4px, 0.8vh, 10px);
+                flex-shrink: 0;
+            }
+
+            .stats-bar {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: clamp(8px, 1.2vh, 14px);
+                margin: 0 0 clamp(6px, 1vh, 10px);
+                flex-shrink: 0;
+            }
+
+            .stat-card {
+                padding: clamp(8px, 1.2vh, 14px) clamp(10px, 1.1vw, 16px);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                min-height: 0;
+            }
+
+            .stat-card .stat-label {
+                font-size: clamp(0.68rem, 0.8vw, 0.78rem);
+                margin-bottom: clamp(2px, 0.4vh, 4px);
+            }
+
+            .stat-card .stat-value {
+                font-size: clamp(0.95rem, 1.1vw, 1.25rem);
+                margin-bottom: clamp(3px, 0.5vh, 6px);
+            }
+
+            .tor-exit-banner {
+                padding: clamp(6px, 1vh, 12px) clamp(12px, 1.4vw, 20px);
+                margin-bottom: clamp(6px, 1vh, 10px);
+                flex-shrink: 0;
+            }
+
+            .tor-icon {
+                width: clamp(32px, 3.8vh, 40px);
+                height: clamp(32px, 3.8vh, 40px);
+                flex: 0 0 clamp(32px, 3.8vh, 40px);
+                font-size: clamp(1rem, 1.2vw, 1.25rem);
+            }
+
+            .tor-exit-info h2 {
+                font-size: clamp(0.88rem, 1vw, 1.05rem);
+                margin-bottom: clamp(1px, 0.3vh, 3px);
+            }
+
+            .tor-exit-info p {
+                font-size: clamp(0.72rem, 0.8vw, 0.82rem);
+            }
+
+            .section-title {
+                font-size: clamp(0.95rem, 1.1vw, 1.15rem);
+                margin-bottom: clamp(4px, 0.8vh, 8px);
+                flex-shrink: 0;
+            }
+
+            .grid {
+                flex: 1;
+                min-height: 0;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+                gap: clamp(8px, 1.3vh, 16px);
+                margin-bottom: 2px;
+            }
+
+            .card {
+                height: 100%;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: clamp(10px, 1.6vh, 20px) clamp(14px, 1.5vw, 22px);
+                box-sizing: border-box;
+            }
+
+            .card-header {
+                margin-bottom: clamp(4px, 0.8vh, 8px);
+                flex-shrink: 0;
+            }
+
+            .service-icon {
+                width: clamp(34px, 4vh, 44px);
+                height: clamp(34px, 4vh, 44px);
+                font-size: clamp(1.15rem, 1.4vw, 1.5rem);
+            }
+
+            .status-badge {
+                font-size: clamp(0.68rem, 0.75vw, 0.74rem);
+                padding: clamp(2px, 0.4vh, 4px) clamp(8px, 0.8vw, 12px);
+            }
+
+            .service-details {
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                overflow: hidden;
+            }
+
+            .service-details h2 {
+                font-size: clamp(0.98rem, 1.15vw, 1.25rem);
+                margin-bottom: clamp(2px, 0.4vh, 5px);
+            }
+
+            .service-details p {
+                font-size: clamp(0.76rem, 0.85vw, 0.88rem);
+                margin-bottom: clamp(3px, 0.5vh, 6px);
+                line-height: 1.35;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .systemd-name {
+                font-size: clamp(0.65rem, 0.72vw, 0.74rem);
+                margin-bottom: clamp(3px, 0.5vh, 6px);
+            }
+
+            .card-footer {
+                padding-top: clamp(6px, 1vh, 12px);
+                border-top: 1px solid rgba(255, 255, 255, 0.06);
+                flex-shrink: 0;
+            }
+
+            .port {
+                font-size: clamp(0.72rem, 0.8vw, 0.82rem);
+                padding: clamp(2px, 0.3vh, 3px) clamp(6px, 0.6vw, 10px);
+            }
+        }
 
         /* Responsive */
         @media (max-width: 640px) {
@@ -1599,16 +1772,35 @@
             } catch(e) {}
         }
 
-        function adjustViewportFit() {
-            if (window.innerWidth >= 1024) {
-                const c = document.querySelector('.container');
-                if (c) {
-                    const fits = (window.innerHeight + 2) >= c.offsetHeight;
-                    document.body.style.overflowY = fits ? 'hidden' : 'auto';
+        function updateGridLayout(serviceCount) {
+            const grid = document.getElementById('services-container');
+            if (!grid) return;
+            const isDesktop = window.innerWidth >= 1024 && window.innerHeight >= 520;
+            if (isDesktop) {
+                const count = typeof serviceCount === 'number' ? serviceCount : grid.children.length;
+                if (count <= 3) {
+                    grid.style.gridTemplateRows = '1fr';
+                } else if (count <= 6) {
+                    grid.style.gridTemplateRows = 'repeat(2, 1fr)';
+                } else {
+                    const rows = Math.ceil(count / 3);
+                    grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
                 }
             } else {
-                document.body.style.overflowY = 'auto';
+                grid.style.gridTemplateRows = '';
             }
+        }
+
+        function adjustViewportFit() {
+            const isDesktop = window.innerWidth >= 1024 && window.innerHeight >= 520;
+            if (isDesktop) {
+                document.documentElement.style.overflow = 'hidden';
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.documentElement.style.overflow = '';
+                document.body.style.overflow = '';
+            }
+            updateGridLayout();
         }
         window.addEventListener('resize', adjustViewportFit);
 
