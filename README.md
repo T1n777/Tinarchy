@@ -171,7 +171,24 @@ cd ~/Tinarchy
 ln -s ~/Tinarchy ~/server-dashboard
 ```
 
-### 3. Configuration
+### 3. Automated Interactive Installation (Recommended)
+
+Run the master interactive installer to choose and configure components:
+
+```bash
+cd ~/Tinarchy
+./install.sh
+```
+
+The installer prompts for each server individually upfront, batch installs package dependencies, applies all configurations, activates systemd daemons, and credits upstream creators. For non-interactive unattended installation:
+
+```bash
+./install.sh --yes
+```
+
+---
+
+### 4. Manual Configuration (Advanced)
 
 #### A. Centralized Environment Engine (`.env`)
 Copy the provided `.env.example` template to configure your instance:
@@ -223,7 +240,7 @@ Add untracked machine-specific services (e.g. Navidrome instances):
 
 ---
 
-### 4. Deploy Systemd Services
+### 5. Deploy Systemd Services
 
 Deploy the dashboard unit file:
 
@@ -244,7 +261,7 @@ Additional service unit templates are available under `configs/systemd/`:
 
 ---
 
-### 5. Install the Drive Sync Engine
+### 6. Install the Drive Sync Engine
 
 Set up the unified `$HOME/drive/` sync script and background service:
 
@@ -262,7 +279,7 @@ sudo systemctl enable --now pinedash-drive-sync.service
 
 ---
 
-### 6. Configure Nginx Reverse Proxy
+### 7. Configure Nginx Reverse Proxy
 
 1. Review and adjust `configs/nginx/nginx.conf` (ensure usernames, SSL certificate paths, and server names match your machine).
 2. Copy configuration to `/etc/nginx/nginx.conf`:
@@ -273,7 +290,7 @@ sudo systemctl enable --now pinedash-drive-sync.service
 
 ---
 
-### 7. Configure Tor Exit Node (Optional)
+### 8. Configure Tor Exit Node (Optional)
 
 Make the exit node script executable:
 ```bash
@@ -287,7 +304,7 @@ To allow the dashboard backend to toggle the Tor exit node without password prom
 
 ---
 
-### 8. Configure Persistent SSH & Terminal (tmux + Zsh)
+### 9. Configure Persistent SSH & Terminal (tmux + Zsh)
 
 Install the low-latency Zsh configuration and persistent tmux environment:
 
@@ -299,7 +316,7 @@ cp configs/tmux/tmux.conf ~/.tmux.conf
 
 ---
 
-### 9. Headless Laptop Display Powerdown (Optional)
+### 10. Headless Laptop Display Powerdown (Optional)
 
 For home server laptops running 24/7 with the lid open or closed, enforce true hardware DPMS backlight shutoff after 3 minutes of console inactivity:
 
@@ -320,7 +337,7 @@ sudo systemctl daemon-reload
 
 ---
 
-### 10. Syncthing Continuous Cross-Platform Sync Setup
+### 11. Syncthing Continuous Cross-Platform Sync Setup
 
 Syncthing delivers private, continuous, decentralized folder synchronization across all your personal devices without sending data through third-party cloud servers.
 
@@ -414,7 +431,7 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
 
 ---
 
-### 11. Optional: SyncYomi Manga Synchronization Setup
+### 12. Optional: SyncYomi Manga Synchronization Setup
 
 SyncYomi synchronizes reading progress, library status, bookmarks, and read history across **Suwayomi-Server** (desktop/server) and **Komikku / Tachiyomi / Mihon** (Android mobile devices).
 
