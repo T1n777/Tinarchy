@@ -1,6 +1,6 @@
 # 🍍 Pinedash (Server Ecosystem & Control Center)
 
-![Dashboard Banner](public/github-header-banner.png)
+![Dashboard Banner](public/tinarchy_banner.png)
 
 [![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?logo=arch-linux&logoColor=white)](https://archlinux.org)
 [![Python 3](https://img.shields.io/badge/Python_3.12+-3776AB?logo=python&logoColor=white)](https://python.org)
