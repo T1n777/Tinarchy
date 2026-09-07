@@ -5,6 +5,7 @@ After=multi-user.target
 
 [Service]
 Type=simple
+Environment="DISPLAY_SLEEP_TIMEOUT=60"
 ExecStart=/usr/local/bin/tinarchy-display-sleep
 Restart=always
 RestartSec=5

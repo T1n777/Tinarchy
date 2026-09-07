@@ -2,11 +2,11 @@
 """
 Tinarchy Headless Server Display Sleep & Inactivity Daemon
 - Monitors physical keyboard/touchpad/mouse input via /dev/input/event*
-- Automatically powers down display backlight (bl_power=4) after inactivity timeout (default: 120s)
-- Instantly wakes display (bl_power=0) on any physical keypress, mouse click, or touchpad touch
-- Handles laptop lid closed state (keeps backlight off while closed)
-- Supports 'off', 'on', 'toggle', 'status' CLI arguments
-- Consumes 0.0% CPU (blocked in kernel epoll) and < 5MB RAM
+# Automatically powers down display backlight (bl_power=4) after inactivity timeout (default: 60s)
+# Instantly wakes display (bl_power=0) on any physical keypress, mouse click, or touchpad touch
+# Handles laptop lid closed state (keeps backlight off while closed)
+# Supports 'off', 'on', 'toggle', 'status' CLI arguments
+# Consumes 0.0% CPU (blocked in kernel epoll) and < 5MB RAM
 """
 
 import os
@@ -16,7 +16,7 @@ import time
 import signal
 import selectors
 
-TIMEOUT_SECONDS = int(os.environ.get('DISPLAY_SLEEP_TIMEOUT', '120'))
+TIMEOUT_SECONDS = int(os.environ.get('DISPLAY_SLEEP_TIMEOUT', '60'))
 
 def find_backlight_files():
     return glob.glob('/sys/class/backlight/*/bl_power')
