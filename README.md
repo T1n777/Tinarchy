@@ -193,7 +193,7 @@ cd ~/Tinarchy
 ./install.sh
 ```
 
-The installer prompts for each server individually upfront, batch installs package dependencies, applies all configurations, activates systemd daemons, and credits upstream creators. For non-interactive unattended installation:
+The installer prompts for each server individually and asks for all modifiable server personal settings (server display name, project suite, branding subtitle, emoji icon, SSH user, Tailscale MagicDNS domain, owner email, web admin password, drive storage path) upfront, batch installs package dependencies, applies all configurations, activates systemd daemons, and credits upstream creators. For non-interactive unattended installation:
 
 ```bash
 ./install.sh --yes

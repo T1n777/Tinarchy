@@ -2,8 +2,9 @@
 # ==============================================================================
 # 🍍 Tinarchy Server Ecosystem - Master Interactive Installer & Configurator
 # ==============================================================================
-# Prompts for each server/service individually upfront, batch installs packages,
-# deploys configurations & systemd units, enables services, and credits creators.
+# Prompts for each server/service individually upfront, prompts for modifiable
+# server personal settings (identity, credentials, paths), batch installs
+# packages, deploys configurations, enables services, and credits creators.
 # ==============================================================================
 set -eo pipefail
 
@@ -17,6 +18,28 @@ RED='\033[31m'
 MAGENTA='\033[35m'
 BLUE='\033[34m'
 NC='\033[0m'
+
+# ─── Command-line Arguments ───────────────────────────────────────────────────
+AUTO_YES=false
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help)
+            echo "Usage: ./install.sh [OPTIONS]"
+            echo ""
+            echo "Interactive server installer for Tinarchy / Pinedash ecosystem."
+            echo "Prompts for each server individually and all modifiable personal settings upfront,"
+            echo "batch installs packages, applies configs, enables services, and credits creators."
+            echo ""
+            echo "Options:"
+            echo "  -h, --help    Show this help message"
+            echo "  -y, --yes     Non-interactive mode (accept all defaults)"
+            exit 0
+            ;;
+        -y|--yes)
+            AUTO_YES=true
+            ;;
+    esac
+done
 
 # ─── Privilege Check ──────────────────────────────────────────────────────────
 if [ "$(id -u)" -ne 0 ]; then
@@ -44,26 +67,35 @@ elif [ -f /etc/fedora-release ]; then
     OS_FAMILY="fedora"
 fi
 
-AUTO_YES=false
-for arg in "$@"; do
-    case "$arg" in
-        -h|--help)
-            echo "Usage: ./install.sh [OPTIONS]"
-            echo ""
-            echo "Interactive server installer for Tinarchy / Pinedash ecosystem."
-            echo "Prompts for each server individually upfront, batch installs packages,"
-            echo "applies configs, enables services, and credits creators."
-            echo ""
-            echo "Options:"
-            echo "  -h, --help    Show this help message"
-            echo "  -y, --yes     Non-interactive mode (accept all defaults)"
-            exit 0
-            ;;
-        -y|--yes)
+SYS_HOST="$(cat /etc/hostname 2>/dev/null || uname -n || echo 'tinarchy-server')"
+SYS_HOST="$(echo "$SYS_HOST" | tr -d '[:space:]')"
             AUTO_YES=true
             ;;
     esac
 done
+
+# ─── Read Existing Configurations (if any) ────────────────────────────────────
+EXISTING_SERVER_NAME=""
+EXISTING_PROJECT_NAME=""
+EXISTING_BRANDING_SUBTITLE=""
+EXISTING_APP_ICON=""
+EXISTING_SSH_USER=""
+EXISTING_TAILSCALE_DOMAIN=""
+EXISTING_OWNER_EMAIL=""
+EXISTING_ADMIN_PASSWORD=""
+EXISTING_STORAGE_DIR=""
+
+if [ -f "$REPO_ROOT/.env" ]; then
+    EXISTING_SERVER_NAME=$(grep -E '^SERVER_NAME=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_PROJECT_NAME=$(grep -E '^PROJECT_NAME=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_BRANDING_SUBTITLE=$(grep -E '^BRANDING_SUBTITLE=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_APP_ICON=$(grep -E '^APP_ICON=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_SSH_USER=$(grep -E '^SSH_USER=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_TAILSCALE_DOMAIN=$(grep -E '^TAILSCALE_DOMAIN=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_OWNER_EMAIL=$(grep -E '^OWNER_EMAIL=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_ADMIN_PASSWORD=$(grep -E '^ADMIN_PASSWORD=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_STORAGE_DIR=$(grep -E '^STORAGE_DIR=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+fi
 
 # ─── Header Banner ────────────────────────────────────────────────────────────
 clear 2>/dev/null || true
@@ -80,13 +112,9 @@ cat << 'EOF'
  ═══════════════════════════════════════════════════════════════════════
 EOF
 echo -e "${NC}"
-echo -e "  ${DIM}Detected Host:${NC}  ${BOLD}$(hostname)${NC} (${OS_FAMILY^} Linux on ${ARCH})"
+echo -e "  ${DIM}Detected Host:${NC}  ${BOLD}${SYS_HOST}${NC} (${OS_FAMILY^} Linux on ${ARCH})"
 echo -e "  ${DIM}Target User:${NC}    ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
 echo -e "  ${DIM}Repository:${NC}     ${BOLD}${REPO_ROOT}${NC}"
-echo ""
-echo -e "${CYAN}─── Interactive Service Selection ─────────────────────────────────────${NC}"
-echo -e "You will be prompted for each server and component individually."
-echo -e "All questions are asked first; installation and configuration proceed together."
 echo ""
 
 # Helper to ask yes/no question
@@ -107,7 +135,8 @@ ask_choice() {
 
     while true; do
         echo -ne "  ${BOLD}${prompt}${NC} ${DIM}${yn}${NC}: "
-        read -r reply </dev/tty || reply=""
+        local reply=""
+        read -r reply </dev/tty 2>/dev/null || read -r reply || reply=""
         reply=$(echo "$reply" | tr '[:upper:]' '[:lower:]' | xargs)
         if [ -z "$reply" ]; then
             reply="$default"
@@ -120,7 +149,54 @@ ask_choice() {
     done
 }
 
-# ─── PHASE 1: Sequential Prompts ──────────────────────────────────────────────
+# Helper to ask text input with defaults
+ask_input() {
+    local prompt="$1"
+    local default="$2"
+    local result_var="$3"
+    local secret="${4:-false}"
+
+    local def_display="$default"
+    [ "$secret" = "true" ] && [ -n "$default" ] && def_display="********"
+
+    if [ "$AUTO_YES" = "true" ]; then
+        if [ "$secret" = "true" ]; then
+            echo -e "  ${BOLD}${prompt}${NC} [default: ********]: (auto)"
+        else
+            echo -e "  ${BOLD}${prompt}${NC} [default: ${default}]: ${GREEN}${default}${NC} (auto)"
+        fi
+        eval "$result_var=\"\$default\""
+        return 0
+    fi
+
+    while true; do
+        if [ -n "$def_display" ]; then
+            echo -ne "  ${BOLD}${prompt}${NC} ${DIM}[${def_display}]${NC}: "
+        else
+            echo -ne "  ${BOLD}${prompt}${NC}: "
+        fi
+
+        local reply=""
+        if [ "$secret" = "true" ]; then
+            read -r -s reply </dev/tty 2>/dev/null || read -r -s reply || reply=""
+            echo ""
+        else
+            read -r reply </dev/tty 2>/dev/null || read -r reply || reply=""
+        fi
+
+        reply=$(echo "$reply" | xargs)
+        if [ -z "$reply" ]; then
+            reply="$default"
+        fi
+        eval "$result_var=\"\$reply\""
+        return 0
+    done
+}
+
+# ─── PHASE 1A: Service Selection Prompts ──────────────────────────────────────
+echo -e "${CYAN}─── 1. Interactive Service Selection ──────────────────────────────────${NC}"
+echo -e "Select which server components and daemons you want to activate."
+echo ""
 
 # 1. Core Dashboard
 echo -e "${CYAN}[1/10]${NC} ${BOLD}Tinarchy Dashboard Control Center${NC}"
@@ -138,7 +214,7 @@ echo ""
 
 # 3. Syncthing Full Drive Sync
 echo -e "${CYAN}[3/10]${NC} ${BOLD}Syncthing Continuous Folder Sync${NC}"
-echo -e "       ${DIM}Private, decentralized continuous file sync for \$HOME/drive/ with LZ4 compression${NC}"
+echo -e "       ${DIM}Private, decentralized continuous file sync for drive directory with LZ4 compression${NC}"
 echo -e "       ${DIM}Creator: ${GREEN}Jakob Borg & The Syncthing Foundation${NC} - https://syncthing.net${NC}"
 ask_choice "Install and configure Syncthing Full Folder Sync?" "y" INSTALL_SYNCTHING
 echo ""
@@ -187,7 +263,7 @@ echo ""
 
 # 10. Unified Drive Engine & Cloud Backups
 echo -e "${CYAN}[10/10]${NC} ${BOLD}Unified Drive Engine & Rclone Cloud Backups${NC}"
-echo -e "       ${DIM}\$HOME/drive/ folder hierarchy, local symlinks, and automated Google Drive backups${NC}"
+echo -e "       ${DIM}Drive folder hierarchy, local symlinks, and automated cloud backups${NC}"
 echo -e "       ${DIM}Creator: ${GREEN}Tinarchy Team${NC} & ${GREEN}Nick Craig-Wood (Rclone)${NC} - https://rclone.org${NC}"
 ask_choice "Install Unified Drive Engine & Cloud Backups?" "y" INSTALL_DRIVE_ENGINE
 echo ""
@@ -201,9 +277,58 @@ if [ -d /sys/class/power_supply ] && grep -q -i "battery" /sys/class/power_suppl
     echo ""
 fi
 
+# ─── PHASE 1B: Server Personalization & Modifiable Settings ───────────────────
+echo -e "${CYAN}─── 2. Server Personalization & Settings ───────────────────────────────${NC}"
+echo -e "Configure instance branding, identity, storage paths, and credentials."
+echo -e "Press ${BOLD}Enter${NC} to accept the bracketed default values."
+echo ""
+
+# 1. Server Display Name
+DETECTED_HOST_PRETTY="$(echo "$SYS_HOST" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1')"
+DEFAULT_SERVER_NAME="${EXISTING_SERVER_NAME:-$DETECTED_HOST_PRETTY}"
+ask_input "Server Display Name" "$DEFAULT_SERVER_NAME" CFG_SERVER_NAME
+
+# 2. Project / Suite Name
+DEFAULT_PROJECT_NAME="${EXISTING_PROJECT_NAME:-Tinarchy}"
+ask_input "Project / Suite Name" "$DEFAULT_PROJECT_NAME" CFG_PROJECT_NAME
+
+# 3. Branding Subtitle
+DEFAULT_SUBTITLE="${EXISTING_BRANDING_SUBTITLE:-Server Control Center}"
+ask_input "Branding Subtitle" "$DEFAULT_SUBTITLE" CFG_BRANDING_SUBTITLE
+
+# 4. App Icon / Emoji
+DEFAULT_ICON="${EXISTING_APP_ICON:-🍍}"
+ask_input "Server Emoji Icon" "$DEFAULT_ICON" CFG_APP_ICON
+
+# 5. Primary SSH User
+DEFAULT_SSH_USER="${EXISTING_SSH_USER:-$TARGET_USER}"
+ask_input "Primary SSH Username" "$DEFAULT_SSH_USER" CFG_SSH_USER
+
+# 6. Tailscale MagicDNS Domain
+MAGIC_SUFFIX="$(tailscale status --json 2>/dev/null | grep -o '"MagicDNSSuffix": *"[^"]*"' | head -n1 | cut -d'"' -f4 || true)"
+DETECTED_DOMAIN=""
+[ -n "$MAGIC_SUFFIX" ] && DETECTED_DOMAIN="${SYS_HOST}.${MAGIC_SUFFIX}"
+DEFAULT_TS_DOMAIN="${EXISTING_TAILSCALE_DOMAIN:-$DETECTED_DOMAIN}"
+ask_input "Tailscale MagicDNS Domain" "$DEFAULT_TS_DOMAIN" CFG_TAILSCALE_DOMAIN
+
+# 7. Owner Email
+DETECTED_EMAIL="$(tailscale status --json 2>/dev/null | grep -o '"LoginName": *"[^"]*"' | head -n1 | cut -d'"' -f4 || true)"
+DEFAULT_OWNER_EMAIL="${EXISTING_OWNER_EMAIL:-$DETECTED_EMAIL}"
+ask_input "Owner Email (Tailscale Identity)" "$DEFAULT_OWNER_EMAIL" CFG_OWNER_EMAIL
+
+# 8. Web Admin Password
+DEFAULT_ADMIN_PASS="${EXISTING_ADMIN_PASSWORD:-changeme}"
+ask_input "Dashboard Web Admin Password" "$DEFAULT_ADMIN_PASS" CFG_ADMIN_PASSWORD true
+
+# 9. Unified Drive Storage Directory
+DEFAULT_STORAGE_DIR="${EXISTING_STORAGE_DIR:-$USER_HOME/drive}"
+ask_input "Unified Drive Storage Directory" "$DEFAULT_STORAGE_DIR" CFG_STORAGE_DIR
+
+echo ""
+
 # ─── Summary Table ────────────────────────────────────────────────────────────
 echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════${NC}"
-echo -e " ${BOLD}INSTALLATION SUMMARY${NC}"
+echo -e " ${BOLD}INSTALLATION & PERSONALIZATION SUMMARY${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════${NC}"
 format_summary() {
     local name="$1"
@@ -214,17 +339,29 @@ format_summary() {
         echo -e "   ${DIM}✖  ${name} (Skipped)${NC}"
     fi
 }
-format_summary "Tinarchy Dashboard Backend" "$INSTALL_TINARCHY"
-format_summary "Nginx Reverse Proxy & SSL"   "$INSTALL_NGINX"
-format_summary "Syncthing Full Drive Sync"   "$INSTALL_SYNCTHING"
-format_summary "Suwayomi Manga Server"       "$INSTALL_SUWAYOMI"
-format_summary "SyncYomi Manga Sync Daemon"  "$INSTALL_SYNCYOMI"
-format_summary "Jellyfin Media Server"       "$INSTALL_JELLYFIN"
-format_summary "Tor Proxy & Exit Node"       "$INSTALL_TOR"
-format_summary "Tailscale & Tailscale SSH"   "$INSTALL_TAILSCALE"
-format_summary "Persistent Terminal (tmux+zsh)" "$INSTALL_TERMINAL"
-format_summary "Unified Drive Sync & Rclone" "$INSTALL_DRIVE_ENGINE"
-format_summary "Laptop Display Powerdown"    "$INSTALL_POWERDOWN"
+echo -e " ${BOLD}Activated Services:${NC}"
+format_summary "Tinarchy Dashboard Backend (:8085)" "$INSTALL_TINARCHY"
+format_summary "Nginx Reverse Proxy & SSL (:80, :443)" "$INSTALL_NGINX"
+format_summary "Syncthing Full Drive Sync (:8384)"   "$INSTALL_SYNCTHING"
+format_summary "Suwayomi Manga Server (:4567)"       "$INSTALL_SUWAYOMI"
+format_summary "SyncYomi Manga Sync Daemon (:8282)"  "$INSTALL_SYNCYOMI"
+format_summary "Jellyfin Media Server (:8096)"       "$INSTALL_JELLYFIN"
+format_summary "Tor Proxy & Exit Node (:9050)"       "$INSTALL_TOR"
+format_summary "Tailscale & Tailscale SSH (:22)"     "$INSTALL_TAILSCALE"
+format_summary "Persistent Terminal (tmux + Zsh)"    "$INSTALL_TERMINAL"
+format_summary "Unified Drive Sync & Rclone Backups" "$INSTALL_DRIVE_ENGINE"
+format_summary "Headless Display 0W Powerdown"       "$INSTALL_POWERDOWN"
+
+echo ""
+echo -e " ${BOLD}Personal Server Settings:${NC}"
+echo -e "   • Server Display Name : ${BOLD}${CFG_SERVER_NAME}${NC} (${CFG_APP_ICON})"
+echo -e "   • Project Suite Name  : ${BOLD}${CFG_PROJECT_NAME}${NC}"
+echo -e "   • Branding Subtitle   : ${BOLD}${CFG_BRANDING_SUBTITLE}${NC}"
+echo -e "   • Primary SSH User    : ${BOLD}${CFG_SSH_USER}${NC}"
+echo -e "   • Tailscale Domain    : ${BOLD}${CFG_TAILSCALE_DOMAIN:-None}${NC}"
+echo -e "   • Owner Email         : ${BOLD}${CFG_OWNER_EMAIL:-None}${NC}"
+echo -e "   • Web Admin Password  : ${BOLD}********${NC}"
+echo -e "   • Drive Storage Path  : ${BOLD}${CFG_STORAGE_DIR}${NC}"
 echo -e "${CYAN}───────────────────────────────────────────────────────────────────────${NC}"
 
 ask_choice "Proceed with batch installation and configuration?" "y" PROCEED_INSTALL
@@ -240,7 +377,6 @@ echo ""
 # ─── PHASE 2: Consolidated Dependency Resolution ──────────────────────────────
 PACKAGES_TO_INSTALL=()
 
-# Basic core packages
 case "$OS_FAMILY" in
     arch)
         [ "$INSTALL_TINARCHY" = "true" ]     && PACKAGES_TO_INSTALL+=('python' 'python-pillow' 'python-requests')
@@ -296,18 +432,62 @@ fi
 
 # ─── PHASE 3: Apply Configurations & Deploy Services ──────────────────────────
 
-# 1. Setup .env file
+# 1. Setup and update .env configuration file
+echo -e "${CYAN}⚙️ Writing server personal settings to .env...${NC}"
 if [ ! -f "$REPO_ROOT/.env" ] && [ -f "$REPO_ROOT/.env.example" ]; then
-    echo -e "${CYAN}⚙️ Creating initial .env from template...${NC}"
     cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
-    sed -i "s/^SSH_USER=.*/SSH_USER=$TARGET_USER/" "$REPO_ROOT/.env"
-    chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/.env" 2>/dev/null || true
 fi
 
+update_env_var() {
+    local key="$1"
+    local val="$2"
+    local file="$REPO_ROOT/.env"
+    if [ ! -f "$file" ]; then
+        touch "$file"
+    fi
+    if grep -q "^${key}=" "$file" 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}=\"${val}\"|" "$file"
+    elif grep -q "^# *${key}=" "$file" 2>/dev/null; then
+        sed -i "s|^# *${key}=.*|${key}=\"${val}\"|" "$file"
+    else
+        echo "${key}=\"${val}\"" >> "$file"
+    fi
+}
+
+update_env_var "SERVER_NAME" "$CFG_SERVER_NAME"
+update_env_var "PROJECT_NAME" "$CFG_PROJECT_NAME"
+update_env_var "BRANDING_SUBTITLE" "$CFG_BRANDING_SUBTITLE"
+update_env_var "APP_ICON" "$CFG_APP_ICON"
+update_env_var "SSH_USER" "$CFG_SSH_USER"
+update_env_var "TAILSCALE_DOMAIN" "$CFG_TAILSCALE_DOMAIN"
+update_env_var "OWNER_EMAIL" "$CFG_OWNER_EMAIL"
+update_env_var "ADMIN_PASSWORD" "$CFG_ADMIN_PASSWORD"
+update_env_var "STORAGE_DIR" "$CFG_STORAGE_DIR"
+update_env_var "ENABLE_SYNCYOMI" "$INSTALL_SYNCYOMI"
+
+chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/.env" 2>/dev/null || true
+
+# Update app_config.json if python is available
+python3 -c "
+import json, os
+cfg_file = os.path.join('$REPO_ROOT', 'app_config.json')
+try:
+    with open(cfg_file, 'r') as f:
+        data = json.load(f)
+except Exception:
+    data = {}
+data['server_name'] = '$CFG_SERVER_NAME'
+data['project_name'] = '$CFG_PROJECT_NAME'
+data['display_name'] = '$CFG_SERVER_NAME'
+with open(cfg_file, 'w') as f:
+    json.dump(data, f, indent=2)
+" 2>/dev/null || true
+chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/app_config.json" 2>/dev/null || true
+
 # 2. Drive Hierarchy Scaffolding
+DRIVE_ROOT="${CFG_STORAGE_DIR:-$USER_HOME/drive}"
 if [ "$INSTALL_DRIVE_ENGINE" = "true" ]; then
-    echo -e "${CYAN}📂 Scaffolding \$HOME/drive hierarchy...${NC}"
-    DRIVE_ROOT="$USER_HOME/drive"
+    echo -e "${CYAN}📂 Scaffolding drive hierarchy at $DRIVE_ROOT...${NC}"
     mkdir -p "$DRIVE_ROOT"/{notes,shared/backups,Media/{Manga,Movies,Shows,Music}}
     WALL_DIR="$USER_HOME/Wall"
     mkdir -p "$WALL_DIR"
@@ -365,24 +545,21 @@ if [ "$INSTALL_SYNCTHING" = "true" ]; then
     systemctl enable "syncthing@$TARGET_USER.service" || true
     systemctl start "syncthing@$TARGET_USER.service" || true
 
-    # Give syncthing a moment to initialize default config if brand new
     sleep 2
     if command -v syncthing >/dev/null 2>&1; then
-        # Ensure default device compression is always
         syncthing cli config defaults device compression set always 2>/dev/null || true
         DEV_ID=$(syncthing device-id 2>/dev/null || echo "")
         if [ -n "$DEV_ID" ]; then
             syncthing cli config devices "$DEV_ID" compression set always 2>/dev/null || true
-            # Add shared-drive folder if not already registered
             if ! syncthing cli config folders list 2>/dev/null | grep -q "shared-drive"; then
                 syncthing cli config folders add \
                     --id shared-drive \
                     --label "Shared Drive" \
-                    --path "$USER_HOME/drive" \
+                    --path "$DRIVE_ROOT" \
                     --type sendreceive 2>/dev/null || true
             fi
             echo -e "${GREEN}✅ Syncthing device ID configured:${NC} ${BOLD}$DEV_ID${NC}"
-            echo -e "${GREEN}✅ Folder 'shared-drive' mapped to $USER_HOME/drive with compression='always'.${NC}"
+            echo -e "${GREEN}✅ Folder 'shared-drive' mapped to $DRIVE_ROOT with compression='always'.${NC}"
         fi
     fi
 fi
@@ -401,7 +578,6 @@ if [ "$INSTALL_TOR" = "true" ]; then
     [ -f "$REPO_ROOT/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/tor_exit_node.sh"
     [ -f "$REPO_ROOT/configs/scripts/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/configs/scripts/tor_exit_node.sh"
     
-    # Setup sudoers rule for passwordless toggle by dashboard
     SUDOERS_FILE="/etc/sudoers.d/99-tor-exit"
     echo "%wheel ALL=(ALL) NOPASSWD: $REPO_ROOT/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *" > "$SUDOERS_FILE"
     echo "%sudo ALL=(ALL) NOPASSWD: $REPO_ROOT/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *" >> "$SUDOERS_FILE"
@@ -413,10 +589,8 @@ fi
 if [ "$INSTALL_TINARCHY" = "true" ]; then
     echo -e "${CYAN}🍍 Deploying Tinarchy Dashboard systemd unit...${NC}"
     if [ -f "$REPO_ROOT/configs/systemd/tinarchy.service" ]; then
-        # Replace hardcoded user if needed
         sed "s/User=pineapple/User=$TARGET_USER/g; s|/home/pineapple|$USER_HOME|g" \
             "$REPO_ROOT/configs/systemd/tinarchy.service" > /etc/systemd/system/tinarchy.service
-        # Symlink server-dashboard.service alias
         ln -sfn /etc/systemd/system/tinarchy.service /etc/systemd/system/server-dashboard.service
     fi
 fi
@@ -491,7 +665,11 @@ echo ""
 echo -e "${GREEN}${BOLD}🎉 Installation and configuration finished successfully!${NC}"
 echo ""
 echo -e "  ${BOLD}Access your server dashboard:${NC}"
-echo -e "  • Tailscale HTTPS : ${CYAN}https://$(hostname).tailscale.net/${NC} (or http://127.0.0.1:8085)"
+if [ -n "$CFG_TAILSCALE_DOMAIN" ]; then
+    echo -e "  • Tailscale HTTPS : ${CYAN}https://${CFG_TAILSCALE_DOMAIN}/${NC} (or http://127.0.0.1:8085)"
+else
+    echo -e "  • Dashboard HTTP  : ${CYAN}http://127.0.0.1:8085/${NC}"
+fi
 echo -e "  • Syncthing GUI   : ${CYAN}/syncthing/${NC} (Port 8384)"
 echo -e "  • Syncthing Guide : ${CYAN}/syncthing${NC}"
 echo -e "  • Suwayomi Manga  : ${CYAN}/manga/${NC} (Port 4567)"
