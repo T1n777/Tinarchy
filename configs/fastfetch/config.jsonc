@@ -45,49 +45,49 @@
       "type": "custom",
       "key": "Detach Session",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b d\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space d\u001b[0m"
     },
     {
       "type": "custom",
       "key": "New Window",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b c\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space c\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Next / Prev Window",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b n\u001b[0m / \u001b[1;32mCtrl+b p\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space n\u001b[0m / \u001b[1;32mCtrl+Space p\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Split Screen",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b %\u001b[0m / \u001b[1;32mCtrl+b \"\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space %\u001b[0m / \u001b[1;32mCtrl+Space \"\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Switch / Zoom Pane",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b Arrows\u001b[0m / \u001b[1;32mCtrl+b z\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space Arrows\u001b[0m / \u001b[1;32mCtrl+Space z\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Scroll History",
       "keyColor": "yellow",
-      "format": "\u001b[1;36mMouse Wheel\u001b[0m / \u001b[1;32mCtrl+b [\u001b[0m"
+      "format": "\u001b[1;36mMouse Wheel\u001b[0m / \u001b[1;32mCtrl+Space [\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Rename / Close Tab",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b ,\u001b[0m / \u001b[1;32mCtrl+b &\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space ,\u001b[0m / \u001b[1;32mCtrl+Space &\u001b[0m"
     },
     {
       "type": "custom",
       "key": "Help / Command Prompt",
       "keyColor": "yellow",
-      "format": "\u001b[1;32mCtrl+b ?\u001b[0m / \u001b[1;32mCtrl+b :\u001b[0m"
+      "format": "\u001b[1;32mCtrl+Space ?\u001b[0m / \u001b[1;32mCtrl+Space :\u001b[0m"
     },
     "break"
   ]
