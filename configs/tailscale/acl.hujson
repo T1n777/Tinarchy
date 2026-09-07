@@ -2,12 +2,11 @@
 	// Declare static groups of users.
 	"groups": {
 		"group:admins": [
-			"yatinrajesh77@gmail.com",
-			"imyash0722@gmail.com",
+			"admin@example.com",
 		],
 		"group:guests": [
-			"janakiniharika7@gmail.com",
-			"thirukumaran3057@gmail.com",
+			"guest1@example.com",
+			"guest2@example.com",
 		],
 	},
 
@@ -23,14 +22,14 @@
 		// Shared users & Guests can access Pinedash Dashboard, FileBrowser, Suwayomi Manga, and Navidrome.
 		{
 			"action": "accept",
-			"src":    ["group:guests", "janakiniharika7@gmail.com"],
+			"src":    ["group:guests"],
 			"dst": [
-				"100.112.193.54:80",    // Dashboard HTTP
-				"100.112.193.54:443",   // Dashboard HTTPS
-				"100.112.193.54:8080",  // Dashboard HTTP (Alternate)
-				"100.112.193.54:8081",  // Network Storage (FileBrowser Quantum)
-				"100.112.193.54:4567",  // Suwayomi Manga Server
-				"100.112.193.54:4533",  // Navidrome Music
+				"tag:server:80",    // Dashboard HTTP
+				"tag:server:443",   // Dashboard HTTPS
+				"tag:server:8080",  // Dashboard HTTP (Alternate)
+				"tag:server:8081",  // Network Storage (FileBrowser Quantum)
+				"tag:server:4567",  // Suwayomi Manga Server
+				"tag:server:4533",  // Navidrome Music
 			],
 		},
 	],

@@ -1,16 +1,36 @@
+# Python bytecode & cache
 __pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & credentials (NEVER commit secrets)
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.srl
+id_*
+*.id_*
+credentials.json
+client_secrets.json
+
+# Local databases & state
+*.db
+*.sqlite3
+roles_config.json
+services.local.json
+
+# Temporary & backup files
 *.bak
 *.perf_bak
 *.backup
-/public/Wallpapers
-*.key
-*.srl
-
-.env
-roles_config.json
-*.db
-
-*.key
-services.local.json
+*.swp
+*~
 tmp/
+*.log
+
+# Large local media
+/public/Wallpapers
