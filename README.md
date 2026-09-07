@@ -49,8 +49,8 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 - **🌐 Unified Reverse Proxy & Smart Routing (Nginx)**:
   - Consolidates all web services under standard HTTP (`80`, `8080`) and HTTPS (`443`) ports.
-  - Path-based routing: `/` (Dashboard), `/syncthing/` (Syncthing Web GUI), `/syncthing` (Syncthing Guide), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
-  - Clean pseudo links: `/links/<service>` (`/links/manga`, `/links/syncthing`, `/links/navidrome`, etc.) for direct browser redirection.
+  - Path-based routing: `/` (Dashboard), `/syncthing/` & `/syncthing-gui` (Syncthing Web GUI), `/syncthing` (Syncthing Guide), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
+  - Clean pseudo links: `/links/<service>` (`/links/manga`, `/links/syncthing`, `/syncthing-gui`, `/links/navidrome`, etc.) for direct browser redirection.
 
 - **⚡ Multi-Trigger `$HOME/drive/` Synchronization Engine**:
   - Unifies storage (wallpapers, manga, note vaults, and media) into a clean `$HOME/drive/` hierarchy with zero duplication.
@@ -149,7 +149,8 @@ flowchart TD
 | Service | Internal Port | External Path / Port | Systemd Service | Description |
 | :--- | :---: | :---: | :--- | :--- |
 | **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `tinarchy.service` (alias: `server-dashboard.service`) | Glassmorphic telemetry & control center |
-| **Syncthing Web GUI** | `8384` | `/syncthing` & `/syncthing/` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
+| **Syncthing Web GUI** | `8384` | `/syncthing/` & `/syncthing-gui` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
+| **Syncthing Setup Guide** | — | `/syncthing` | `tinarchy.service` | Interactive client setup, OS tabs & 1-click Device ID pairing |
 | **FileBrowser Quantum** *(Optional)* | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager (enable via `ENABLE_FILEBROWSER=true`) |
 | **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
 | **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
@@ -392,8 +393,8 @@ Syncthing delivers private, continuous, decentralized folder synchronization acr
 Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devices must add each other before any sync can occur:
 
 1. **Get the Server's Device ID**:
-   * Open the dashboard at `/syncthing` (or navigate to `http://<server-tailscale-ip>:8384` on the server).
-   * Copy the 56-character **Server Device ID** (or scan the QR code).
+   * Open the dashboard setup guide at `/syncthing` (or navigate to `http://<server-tailscale-ip>:8080/syncthing`).
+   * Copy the 56-character **Server Device ID** with 1 click (or scan the QR code).
 
 2. **Add Server on Client Device**:
    * Open Syncthing on your client device (`http://127.0.0.1:8384` on desktop, or the mobile app).
@@ -404,10 +405,11 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
      ```text
      tcp://<server-tailscale-ip>:22000, dynamic
      ```
+   * Under the **Advanced** tab ➔ **Compression**, select **All Data** (matches server LZ4/Zstandard setting).
    * Click **Save**.
 
 3. **Approve on the Server**:
-   * Open the server's Syncthing GUI at `http://<server-tailscale-ip>:8384` (or via the dashboard tile `/syncthing`).
+   * Open the server's Syncthing Web GUI by clicking **Open Syncthing Web GUI ↗** on `/syncthing` (or directly via `/syncthing/` / `/syncthing-gui`).
    * A prompt will appear: *`New Device "Device-ID" wants to connect`*.
    * Click **Add Device** ➔ check **Auto Accept Folders** (optional, recommended for trusted owner devices) ➔ click **Save**.
    * Status will transition to **Connected** over TLS 1.3.
