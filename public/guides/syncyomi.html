@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/icons/syncyomi-icon.svg">
+    <link rel="alternate icon" type="image/x-icon" href="/icons/syncyomi-icon.svg">
+    <title>SyncYomi Manga Synchronization Guide - Server Dashboard</title>
+    <script>
+        // Universal Wallpaper & Pywal Sync Engine
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#69B4C3';
+            const fg = pywal.special?.foreground || '#cae5ef';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', 'rgba(202, 229, 239, 0.65)');
+            root.style.setProperty('--glass-border', pColor + '25');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = `url('${mediaUrl}')`;
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', `url('${mediaUrl}')`);
+            }
+        }
+
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            root.setAttribute('data-theme', savedTheme);
+
+            try {
+                const pywalCache = localStorage.getItem('pywal-cache');
+                if (pywalCache) applyThemeAndColors(root, JSON.parse(pywalCache));
+                fetch('/api/pywal').then(r => r.ok ? r.json() : null).then(data => {
+                    if (data && data.colors) {
+                        localStorage.setItem('pywal-cache', JSON.stringify(data));
+                        applyThemeAndColors(root, data);
+                    }
+                }).catch(() => {});
+            } catch(e) {}
+
+            try {
+                const storedBlob = await getLocalWallpaper();
+                if (storedBlob) {
+                    const objUrl = URL.createObjectURL(storedBlob);
+                    applyMediaToBackground(objUrl);
+                    return;
+                }
+                const savedUrl = localStorage.getItem('dashboard-wallpaper') || '/Wallpapers/cyberpunk_city_16x9.webp';
+                applyMediaToBackground(savedUrl);
+            } catch (err) {
+                applyMediaToBackground('/Wallpapers/cyberpunk_city_16x9.webp');
+            }
+        })();
+    </script>
+    <style>
+        :root {
+            --primary: #69B4C3;
+            --primary-glow: rgba(105, 180, 195, 0.25);
+            --online: #4edea3;
+            --bg: #0b0f14;
+            --text: #cae5ef;
+            --text-muted: rgba(202, 229, 239, 0.65);
+            --card-bg: rgba(18, 26, 36, 0.72);
+            --glass-border: rgba(105, 180, 195, 0.18);
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+
+        [data-theme="flat"] {
+            --bg: #090d12;
+            --card-bg: #121820;
+            --glass-border: #1e2632;
+        }
+
+        [data-theme="amoled"] {
+            --bg: #000000;
+            --card-bg: #050505;
+            --glass-border: #161616;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 2.5rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .wallpaper {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background-size: cover;
+            background-position: center;
+            transform: scale(1.02);
+            filter: blur(24px) brightness(0.55);
+            transition: opacity 0.4s ease;
+        }
+
+        .wallpaper-tint {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 10%, rgba(11, 15, 20, 0.45), var(--bg) 85%);
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 780px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            z-index: 1;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            padding: 0.8rem 1.25rem;
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            transform: translateX(-2px);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(78, 222, 163, 0.12);
+            color: var(--online);
+            border: 1px solid rgba(78, 222, 163, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge .dot {
+            width: 7px;
+            height: 7px;
+            background: var(--online);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--online);
+        }
+
+        .header-card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            gap: 1.75rem;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+        }
+
+        .header-icon {
+            width: 76px;
+            height: 76px;
+            border-radius: 18px;
+            background: rgba(105, 180, 195, 0.1);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .header-info h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            color: #fff;
+        }
+
+        .header-info p {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        .header-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #0b0f14;
+            padding: 8px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.85rem;
+            box-shadow: 0 0 16px var(--primary-glow);
+            transition: filter 0.2s, transform 0.2s;
+        }
+
+        .btn-action:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .meta-box {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            padding: 1.1rem 1.25rem;
+            border-radius: 14px;
+            backdrop-filter: blur(16px);
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+        }
+
+        .meta-val {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: #fff;
+            word-break: break-all;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            padding: 1.75rem 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sec-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--primary-glow);
+            color: var(--primary);
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .card p {
+            font-size: 0.92rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .code-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+        }
+
+        .code-container code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: #fff;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: #000;
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .step-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: var(--primary);
+            margin-top: 2px;
+        }
+
+        .step-content {
+            flex: 1;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: var(--text-muted);
+        }
+
+        .step-content strong {
+            color: #fff;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--primary);
+            color: #0b0f14;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: 0 8px 24px var(--primary-glow);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-card {
+                flex-direction: column;
+                text-align: center;
+                gap: 1.25rem;
+            }
+            .header-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="wallpaper-tint"></div>
+
+    <div class="container">
+        <!-- Top Navigation -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-link">
+                <span>←</span>
+                <span>Back to Dashboard</span>
+            </a>
+            <div class="badge">
+                <span class="dot"></span>
+                <span>Sync Server Online</span>
+            </div>
+        </nav>
+
+        <!-- Header Card -->
+        <header class="header-card">
+            <div class="header-icon">
+                <img src="/icons/syncyomi-icon.svg" alt="SyncYomi" style="width: 44px; height: 44px;">
+            </div>
+            <div class="header-info">
+                <h1>SyncYomi Manga Sync</h1>
+                <p>Centralized reading progress, chapter bookmarks, and library synchronization between <strong>Suwayomi Server</strong> and your phone (<strong>Komikku / Mihon</strong>).</p>
+                <div class="header-actions">
+                    <a href="http://127.0.0.1:8282" target="_blank" class="btn-action" id="syncyomiWebBtn">
+                        <span>Open SyncYomi Web GUI ↗</span>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Metadata Grid -->
+        <div class="meta-grid">
+            <div class="meta-box">
+                <div class="meta-label">Web GUI & Sync Host</div>
+                <div class="meta-val" id="syncyomiHostVal">http://127.0.0.1:8282</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Sync Protocol & DB</div>
+                <div class="meta-val">Sync v2 REST API (SQLite)</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Internal Port</div>
+                <div class="meta-val">8282 (TCP)</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Systemd Daemon</div>
+                <div class="meta-val">syncyomi.service</div>
+            </div>
+        </div>
+
+        <!-- 1. Generate API Key -->
+        <div class="card">
+            <h2><span class="sec-num">1</span> Create Account & Generate API Key</h2>
+            <p>SyncYomi authenticates all readers via an API token. Generate one in the SyncYomi web dashboard:</p>
+            
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-circle">1</div>
+                    <div class="step-content">
+                        <strong>Open Web GUI:</strong> Navigate to <a href="http://127.0.0.1:8282" target="_blank" class="syncyomi-host-link" style="color:var(--primary); font-family:var(--font-mono);">http://127.0.0.1:8282</a> and create your admin account on first launch.
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle">2</div>
+                    <div class="step-content">
+                        <strong>Navigate to API Keys:</strong> Go to <strong>Settings</strong> ➔ <strong>API Keys</strong> ➔ click <strong>Add API Key</strong>.
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle">3</div>
+                    <div class="step-content">
+                        <strong>Copy Token:</strong> Give it a name (e.g. <code style="color:var(--primary); font-family:var(--font-mono);">MangaSync</code>) and copy the generated token. You will use this token in both Suwayomi and Komikku.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Configure Suwayomi (Server) -->
+        <div class="card">
+            <h2><span class="sec-num">2</span> Connect Suwayomi Server</h2>
+            <p>Suwayomi-Server on <strong class="syncyomi-server-name">tinarchy</strong> has native SyncYomi client support built-in. Connect it using your API key:</p>
+
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode('suwayomiConf')">Copy Config</button>
+                <code id="suwayomiConf"># Add to /var/lib/suwayomi/.local/share/Tachidesk/server.conf:
+server.syncYomiEnabled = true
+server.syncYomiHost = "http://127.0.0.1:8282"
+server.syncYomiApiKey = "YOUR_API_KEY_HERE"
+server.syncInterval = "30m"
+server.syncDataManga = true
+server.syncDataChapters = true
+server.syncDataTracking = true
+server.syncDataHistory = true
+server.syncDataCategories = true</code>
+            </div>
+
+            <p style="font-size:0.85rem;">After editing, apply with: <code style="font-family:var(--font-mono); color:var(--primary);">sudo systemctl restart suwayomi-server.service</code></p>
+        </div>
+
+        <!-- 3. Configure Komikku (Phone) -->
+        <div class="card">
+            <h2><span class="sec-num">3</span> Connect Komikku on Your Phone</h2>
+            <p>Komikku includes native SyncYomi support out of the box. Follow these steps in the app:</p>
+            
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-circle">1</div>
+                    <div class="step-content">
+                        <strong>Verify Tailscale:</strong> Ensure the Tailscale app is active on your phone so it can reach your private mesh network.
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle">2</div>
+                    <div class="step-content">
+                        <strong>Open Sync Settings:</strong> In Komikku, tap <strong>More</strong> ➔ <strong>Settings</strong> ➔ <strong>Data and storage</strong> ➔ <strong>Sync service</strong>.
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle">3</div>
+                    <div class="step-content">
+                        <strong>Select SyncYomi & Enter Server Address:</strong>
+                        <p style="margin-top: 4px;">• Provider: <strong>SyncYomi</strong></p>
+                        <p>• Host: <code id="komikkuHostVal" style="color:var(--primary); font-family:var(--font-mono);">http://100.67.207.60:8282</code></p>
+                        <p>• API Key: Paste the token generated in Step 1.</p>
+                    </div>
+                </div>
+                <div class="step-item">
+                    <div class="step-circle">4</div>
+                    <div class="step-content">
+                        <strong>Trigger First Sync:</strong> Tap <strong>Sync now</strong>. Your reading status, read history, and manga bookmarks will now sync seamlessly with Suwayomi!
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Security Model -->
+        <div class="card">
+            <h2><span class="sec-num">4</span> Security & Guest Isolation</h2>
+            <p>• <strong>Tailscale WireGuard ACL:</strong> Port 8282 is only accessible to authorized owner devices. Guest accounts are rejected at the kernel packet level.<br>
+            • <strong>Token Authentication:</strong> Sync requests require the <code style="color:var(--primary); font-family:var(--font-mono);">X-API-Token</code> header.<br>
+            • <strong>Local SQLite Storage:</strong> All synced manga metadata is stored in <code style="font-family:var(--font-mono); color:var(--text);">/var/lib/syncyomi/syncyomi.db</code> with automatic rollback history.</p>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">Copied to clipboard!</div>
+
+    <script>
+        function copyCode(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            navigator.clipboard.writeText(el.innerText || el.textContent);
+            showToast();
+        }
+
+        function showToast() {
+            const t = document.getElementById('toast');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        async function initSyncYomiGuide() {
+            let host = window.location.hostname || '127.0.0.1';
+            let serverName = 'tinarchy';
+            try {
+                const res = await fetch('/api/system');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tailscale_ip && data.tailscale_ip !== 'Offline') host = data.tailscale_ip;
+                    else if (data.tailscale_domain) host = data.tailscale_domain;
+                    if (data.display_name || data.server_name) serverName = data.display_name || data.server_name;
+                }
+            } catch (e) {}
+
+            const fullUrl = `http://${host}:8282`;
+            const btn = document.getElementById('syncyomiWebBtn');
+            if (btn) btn.href = fullUrl;
+            const hostVal = document.getElementById('syncyomiHostVal');
+            if (hostVal) hostVal.textContent = fullUrl;
+            const komikkuHostVal = document.getElementById('komikkuHostVal');
+            if (komikkuHostVal) komikkuHostVal.textContent = fullUrl;
+            document.querySelectorAll('.syncyomi-host-link').forEach(a => {
+                a.href = fullUrl;
+                a.textContent = fullUrl;
+            });
+            document.querySelectorAll('.syncyomi-server-name').forEach(el => {
+                el.textContent = serverName;
+            });
+        }
+        window.addEventListener('DOMContentLoaded', initSyncYomiGuide);
+    </script>
+</body>
+</html>

@@ -621,6 +621,7 @@ SERVICES = [
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': int(os.environ.get('COUCHDB_PORT', 5984)), 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
     {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
     {'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
+    {'id': 'syncyomi', 'name': 'SyncYomi', 'port': int(os.environ.get('SYNCYOMI_PORT', 8282)), 'systemd': 'syncyomi', 'icon': '📖', 'description': 'Tachiyomi, Mihon & Suwayomi manga reading progress sync', 'link': '/syncyomi', 'link_text': ':8282'},
 ]
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
@@ -862,6 +863,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if 'syncthing' not in allowed_services:
                 return self.serve_access_denied('Syncthing')
             return self.serve_guide_page('syncthing.html')
+
+        if clean_path in ['/syncyomi', '/manga-sync', '/guides/syncyomi', '/guides/syncyomi.html']:
+            if 'syncyomi' not in allowed_services:
+                return self.serve_access_denied('SyncYomi')
+            return self.serve_guide_page('syncyomi.html')
 
         # 2. Top-Level Web Application Redirects
         raw_host = self.headers.get('Host', '')

@@ -1,0 +1,16 @@
+[Unit]
+Description=SyncYomi Manga Sync Server
+After=network.target
+
+[Service]
+Type=simple
+User=syncyomi
+Group=syncyomi
+WorkingDirectory=/var/lib/syncyomi
+ExecStart=/usr/bin/syncyomi --config /var/lib/syncyomi/
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

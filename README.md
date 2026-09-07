@@ -150,6 +150,7 @@ flowchart TD
 | **Obsidian LiveSync** | `5984` | `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization |
 | **Syncthing Web GUI** | `8384` | `/syncthing` & `:8384` | `syncthing@<user>.service` | Continuous encrypted folder sync & device pairing |
 | **Suwayomi Manga** | `4567` | `/manga/` & `/api/v1/` | `suwayomi-server.service` | Manga library server & WebUI reader |
+| **SyncYomi Server** | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
@@ -248,6 +249,7 @@ Additional service unit templates are available under `configs/systemd/`:
 - `rclone-drive-backup.service` & `rclone-drive-backup.timer`
 - `cloudflare-dot.conf` (DNS-over-TLS)
 - `console-screen-blank.service` & `getty-powersave.conf` (Display powerdown)
+- `syncyomi.service` (SyncYomi reading progress synchronization daemon)
 
 ---
 
