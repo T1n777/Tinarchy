@@ -946,9 +946,32 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return self.serve_access_denied('Tor Proxy')
             return self.serve_guide_page('tor.html')
 
+        if clean_path in ['/syncthing-gui', '/sync-gui']:
+            if 'syncthing' not in allowed_services:
+                return self.serve_access_denied('Syncthing')
+            syncthing_port = int(os.environ.get('SYNCTHING_PORT', 8384))
+            raw_host = self.headers.get('Host', '')
+            host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+            target_url = f"http://{host}:{syncthing_port}/"
+            self.send_response(302)
+            self.send_header('Location', target_url)
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.end_headers()
+            return True
+
         if clean_path in ['/syncthing', '/sync', '/guides/syncthing', '/guides/syncthing.html']:
             if 'syncthing' not in allowed_services:
                 return self.serve_access_denied('Syncthing')
+            if raw_path == '/syncthing/' or raw_path.startswith('/syncthing/'):
+                syncthing_port = int(os.environ.get('SYNCTHING_PORT', 8384))
+                raw_host = self.headers.get('Host', '')
+                host = raw_host.split(':')[0] if raw_host else get_system_hostname()
+                target_url = f"http://{host}:{syncthing_port}/"
+                self.send_response(302)
+                self.send_header('Location', target_url)
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                return True
             return self.serve_guide_page('syncthing.html')
 
         if clean_path in ['/syncyomi', '/manga-sync', '/guides/syncyomi', '/guides/syncyomi.html']:
@@ -1312,6 +1335,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 stats['drive_last_sync_human'] = 'Pending'
 
             stats['syncthing_device_id'] = get_syncthing_device_id()
+            stats['syncthing_port'] = int(os.environ.get('SYNCTHING_PORT', 8384))
 
             self.send_compressed(json.dumps(stats).encode(), "application/json")
             

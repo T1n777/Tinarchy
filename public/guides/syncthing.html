@@ -614,9 +614,9 @@
             </div>
             <div class="header-info">
                 <h1>Continuous Shared Drive Synchronization</h1>
-                <p>Private, real-time, peer-to-peer folder synchronization between your devices (Mobile & Desktop) and <code class="syncthing-server-name" style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code>. Full <code class="syncthing-drive-folder" style="color:var(--primary); font-family:var(--font-mono);">$HOME/drive</code> sync with LZ4/Zstandard file compression enabled.</p>
+                <p>Private, real-time, peer-to-peer folder synchronization between your devices (Mobile & Desktop) and <code class="syncthing-server-name" style="color:var(--primary); font-family:var(--font-mono);">Tinarchy</code>. Full <code class="syncthing-drive-folder" style="color:var(--primary); font-family:var(--font-mono);">$HOME/drive</code> sync with LZ4/Zstandard file compression enabled.</p>
                 <div class="header-actions">
-                    <a id="guiActionBtn" href="/syncthing/" target="_blank" class="btn-action">
+                    <a id="guiActionBtn" href="/syncthing/" target="_blank" class="btn-action syncthing-gui-link">
                         <span>Open Syncthing Web GUI ↗</span>
                     </a>
                     <button class="btn-action btn-secondary" onclick="copyCode('deviceIdCode')">
@@ -638,7 +638,7 @@
             </div>
             <div class="meta-box">
                 <div class="meta-label">Server Folder Path</div>
-                <div class="meta-val" id="serverFolderPathVal">/home/pineapple/drive</div>
+                <div class="meta-val" id="serverFolderPathVal">/home/tin/drive</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Sync Protocol & Mesh</div>
@@ -649,10 +649,10 @@
         <!-- 1. Server Device ID -->
         <div class="card">
             <h2><span class="sec-num">1</span> Server Device ID</h2>
-            <p>Paste this 56-character cryptographic Device ID on your desktop or mobile Syncthing client to establish a peer relationship with <strong class="syncthing-server-name">pineapple-station</strong>:</p>
+            <p>Paste this 56-character cryptographic Device ID on your desktop or mobile Syncthing client to establish a peer relationship with <strong class="syncthing-server-name">Tinarchy</strong>:</p>
             
             <div class="code-container">
-                <code id="deviceIdCode">G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV</code>
+                <code id="deviceIdCode">OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU</code>
                 <button class="copy-btn" onclick="copyCode('deviceIdCode')">📋 Copy ID</button>
             </div>
             <div class="highlight-box">
@@ -717,7 +717,7 @@ brew install syncthing && brew services start syncthing</code>
                     <div class="step-circle">1</div>
                     <div class="step-content">
                         <strong>Add Server as Remote Device:</strong>
-                        <p>In client Syncthing GUI (bottom right), click <strong>Add Remote Device</strong>. Paste the Server Device ID, set Device Name to <code class="syncthing-server-name" style="font-family:var(--font-mono); color:var(--primary);">pineapple-station</code>.</p>
+                        <p>In client Syncthing GUI (bottom right), click <strong>Add Remote Device</strong>. Paste the Server Device ID, set Device Name to <code class="syncthing-server-name" style="font-family:var(--font-mono); color:var(--primary);">Tinarchy</code>.</p>
                         <p>Under the <strong>Advanced</strong> tab: Set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
                     </div>
                 </div>
@@ -730,7 +730,7 @@ brew install syncthing && brew services start syncthing</code>
                         <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared Drive</code></p>
                         <p>• <strong>Folder ID:</strong> <span class="pill">shared-drive</span> (must match exactly!)</p>
                         <p>• <strong>Folder Path:</strong> Choose your local folder (e.g. <code style="color:var(--primary);">~/drive</code> on Linux/Mac, or <code style="color:var(--primary);">C:\Users\&lt;user&gt;\drive</code> on Windows).</p>
-                        <p>• <strong>Sharing Tab:</strong> Check the checkbox for <strong class="syncthing-server-name">pineapple-station</strong>.</p>
+                        <p>• <strong>Sharing Tab:</strong> Check the checkbox for <strong class="syncthing-server-name">Tinarchy</strong>.</p>
                         <p>• <strong>Advanced Tab:</strong> Set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
                     </div>
                 </div>
@@ -739,7 +739,7 @@ brew install syncthing && brew services start syncthing</code>
                     <div class="step-circle">3</div>
                     <div class="step-content">
                         <strong>Approve Pairing on Server:</strong>
-                        <p>Open the <a href="/syncthing/" target="_blank" style="color:var(--primary); font-weight:600;">Server Syncthing GUI</a>. Accept the incoming device prompt. The server will immediately link the <code style="font-family:var(--font-mono); color:var(--primary);">shared-drive</code> folder with full end-to-end LZ4 block compression!</p>
+                        <p>Open the <a id="guiStepLink" href="/syncthing/" target="_blank" class="syncthing-gui-link" style="color:var(--primary); font-weight:600;">Server Syncthing GUI</a>. Accept the incoming device prompt. The server will immediately link the <code style="font-family:var(--font-mono); color:var(--primary);">shared-drive</code> folder with full end-to-end LZ4 block compression!</p>
                     </div>
                 </div>
             </div>
@@ -771,7 +771,7 @@ brew install syncthing && brew services start syncthing</code>
                         <div class="step-circle">2</div>
                         <div class="step-content">
                             <strong>Add Server Device:</strong>
-                            <p>In Syncthing-Fork, tap <strong>Devices</strong> ➔ <strong>+</strong>. Paste the Server Device ID (or scan QR code). Set Name to <code class="syncthing-server-name" style="color:var(--primary);">pineapple-station</code>.</p>
+                            <p>In Syncthing-Fork, tap <strong>Devices</strong> ➔ <strong>+</strong>. Paste the Server Device ID (or scan QR code). Set Name to <code class="syncthing-server-name" style="color:var(--primary);">Tinarchy</code>.</p>
                             <p>Under <strong>Advanced</strong>, set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
                         </div>
                     </div>
@@ -784,7 +784,7 @@ brew install syncthing && brew services start syncthing</code>
                             <p>• <strong>Folder ID:</strong> <span class="pill">shared-drive</span></p>
                             <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared Drive</code></p>
                             <p>• <strong>Folder Directory:</strong> Select or create a folder on storage (e.g. <code style="color:var(--primary);">/storage/emulated/0/Documents/drive</code> or <code style="color:var(--primary);">/storage/emulated/0/Drive</code>).</p>
-                            <p>• <strong>Share with Devices:</strong> Toggle <strong class="syncthing-server-name">pineapple-station</strong> to ON.</p>
+                            <p>• <strong>Share with Devices:</strong> Toggle <strong class="syncthing-server-name">Tinarchy</strong> to ON.</p>
                             <p>• <strong>Run Conditions (Optional):</strong> In app settings, enable "Sync only on Wi-Fi" or "Sync while charging" if you wish to strictly conserve battery.</p>
                         </div>
                     </div>
@@ -905,9 +905,10 @@ brew install syncthing && brew services start syncthing</code>
 
         async function initSyncthingGuide() {
             let host = window.location.hostname || '127.0.0.1';
-            let serverName = 'pineapple-station';
-            let sshUser = 'pineapple';
-            let devId = 'G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV';
+            let serverName = 'Tinarchy';
+            let sshUser = 'tin';
+            let devId = 'OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU';
+            let syncthingPort = 8384;
 
             try {
                 const res = await fetch('/api/system');
@@ -918,6 +919,7 @@ brew install syncthing && brew services start syncthing</code>
                     if (data.display_name || data.server_name) serverName = data.display_name || data.server_name;
                     if (data.ssh_user) sshUser = data.ssh_user;
                     if (data.syncthing_device_id) devId = data.syncthing_device_id;
+                    if (data.syncthing_port) syncthingPort = data.syncthing_port;
                 }
             } catch (e) {}
 
@@ -934,6 +936,20 @@ brew install syncthing && brew services start syncthing</code>
             const driveFolderEls = document.querySelectorAll('.syncthing-drive-folder');
             driveFolderEls.forEach(el => {
                 el.textContent = `/home/${sshUser}/drive`;
+            });
+
+            // Dynamically set the Web GUI target URL
+            // If running directly on Python backend port (e.g. 8085), redirect to direct Syncthing port
+            let guiUrl = '/syncthing/';
+            if (window.location.port === '8085') {
+                guiUrl = `${window.location.protocol}//${window.location.hostname}:${syncthingPort}/`;
+            }
+            const guiActionBtn = document.getElementById('guiActionBtn');
+            if (guiActionBtn) guiActionBtn.href = guiUrl;
+            const guiStepLink = document.getElementById('guiStepLink');
+            if (guiStepLink) guiStepLink.href = guiUrl;
+            document.querySelectorAll('.syncthing-gui-link').forEach(el => {
+                el.href = guiUrl;
             });
         }
         window.addEventListener('DOMContentLoaded', initSyncthingGuide);
