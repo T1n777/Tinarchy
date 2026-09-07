@@ -145,7 +145,7 @@ flowchart TD
 
 | Service | Internal Port | External Path / Port | Systemd Service | Description |
 | :--- | :---: | :---: | :--- | :--- |
-| **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `server-dashboard.service` | Glassmorphic telemetry & control center |
+| **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `tinarchy.service` (alias: `server-dashboard.service`) | Glassmorphic telemetry & control center |
 | **FileBrowser Quantum** | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager with sync hook |
 | **Obsidian LiveSync** | `5984` | `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization |
 | **Syncthing Web GUI** | `8384` | `/syncthing` & `:8384` | `syncthing@<user>.service` | Continuous encrypted folder sync & device pairing |
@@ -172,22 +172,32 @@ sudo apt update && sudo apt install -y python3 python3-pil nginx couchdb tor ipt
 ```
 
 ### 2. Clone the Repository
-
+ 
 ```bash
-git clone https://github.com/T1n777/Tinarchy.git ~/server-dashboard
-cd ~/server-dashboard
+git clone https://github.com/T1n777/Tinarchy.git ~/Tinarchy
+cd ~/Tinarchy
+
+# Optional backward-compatibility symlink for existing scripts
+ln -s ~/Tinarchy ~/server-dashboard
 ```
 
 ### 3. Configuration
 
-#### A. Branding (`app_config.json`)
-Set custom server and project names, or leave blank to automatically use the system hostname:
-```json
-{
-  "server_name": "",
-  "project_name": ""
-}
+#### A. Centralized Environment Engine (`.env`)
+Copy the provided `.env.example` template to configure your instance:
+
+```bash
+cp .env.example .env
 ```
+
+Key configuration variables:
+- `PROJECT_NAME`: Instance brand title (e.g. `Tinarchy`, `Pinedash`, or your custom label).
+- `SERVER_NAME`: Display name for the host (defaults to system hostname).
+- `APP_ICON`: Top-nav brand emoji or symbol (e.g. `🍍`, `⚡`, `🚀`).
+- `BRANDING_SUBTITLE`: Subtitle shown on headers and login.
+- `SSH_USER`: Default SSH username shown in guides and command generators.
+- `PORT`: Internal dashboard HTTP port (default: `8085`).
+- `TAILSCALE_DOMAIN`: Optional MagicDNS domain override (automatically detected via Tailscale if left blank).
 
 #### B. Access Roles (`roles_config.json`)
 Assign roles based on Tailscale login emails (`owner`, `admin`, `guest`, `viewer`):
@@ -219,23 +229,17 @@ Add untracked machine-specific services (e.g. Navidrome instances):
 ]
 ```
 
-#### D. Environment Variables (`.env`, Optional)
-```bash
-PORT=8085
-TAILSCALE_IP=100.x.y.z
-```
-
 ---
 
 ### 4. Deploy Systemd Services
 
-Deploy the dashboard unit file (verify paths in the file match your user directory):
+Deploy the dashboard unit file:
 
 ```bash
 # Deploy Dashboard service
-sudo cp server-dashboard.service /etc/systemd/system/
+sudo cp configs/systemd/tinarchy.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now server-dashboard.service
+sudo systemctl enable --now tinarchy.service
 ```
 
 Additional service unit templates are available under `configs/systemd/`:
@@ -253,8 +257,9 @@ Set up the unified `$HOME/drive/` sync script and background service:
 
 ```bash
 # Install sync binary
-sudo cp configs/scripts/pinedash-drive-sync /usr/local/bin/
-sudo chmod +x /usr/local/bin/pinedash-drive-sync
+sudo cp configs/scripts/tinarchy-drive-sync /usr/local/bin/
+sudo chmod +x /usr/local/bin/tinarchy-drive-sync
+sudo ln -sfn /usr/local/bin/tinarchy-drive-sync /usr/local/bin/pinedash-drive-sync
 
 # Enable background boot trigger service
 sudo cp configs/systemd/pinedash-drive-sync.service /etc/systemd/system/
@@ -279,12 +284,12 @@ sudo systemctl enable --now pinedash-drive-sync.service
 
 Make the exit node script executable:
 ```bash
-chmod +x ~/server-dashboard/tor_exit_node.sh
+chmod +x ~/Tinarchy/tor_exit_node.sh
 ```
 
 To allow the dashboard backend to toggle the Tor exit node without password prompts, add a sudoers rule (`sudo visudo -f /etc/sudoers.d/99-tor-exit`):
 ```text
-%wheel ALL=(ALL) NOPASSWD: /home/*/server-dashboard/tor_exit_node.sh *
+%wheel ALL=(ALL) NOPASSWD: /home/*/Tinarchy/tor_exit_node.sh *, /home/*/server-dashboard/tor_exit_node.sh *
 ```
 
 ---
@@ -330,9 +335,9 @@ sudo systemctl daemon-reload
 
 | Task | Command |
 | :--- | :--- |
-| **Check Dashboard Status** | `systemctl status server-dashboard` |
-| **View Live Dashboard Logs** | `journalctl -u server-dashboard -f` |
-| **Restart Dashboard Service** | `sudo systemctl restart server-dashboard` |
+| **Check Dashboard Status** | `systemctl status tinarchy` (or `server-dashboard`) |
+| **View Live Dashboard Logs** | `journalctl -u tinarchy -f` |
+| **Restart Dashboard Service** | `sudo systemctl restart tinarchy` |
 | **Trigger Manual Drive Sync** | `curl -X POST http://127.0.0.1:8085/api/drive/sync` |
 | **Test Nginx Configuration** | `sudo nginx -t` |
 | **Check Tor Exit Node Status** | `sudo iptables -t nat -L TOR_EXIT -n -v` |

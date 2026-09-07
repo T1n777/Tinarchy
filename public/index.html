@@ -1234,7 +1234,7 @@
         <div class="top-nav-wrapper">
             <nav class="top-nav">
                 <div class="brand">
-                    <span>🍍</span>
+                    <span id="brand-icon">🍍</span>
                     <span id="sys-hostname">Server</span>
                     <span class="pulse-beacon"></span>
                 </div>
@@ -1356,13 +1356,18 @@
                 if(!res.ok) return;
                 const stats = await res.json();
 
-                // Dynamic Name
+                // Dynamic Name & Branding
                 const serverName = stats.display_name || stats.server_name || 'Server';
                 if (LAST_SYS_STATS.serverName !== serverName) {
                     const hostEl = document.getElementById('sys-hostname');
                     if (hostEl) hostEl.textContent = serverName;
-                    document.title = `${serverName} - Dashboard`;
+                    const projectName = stats.project_name || 'Tinarchy';
+                    document.title = `${serverName} - ${projectName}`;
                     LAST_SYS_STATS.serverName = serverName;
+                }
+                if (stats.app_icon) {
+                    const iconEl = document.getElementById('brand-icon');
+                    if (iconEl && iconEl.textContent !== stats.app_icon) iconEl.textContent = stats.app_icon;
                 }
 
                 if (LAST_SYS_STATS.tailscale_ip !== stats.tailscale_ip) {

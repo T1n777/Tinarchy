@@ -329,14 +329,9 @@
         <div class="error" id="error">Invalid username or password</div>
         <form id="login-form">
             <label for="username">Account</label>
-            <div class="select-wrapper">
-                <select id="username" required>
-                    <option value="tin">tin</option>
-                    <option value="peach">peach</option>
-                </select>
-            </div>
+            <input type="text" id="username" placeholder="Username" required autofocus autocomplete="username">
             <label for="password">Password</label>
-            <input type="password" id="password" placeholder="••••••••" required autofocus>
+            <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
             <button type="submit">Sign In</button>
         </form>
     </div>
@@ -347,6 +342,10 @@
                 const b = document.getElementById('login-brand');
                 if (b) b.textContent = data.display_name;
                 document.title = `${data.display_name} - Login`;
+            }
+            if (data.ssh_user) {
+                const u = document.getElementById('username');
+                if (u && !u.value) u.value = data.ssh_user;
             }
         }).catch(() => {});
 

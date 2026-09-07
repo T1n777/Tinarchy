@@ -18,15 +18,51 @@ import html
 
 # --- Load Environment Variables ---
 def load_env():
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
-    if os.path.exists(env_path):
-        with open(env_path) as f:
-            for line in f:
-                if '=' in line and not line.startswith('#'):
-                    k, v = line.strip().split('=', 1)
-                    os.environ[k.strip()] = v.strip().strip('"\'')
+    env_paths = [
+        os.environ.get('TINARCHY_ENV_FILE', ''),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
+        '/etc/tinarchy/tinarchy.env'
+    ]
+    for env_path in env_paths:
+        if env_path and os.path.exists(env_path):
+            try:
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if '=' in line and not line.startswith('#'):
+                            k, v = line.split('=', 1)
+                            k = k.strip()
+                            v = v.strip().strip('"\'')
+                            if k and k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
 
 load_env()
+
+_TAILSCALE_DNS_CACHE = {'domain': None, 'ts': 0}
+
+def get_tailscale_domain():
+    env_dom = os.environ.get('TAILSCALE_DOMAIN')
+    if env_dom:
+        return env_dom
+    global _TAILSCALE_DNS_CACHE
+    now_t = time.time()
+    if _TAILSCALE_DNS_CACHE['domain'] and (now_t - _TAILSCALE_DNS_CACHE['ts']) < 120:
+        return _TAILSCALE_DNS_CACHE['domain']
+    try:
+        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            d = json.loads(res.stdout)
+            dns = d.get('Self', {}).get('DNSName', '').rstrip('.')
+            if dns:
+                _TAILSCALE_DNS_CACHE = {'domain': dns, 'ts': now_t}
+                return dns
+    except Exception:
+        pass
+    fallback = os.environ.get('SERVER_NAME') or socket.gethostname()
+    return _TAILSCALE_DNS_CACHE.get('domain') or fallback
+
 
 PREV_NET = {'time': time.time(), 'rx': 0, 'tx': 0, 'rx_spd': 0, 'tx_spd': 0, 'rx_tot': 0, 'tx_tot': 0}
 _NET_LOCK = threading.Lock()
@@ -220,24 +256,43 @@ def get_system_hostname():
 
 def get_app_config():
     sys_name = get_system_hostname()
+    env_server_name = os.environ.get('SERVER_NAME', '')
+    env_project_name = os.environ.get('PROJECT_NAME', '')
+    env_app_icon = os.environ.get('APP_ICON', '🍍')
+    env_subtitle = os.environ.get('BRANDING_SUBTITLE', 'Server Control Center')
+    env_ssh_user = os.environ.get('SSH_USER', '')
+    if not env_ssh_user:
+        try:
+            import getpass
+            env_ssh_user = getpass.getuser()
+        except Exception:
+            env_ssh_user = 'pineapple'
+
+    server_name = env_server_name
+    project_name = env_project_name or 'Tinarchy'
+
     if os.path.exists(APP_CONFIG_FILE):
         try:
             with open(APP_CONFIG_FILE, 'r') as f:
                 cfg = json.load(f)
-                server_name = cfg.get('server_name') or sys_name
-                return {
-                    'server_name': cfg.get('server_name', ''),
-                    'project_name': cfg.get('project_name', sys_name),
-                    'display_name': server_name,
-                    'hostname': sys_name
-                }
+                if not server_name:
+                    server_name = cfg.get('server_name')
+                if not env_project_name:
+                    project_name = cfg.get('project_name') or project_name
         except Exception:
             pass
+
+    display_name = server_name or sys_name
+
     return {
-        "server_name": "",
-        "project_name": sys_name,
-        "display_name": sys_name,
-        "hostname": sys_name
+        'server_name': server_name or '',
+        'project_name': project_name,
+        'display_name': display_name,
+        'hostname': sys_name,
+        'app_icon': env_app_icon,
+        'branding_subtitle': env_subtitle,
+        'ssh_user': env_ssh_user,
+        'tailscale_domain': get_tailscale_domain()
     }
 
 def save_app_config(cfg):
@@ -571,6 +626,24 @@ if os.path.exists(LOCAL_SERVICES_FILE):
                 SERVICES.extend(local_svcs)
     except Exception as e:
         print(f'Error loading local services: {e}')
+
+def trigger_drive_sync():
+    sync_bin = os.environ.get('DRIVE_SYNC_BIN')
+    if not sync_bin:
+        for candidate in [
+            '/usr/local/bin/tinarchy-drive-sync',
+            '/usr/local/bin/pinedash-drive-sync',
+            '/usr/bin/tinarchy-drive-sync',
+            '/usr/bin/pinedash-drive-sync',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs/scripts/pinedash-drive-sync')
+        ]:
+            if os.path.exists(candidate):
+                sync_bin = candidate
+                break
+    if sync_bin:
+        subprocess.Popen([sync_bin])
+    else:
+        raise FileNotFoundError("Drive sync binary not found")
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
@@ -971,7 +1044,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/drive/sync':
             try:
-                subprocess.Popen(['/usr/local/bin/pinedash-drive-sync'])
+                trigger_drive_sync()
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', 'application/json')
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), 'application/json', code=500)
@@ -1082,9 +1155,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             stats['display_name'] = app_cfg.get('display_name') or sys_name
             stats['server_name'] = stats['display_name']
             stats['project_name'] = app_cfg.get('project_name', sys_name)
+            stats['app_icon'] = app_cfg.get('app_icon', '🍍')
+            stats['branding_subtitle'] = app_cfg.get('branding_subtitle', 'Server Control Center')
+            stats['ssh_user'] = app_cfg.get('ssh_user', '')
+            stats['tailscale_domain'] = app_cfg.get('tailscale_domain', '')
             stats['hostname'] = sys_name
             # Drive sync status
-            sync_last_file = '/run/pinedash-drive/sync-last'
+            sync_last_file = '/run/tinarchy-drive/sync-last' if os.path.exists('/run/tinarchy-drive/sync-last') else '/run/pinedash-drive/sync-last'
             if os.path.exists(sync_last_file):
                 try:
                     with open(sync_last_file, 'r') as f_s:
@@ -1289,7 +1366,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # ─── Drive Sync: POST ───
         elif self.path == '/api/drive/sync':
             try:
-                subprocess.Popen(['/usr/local/bin/pinedash-drive-sync'])
+                trigger_drive_sync()
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', "application/json")
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), "application/json", code=500)
@@ -1426,6 +1503,8 @@ class ThreadingSimpleServer(socketserver.ThreadingMixIn, socketserver.TCPServer)
 
 if __name__ == '__main__':
     ThreadingSimpleServer.allow_reuse_address = True
-    with ThreadingSimpleServer(("127.0.0.1", PORT), DashboardHandler) as httpd:
-        print(f"Serving Pinedash backend on 127.0.0.1:{PORT}")
+    bind_host = os.environ.get('HOST', '127.0.0.1')
+    app_cfg = get_app_config()
+    with ThreadingSimpleServer((bind_host, PORT), DashboardHandler) as httpd:
+        print(f"Serving {app_cfg.get('project_name', 'Tinarchy')} backend ({app_cfg.get('display_name')}) on {bind_host}:{PORT}")
         httpd.serve_forever()

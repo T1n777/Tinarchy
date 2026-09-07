@@ -63,7 +63,8 @@ package() {
 
     # Install helper scripts
     install -Dm755 tor_exit_node.sh "$pkgdir/usr/lib/$_pkgname/tor_exit_node.sh"
-    install -Dm755 configs/scripts/pinedash-drive-sync "$pkgdir/usr/bin/pinedash-drive-sync"
+    install -Dm755 configs/scripts/tinarchy-drive-sync "$pkgdir/usr/bin/tinarchy-drive-sync"
+    ln -sr "$pkgdir/usr/bin/tinarchy-drive-sync" "$pkgdir/usr/bin/pinedash-drive-sync"
 
     # Install binary launcher
     install -Dm755 "$srcdir/tinarchy-launcher.sh" "$pkgdir/usr/bin/$_pkgname"
@@ -113,4 +114,7 @@ EOF_SERVICES
         install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     fi
     install -Dm644 README.md "$pkgdir/usr/share/doc/$_pkgname/README.md"
+    if [ -f .env.example ]; then
+        install -Dm644 .env.example "$pkgdir/usr/share/doc/$_pkgname/env.example"
+    fi
 }

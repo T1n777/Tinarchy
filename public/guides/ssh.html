@@ -555,7 +555,7 @@
             </div>
             <div class="meta-box">
                 <div class="meta-label">Port & Default User</div>
-                <div class="meta-val">22 · tin</div>
+                <div class="meta-val" id="sshPortUser">22</div>
             </div>
         </div>
 
@@ -622,7 +622,7 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px;">
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Host / Address</div>
-                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">100.67.207.60</div>
+                                <div id="clientHost" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">100.x.y.z</div>
                             </div>
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Port</div>
@@ -630,7 +630,7 @@
                             </div>
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Username</div>
-                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">tin</div>
+                                <div id="clientUser" style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">user</div>
                             </div>
                         </div>
                     </div>
@@ -658,7 +658,7 @@
                         <span>⚡</span> Reconnect Instantly
                     </div>
                     <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.5;">
-                        Simply run <code style="color:var(--primary); font-family:var(--font-mono);">tailscale ssh tin@tinarchy</code> again from any device to re-attach immediately.
+                        Simply run <code id="reconnectCmd" style="color:var(--primary); font-family:var(--font-mono);">tailscale ssh user@server</code> again from any device to re-attach immediately.
                     </p>
                 </div>
 
@@ -693,7 +693,7 @@
             </div>
             
             <p style="font-size:0.8rem; color:var(--text-muted); margin-top:14px; margin-bottom:0;">
-                <em>Note: Non-interactive commands (e.g. <code style="font-family:var(--font-mono);">tailscale ssh tin@tinarchy ls</code>) and file transfers run directly without tmux. To bypass tmux in an interactive shell, connect with <code style="font-family:var(--font-mono);">NO_AUTO_TMUX=1</code>.</em>
+                <em>Note: Non-interactive commands (e.g. <code id="nonInteractiveCmd" style="font-family:var(--font-mono);">tailscale ssh user@server ls</code>) and file transfers run directly without tmux. To bypass tmux in an interactive shell, connect with <code style="font-family:var(--font-mono);">NO_AUTO_TMUX=1</code>.</em>
             </p>
         </div>
 
@@ -706,18 +706,73 @@
     </div>
 
     <script>
+        let SERVER_DATA = {
+            user: 'pineapple',
+            host: 'pineapple-station',
+            domain: window.location.hostname || 'pineapple-station',
+            ip: '100.x.y.z'
+        };
+
+        async function initGuide() {
+            try {
+                const res = await fetch('/api/system');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ssh_user) SERVER_DATA.user = data.ssh_user;
+                    if (data.hostname || data.server_name) SERVER_DATA.host = data.hostname || data.server_name;
+                    if (data.tailscale_domain) SERVER_DATA.domain = data.tailscale_domain;
+                    else if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') SERVER_DATA.domain = window.location.hostname;
+                    if (data.tailscale_ip && data.tailscale_ip !== 'Offline') SERVER_DATA.ip = data.tailscale_ip;
+                }
+            } catch (e) {}
+
+            const dnsEl = document.getElementById('dnsHost');
+            if (dnsEl) dnsEl.textContent = SERVER_DATA.domain;
+            const ipEl = document.getElementById('tsIp');
+            if (ipEl) ipEl.textContent = SERVER_DATA.ip;
+            const portUserEl = document.getElementById('sshPortUser');
+            if (portUserEl) portUserEl.textContent = '22 · ' + SERVER_DATA.user;
+
+            const clientHostEl = document.getElementById('clientHost');
+            if (clientHostEl) clientHostEl.textContent = SERVER_DATA.ip;
+            const clientUserEl = document.getElementById('clientUser');
+            if (clientUserEl) clientUserEl.textContent = SERVER_DATA.user;
+
+            const reconnectEl = document.getElementById('reconnectCmd');
+            if (reconnectEl) reconnectEl.textContent = `tailscale ssh ${SERVER_DATA.user}@${SERVER_DATA.host}`;
+            const nonIntEl = document.getElementById('nonInteractiveCmd');
+            if (nonIntEl) nonIntEl.textContent = `tailscale ssh ${SERVER_DATA.user}@${SERVER_DATA.host} ls`;
+            
+            updateSshCommand('tailscale');
+
+            const vsc = document.getElementById('vscodeConfig');
+            if (vsc) {
+                vsc.textContent = `Host ${SERVER_DATA.host}\n    HostName ${SERVER_DATA.domain}\n    User ${SERVER_DATA.user}\n    Port 22\n    IdentityFile ~/.ssh/id_ed25519\n    ServerAliveInterval 60`;
+            }
+            const copyId = document.getElementById('sshCopyId');
+            if (copyId) {
+                copyId.textContent = `ssh-copy-id -i ~/.ssh/id_ed25519.pub ${SERVER_DATA.user}@${SERVER_DATA.domain}`;
+            }
+        }
+
+        function updateSshCommand(type) {
+            const el = document.getElementById('sshCommand');
+            if (!el) return;
+            if (type === 'tailscale') {
+                el.textContent = `tailscale ssh ${SERVER_DATA.user}@${SERVER_DATA.host}`;
+            } else if (type === 'magic') {
+                el.textContent = `ssh ${SERVER_DATA.user}@${SERVER_DATA.domain}`;
+            } else if (type === 'tsip') {
+                el.textContent = `ssh ${SERVER_DATA.user}@${SERVER_DATA.ip}`;
+            }
+        }
+
         function switchSshTab(type) {
             document.querySelectorAll('.tabs .tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            const el = document.getElementById('sshCommand');
-            if (type === 'tailscale') {
-                el.textContent = 'tailscale ssh tin@tinarchy';
-            } else if (type === 'magic') {
-                el.textContent = 'ssh tin@tinarchy.tail3dee69.ts.net';
-            } else if (type === 'tsip') {
-                el.textContent = 'ssh tin@100.67.207.60';
+            if (window.event && window.event.target) {
+                window.event.target.classList.add('active');
             }
+            updateSshCommand(type);
         }
 
         function copyCode(id) {
@@ -738,12 +793,7 @@
             setTimeout(() => t.classList.remove('show'), 2200);
         }
 
-        // Dynamically adjust host if accessed via specific domain
-        if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            const h = window.location.hostname;
-            document.getElementById('dnsHost').textContent = h;
-            document.getElementById('sshCopyId').textContent = 'ssh-copy-id -i ~/.ssh/id_ed25519.pub tin@' + h;
-        }
+        window.addEventListener('DOMContentLoaded', initGuide);
     </script>
 </body>
 </html>

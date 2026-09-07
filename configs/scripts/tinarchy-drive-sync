@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Tinarchy Drive Sync Engine
+# Synchronizes and updates $HOME/drive/ folders, symlinks, permissions, and FileBrowser index.
+
+TARGET_USER="${SUDO_USER:-$USER}"
+[ -z "$TARGET_USER" ] && TARGET_USER=$(id -un)
+USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+[ -z "$USER_HOME" ] && USER_HOME="$HOME"
+
+LOCK_DIR="/run/tinarchy-drive"
+if ! mkdir -p "$LOCK_DIR" 2>/dev/null; then
+    LOCK_DIR="/tmp/tinarchy-drive"
+    mkdir -p "$LOCK_DIR" 2>/dev/null || true
+fi
+mkdir -p /run/pinedash-drive 2>/dev/null || true
+
+chmod 777 "$LOCK_DIR" 2>/dev/null || true
+chmod 777 /run/pinedash-drive 2>/dev/null || true
+
+LOCK_FILE="$LOCK_DIR/sync.lock"
+TIMESTAMP_FILE="$LOCK_DIR/sync-last"
+PINEDASH_TIMESTAMP="/run/pinedash-drive/sync-last"
+DEBOUNCE_SECONDS=10
+
+# 1. Debounce check
+CURRENT_TIME=$(date +%s)
+if [ -f "$TIMESTAMP_FILE" ]; then
+    LAST_TIME=$(cat "$TIMESTAMP_FILE" 2>/dev/null || echo 0)
+    DIFF=$((CURRENT_TIME - LAST_TIME))
+    if [ "$DIFF" -ge 0 ] && [ "$DIFF" -lt "$DEBOUNCE_SECONDS" ]; then
+        exit 0
+    fi
+fi
+
+# Acquire lock
+touch "$LOCK_FILE" 2>/dev/null || true
+chmod 666 "$LOCK_FILE" 2>/dev/null || true
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    exit 0
+fi
+
+echo "$CURRENT_TIME" > "$TIMESTAMP_FILE" 2>/dev/null || true
+[ -d "/run/pinedash-drive" ] && echo "$CURRENT_TIME" > "$PINEDASH_TIMESTAMP" 2>/dev/null || true
+chmod 666 "$TIMESTAMP_FILE" 2>/dev/null || true
+[ -f "$PINEDASH_TIMESTAMP" ] && chmod 666 "$PINEDASH_TIMESTAMP" 2>/dev/null || true
+
+DRIVE_DIR="${STORAGE_DIR:-$USER_HOME/drive}"
+
+# 2. Verify and repair symlinks
+WALL_DIR="${WALLPAPER_DIR:-$USER_HOME/Wall}"
+[ -d "$WALL_DIR" ] && ln -sfn "$WALL_DIR" "$DRIVE_DIR/Wallpapers"
+[ -d "/var/lib/suwayomi/downloads" ] && ln -sfn /var/lib/suwayomi/downloads "$DRIVE_DIR/Media/Manga"
+mkdir -p "$DRIVE_DIR/notes" "$DRIVE_DIR/shared/backups" "$DRIVE_DIR/Media/Movies" "$DRIVE_DIR/Media/Shows" "$DRIVE_DIR/Media/Music"
+
+# 3. Trigger server database snapshot if present
+for script_path in "$USER_HOME/scripts/backup-server-databases.sh" "/usr/local/bin/backup-server-databases.sh"; do
+    if [ -x "$script_path" ]; then
+        "$script_path" >/dev/null 2>&1 || true
+        break
+    fi
+done
+
+# 4. Signal FileBrowser
+touch "$DRIVE_DIR"
+[ -f "$DRIVE_DIR/.filebrowser.db" ] && touch "$DRIVE_DIR/.filebrowser.db"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Tinarchy Drive Sync completed successfully."

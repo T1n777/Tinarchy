@@ -528,9 +528,9 @@
             </div>
             <div class="header-info">
                 <h1>Continuous Folder Sync</h1>
-                <p>Private, real-time, peer-to-peer folder synchronization between your main laptop (<code style="color:var(--primary); font-family:var(--font-mono);">tinux</code>) and <code style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code>.</p>
+                <p>Private, real-time, peer-to-peer folder synchronization between your devices and <code class="syncthing-server-name" style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code>.</p>
                 <div class="header-actions">
-                    <a href="http://100.67.207.60:8384" target="_blank" class="btn-action">
+                    <a href="http://127.0.0.1:8384" target="_blank" class="btn-action">
                         <span>Open Syncthing Web GUI ↗</span>
                     </a>
                 </div>
@@ -541,7 +541,7 @@
         <div class="meta-grid">
             <div class="meta-box">
                 <div class="meta-label">Web GUI Address</div>
-                <div class="meta-val">http://100.67.207.60:8384</div>
+                <div class="meta-val" id="syncthingGuiAddress">http://127.0.0.1:8384</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Sync Protocol & Port</div>
@@ -560,7 +560,7 @@
         <!-- 1. Server Device ID -->
         <div class="card">
             <h2><span class="sec-num">1</span> Server Device ID</h2>
-            <p>Paste this Device ID on your laptop's Syncthing client to pair with <strong>tinarchy</strong>:</p>
+            <p>Paste this Device ID on your client's Syncthing client to pair with <strong class="syncthing-server-name">tinarchy</strong>:</p>
             
             <div class="code-container">
                 <code id="deviceIdCode">OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU</code>
@@ -568,14 +568,14 @@
             </div>
         </div>
 
-        <!-- 2. Step-by-Step Laptop Pairing -->
+        <!-- 2. Step-by-Step Device Pairing -->
         <div class="card">
-            <h2><span class="sec-num">2</span> Pair Your Main Laptop (Client)</h2>
+            <h2><span class="sec-num">2</span> Pair Your Device (Client)</h2>
             <div class="step-list">
                 <div class="step-item">
                     <div class="step-circle">1</div>
                     <div class="step-content">
-                        <strong>Install Syncthing on Client Laptop:</strong>
+                        <strong>Install Syncthing on Client Device:</strong>
                         <p>• <strong>Arch / Omarchy Linux:</strong> <code style="font-family:var(--font-mono); color:var(--primary);">sudo pacman -S syncthing</code> then <code style="font-family:var(--font-mono); color:var(--primary);">systemctl --user enable --now syncthing</code></p>
                         <p>• <strong>Ubuntu / Debian:</strong> <code style="font-family:var(--font-mono); color:var(--primary);">sudo apt install syncthing</code></p>
                         <p>• <strong>Windows:</strong> Download <strong style="color:#fff;">SyncTrayzor</strong> or official installer from syncthing.net.</p>
@@ -586,16 +586,16 @@
                 <div class="step-item">
                     <div class="step-circle">2</div>
                     <div class="step-content">
-                        <strong>Add tinarchy as a Remote Device:</strong>
-                        <p>Open Syncthing on your laptop (<code style="font-family:var(--font-mono); color:var(--primary);">http://127.0.0.1:8384</code>) ➔ Bottom right: click <strong>Add Remote Device</strong> ➔ Paste the Server Device ID from above ➔ Name it <code style="font-family:var(--font-mono); color:var(--primary);">tinarchy</code> ➔ Save.</p>
+                        <strong>Add Server as a Remote Device:</strong>
+                        <p>Open Syncthing on your client (<code style="font-family:var(--font-mono); color:var(--primary);">http://127.0.0.1:8384</code>) ➔ Bottom right: click <strong>Add Remote Device</strong> ➔ Paste the Server Device ID from above ➔ Name it <code class="syncthing-server-name" style="font-family:var(--font-mono); color:var(--primary);">tinarchy</code> ➔ Save.</p>
                     </div>
                 </div>
 
                 <div class="step-item">
                     <div class="step-circle">3</div>
                     <div class="step-content">
-                        <strong>Confirm Connection on tinarchy:</strong>
-                        <p>Open the <a href="http://100.67.207.60:8384" target="_blank" style="color:var(--primary); font-weight:600;">tinarchy Web GUI</a>. A prompt will appear stating your laptop wants to connect. Click <strong>Add Device</strong>.</p>
+                        <strong>Confirm Connection on Server:</strong>
+                        <p>Open the <a href="http://127.0.0.1:8384" target="_blank" style="color:var(--primary); font-weight:600;"><span class="syncthing-server-name">tinarchy</span> Web GUI</a>. A prompt will appear stating your client wants to connect. Click <strong>Add Device</strong>.</p>
                     </div>
                 </div>
 
@@ -603,8 +603,8 @@
                     <div class="step-circle">4</div>
                     <div class="step-content">
                         <strong>Share Directory & Start Syncing:</strong>
-                        <p>In your laptop's GUI, click <strong>Add Folder</strong> (e.g. <code style="font-family:var(--font-mono); color:var(--text);">~/Sync</code>) ➔ Under the <strong>Sharing</strong> tab, check <strong>tinarchy</strong> ➔ Click Save.</p>
-                        <p>On tinarchy, accept the shared folder and specify where to store it (e.g. <code style="font-family:var(--font-mono); color:var(--text);">/home/tin/Sync</code>). Files will sync in real-time!</p>
+                        <p>In your client's GUI, click <strong>Add Folder</strong> (e.g. <code style="font-family:var(--font-mono); color:var(--text);">~/Sync</code>) ➔ Under the <strong>Sharing</strong> tab, check <strong class="syncthing-server-name">tinarchy</strong> ➔ Click Save.</p>
+                        <p>On the server, accept the shared folder and specify where to store it (e.g. <code id="syncthingSyncFolder" style="font-family:var(--font-mono); color:var(--text);">~/Sync</code>). Files will sync in real-time!</p>
                     </div>
                 </div>
             </div>
@@ -652,6 +652,33 @@
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 2200);
         }
+
+        async function initSyncthingGuide() {
+            let host = window.location.hostname || '127.0.0.1';
+            let serverName = 'tinarchy';
+            let sshUser = 'user';
+            try {
+                const res = await fetch('/api/system');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tailscale_ip && data.tailscale_ip !== 'Offline') host = data.tailscale_ip;
+                    else if (data.tailscale_domain) host = data.tailscale_domain;
+                    if (data.display_name || data.server_name) serverName = data.display_name || data.server_name;
+                    if (data.ssh_user) sshUser = data.ssh_user;
+                }
+            } catch (e) {}
+
+            const guiUrl = `http://${host}:8384`;
+            document.querySelectorAll('a[href*=":8384"]').forEach(a => a.href = guiUrl);
+            const guiAddrEl = document.getElementById('syncthingGuiAddress');
+            if (guiAddrEl) guiAddrEl.textContent = guiUrl;
+            document.querySelectorAll('.syncthing-server-name').forEach(el => {
+                el.textContent = serverName;
+            });
+            const syncFolderEl = document.getElementById('syncthingSyncFolder');
+            if (syncFolderEl) syncFolderEl.textContent = `/home/${sshUser}/Sync`;
+        }
+        window.addEventListener('DOMContentLoaded', initSyncthingGuide);
     </script>
 </body>
 </html>

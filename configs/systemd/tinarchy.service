@@ -15,4 +15,4 @@ EnvironmentFile=-/etc/tinarchy/tinarchy.env
 
 [Install]
 WantedBy=multi-user.target
-Alias=tinarchy.service
+Alias=server-dashboard.service

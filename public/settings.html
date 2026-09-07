@@ -466,7 +466,7 @@
     <div class="container">
         <div class="top-nav-wrapper">
             <nav class="top-nav glass">
-                <span class="brand">⚙️ Pinedash Settings</span>
+                <span class="brand">⚙️ <span id="settings-brand-title">Tinarchy</span> Settings</span>
                 <a href="/" class="nav-back">← Dashboard</a>
             </nav>
         </div>
@@ -806,9 +806,9 @@
                     inp.value = data.server_name || '';
                     inp.placeholder = `Current: ${data.display_name} (system: ${data.hostname})`;
                 }
-                const brand = document.querySelector('.top-nav .brand');
-                if (brand) brand.textContent = data.display_name;
-                document.title = `${data.display_name} - Settings`;
+                const brand = document.getElementById('settings-brand-title');
+                if (brand) brand.textContent = data.display_name || data.project_name || 'Tinarchy';
+                document.title = `${data.display_name || data.project_name || 'Tinarchy'} - Settings`;
             } catch(e) {}
         }
 

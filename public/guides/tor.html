@@ -527,7 +527,7 @@
             </div>
             <div class="header-info">
                 <h1>Tor SOCKS5 Proxy</h1>
-                <p>Route desktop browsers, mobile apps, terminal tools, and manga sources through the Tor onion anonymity network via <code style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code>.</p>
+                <p>Route desktop browsers, mobile apps, terminal tools, and manga sources through the Tor onion anonymity network via <code id="torHostName" style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code>.</p>
             </div>
         </div>
 
@@ -539,7 +539,7 @@
             </div>
             <div class="meta-box">
                 <div class="meta-label">SOCKS Host</div>
-                <div class="meta-val" id="proxyHost">100.67.207.60</div>
+                <div class="meta-val" id="proxyHost">100.x.y.z</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Proxy Port</div>
@@ -563,7 +563,7 @@
                         <strong>Mozilla Firefox (Native Support):</strong>
                         <p>1. Open Firefox <strong>Settings</strong> ➔ scroll to <strong>Network Settings</strong> ➔ click <strong>Settings...</strong></p>
                         <p>2. Select <strong>Manual proxy configuration</strong>.</p>
-                        <p>3. Set SOCKS Host: <code style="color:var(--primary); font-family:var(--font-mono);">100.67.207.60</code> and Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
+                        <p>3. Set SOCKS Host: <code class="tor-host-val" style="color:var(--primary); font-family:var(--font-mono);">100.x.y.z</code> and Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
                         <p>4. Check <strong>SOCKS v5</strong> and <strong>Proxy DNS when using SOCKS v5</strong> (prevents DNS leaks!).</p>
                     </div>
                 </div>
@@ -572,7 +572,7 @@
                     <div class="step-circle">🌐</div>
                     <div class="step-content">
                         <strong>Chrome / Brave / Edge (Extension):</strong>
-                        <p>Install the <strong style="color:#fff;">FoxyProxy Standard</strong> extension from the Chrome Web Store. Add a proxy with Protocol: <code style="color:var(--primary); font-family:var(--font-mono);">SOCKS5</code>, Host: <code style="color:var(--primary); font-family:var(--font-mono);">100.67.207.60</code>, Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
+                        <p>Install the <strong style="color:#fff;">FoxyProxy Standard</strong> extension from the Chrome Web Store. Add a proxy with Protocol: <code style="color:var(--primary); font-family:var(--font-mono);">SOCKS5</code>, Host: <code class="tor-host-val" style="color:var(--primary); font-family:var(--font-mono);">100.x.y.z</code>, Port: <code style="color:var(--primary); font-family:var(--font-mono);">9050</code>.</p>
                     </div>
                 </div>
             </div>
@@ -589,7 +589,7 @@
                     <div class="step-content">
                         <strong>Verify Tor Connection via cURL (Returns Exit Node IP):</strong>
                         <div class="code-container">
-                            <code id="curlCmd">curl --socks5-hostname 100.67.207.60:9050 https://check.torproject.org/api/ip</code>
+                            <code id="curlCmd">curl --socks5-hostname 100.x.y.z:9050 https://check.torproject.org/api/ip</code>
                             <button class="copy-btn" onclick="copyCode('curlCmd')">📋 Copy</button>
                         </div>
                     </div>
@@ -600,9 +600,9 @@
                     <div class="step-content">
                         <strong>Route Current Shell Session Through Tor:</strong>
                         <div class="code-container">
-                            <code id="exportCmd">export ALL_PROXY="socks5h://100.67.207.60:9050"
-export HTTP_PROXY="socks5h://100.67.207.60:9050"
-export HTTPS_PROXY="socks5h://100.67.207.60:9050"</code>
+                            <code id="exportCmd">export ALL_PROXY="socks5h://100.x.y.z:9050"
+export HTTP_PROXY="socks5h://100.x.y.z:9050"
+export HTTPS_PROXY="socks5h://100.x.y.z:9050"</code>
                             <button class="copy-btn" onclick="copyCode('exportCmd')">📋 Copy</button>
                         </div>
                     </div>
@@ -613,7 +613,7 @@ export HTTPS_PROXY="socks5h://100.67.207.60:9050"</code>
                     <div class="step-content">
                         <strong>Git over Tor (Bypass ISP restrictions):</strong>
                         <div class="code-container">
-                            <code id="gitCmd">git config --global http.proxy 'socks5h://100.67.207.60:9050'</code>
+                            <code id="gitCmd">git config --global http.proxy 'socks5h://100.x.y.z:9050'</code>
                             <button class="copy-btn" onclick="copyCode('gitCmd')">📋 Copy</button>
                         </div>
                     </div>
@@ -668,16 +668,43 @@ export HTTPS_PROXY="socks5h://100.67.207.60:9050"</code>
             setTimeout(() => t.classList.remove('show'), 2200);
         }
 
-        // Adjust host if accessed via hostname
-        if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            const h = window.location.hostname;
-            document.getElementById('proxyHost').textContent = h;
-            document.getElementById('curlCmd').textContent = 'curl --socks5-hostname ' + h + ':9050 https://check.torproject.org/api/ip';
-            document.getElementById('exportCmd').textContent = 'export ALL_PROXY="socks5h://' + h + ':9050"
-export HTTP_PROXY="socks5h://' + h + ':9050"
-export HTTPS_PROXY="socks5h://' + h + ':9050"';
-            document.getElementById('gitCmd').textContent = 'git config --global http.proxy 'socks5h://' + h + ':9050'';
+        async function initTorGuide() {
+            let host = '127.0.0.1';
+            let serverName = 'tinarchy';
+            try {
+                const res = await fetch('/api/system');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.tailscale_ip && data.tailscale_ip !== 'Offline') host = data.tailscale_ip;
+                    else if (data.tailscale_domain) host = data.tailscale_domain;
+                    else if (window.location.hostname && window.location.hostname !== 'localhost') host = window.location.hostname;
+                    if (data.display_name || data.server_name) serverName = data.display_name || data.server_name;
+                }
+            } catch (e) {}
+
+            const hostEl = document.getElementById('proxyHost');
+            if (hostEl) hostEl.textContent = host;
+
+            document.querySelectorAll('.tor-host-val').forEach(el => {
+                el.textContent = host;
+            });
+
+            const torHostNameEl = document.getElementById('torHostName');
+            if (torHostNameEl) torHostNameEl.textContent = serverName;
+
+            const curlCmdEl = document.getElementById('curlCmd');
+            if (curlCmdEl) curlCmdEl.textContent = `curl --socks5-hostname ${host}:9050 https://check.torproject.org/api/ip`;
+
+            const exportCmdEl = document.getElementById('exportCmd');
+            if (exportCmdEl) {
+                exportCmdEl.textContent = `export ALL_PROXY="socks5h://${host}:9050"\nexport HTTP_PROXY="socks5h://${host}:9050"\nexport HTTPS_PROXY="socks5h://${host}:9050"`;
+            }
+
+            const gitCmdEl = document.getElementById('gitCmd');
+            if (gitCmdEl) gitCmdEl.textContent = `git config --global http.proxy 'socks5h://${host}:9050'`;
         }
+
+        window.addEventListener('DOMContentLoaded', initTorGuide);
     </script>
 </body>
 </html>
