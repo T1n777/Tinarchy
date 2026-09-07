@@ -69,10 +69,6 @@ fi
 
 SYS_HOST="$(cat /etc/hostname 2>/dev/null || uname -n || echo 'tinarchy-server')"
 SYS_HOST="$(echo "$SYS_HOST" | tr -d '[:space:]')"
-            AUTO_YES=true
-            ;;
-    esac
-done
 
 # ─── Read Existing Configurations (if any) ────────────────────────────────────
 EXISTING_SERVER_NAME=""
@@ -597,7 +593,26 @@ fi
 
 # 9. Headless Laptop Powerdown
 if [ "$INSTALL_POWERDOWN" = "true" ]; then
-    echo -e "${CYAN}💻 Applying Headless Laptop 0-Watt DPMS & Lid Management...${NC}"
+    echo -e "${CYAN}💻 Applying Headless Laptop 0-Watt DPMS, Inactivity Sleep & Lid Management...${NC}"
+    if [ -f "$REPO_ROOT/configs/scripts/tinarchy-display-sleep" ]; then
+        install -m 755 "$REPO_ROOT/configs/scripts/tinarchy-display-sleep" /usr/local/bin/tinarchy-display-sleep
+        ln -sfn /usr/local/bin/tinarchy-display-sleep /usr/local/bin/screen-off
+        ln -sfn /usr/local/bin/tinarchy-display-sleep /usr/local/bin/screen-on
+        ln -sfn /usr/local/bin/tinarchy-display-sleep /usr/local/bin/screen-toggle
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/tinarchy-display-sleep.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/tinarchy-display-sleep.service" /etc/systemd/system/
+    fi
+    if [ -f "$REPO_ROOT/configs/scripts/acpi-handler.sh" ]; then
+        cp "$REPO_ROOT/configs/scripts/acpi-handler.sh" /etc/acpi/handler.sh
+        chmod 755 /etc/acpi/handler.sh
+    fi
+    # Backlight udev rule for user permissions
+    cat << 'UDEV_EOF' > /etc/udev/rules.d/90-backlight-power.rules
+ACTION=="add|change", SUBSYSTEM=="backlight", RUN+="/bin/chmod a+w /sys/class/backlight/%k/bl_power /sys/class/backlight/%k/brightness"
+UDEV_EOF
+    udevadm trigger --subsystem-match=backlight 2>/dev/null || true
+
     if [ -f "$REPO_ROOT/configs/systemd/console-screen-blank.service" ]; then
         cp "$REPO_ROOT/configs/systemd/console-screen-blank.service" /etc/systemd/system/
     fi
@@ -637,6 +652,8 @@ start_and_enable() {
 [ "$INSTALL_JELLYFIN" = "true" ]     && start_and_enable "jellyfin.service" "Jellyfin Media"
 [ "$INSTALL_SYNCYOMI" = "true" ]     && start_and_enable "syncyomi.service" "SyncYomi Manga Sync"
 [ "$INSTALL_DRIVE_ENGINE" = "true" ] && start_and_enable "pinedash-drive-sync.service" "Drive Sync Boot"
+[ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "acpid.service" "ACPI Event Daemon"
+[ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "tinarchy-display-sleep.service" "Display Inactivity Sleep"
 [ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "console-screen-blank.service" "Console Screen Blank"
 [ "$INSTALL_TINARCHY" = "true" ]     && start_and_enable "tinarchy.service" "Tinarchy Dashboard"
 
