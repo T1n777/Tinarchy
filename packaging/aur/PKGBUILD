@@ -1,0 +1,116 @@
+# Maintainer: imyash0722 <imyash0722@gmail.com>
+
+pkgname=tinarchy-git
+_pkgname=tinarchy
+pkgver=r108.c7edf80
+pkgrel=1
+pkgdesc="Translucent glassmorphic control center & telemetry dashboard for headless Linux home servers"
+arch=('any')
+url="https://github.com/T1n777/Tinarchy"
+license=('MIT')
+depends=(
+    'python'
+    'python-pillow'
+    'python-requests'
+)
+optdepends=(
+    'nginx: unified reverse proxy and multi-service routing'
+    'tailscale: mesh networking and Tailscale Whois identity'
+    'tmux: persistent remote SSH sessions'
+    'fastfetch: system telemetry and terminal cheatsheet banner'
+    'tor: SOCKS5 proxy and global exit node routing'
+    'iptables: NAT packet routing for Tor exit node'
+    'couchdb: backend storage for Obsidian LiveSync'
+    'rclone: cloud drive backups to Google Drive'
+)
+makedepends=('git')
+provides=("$_pkgname" "pinedash")
+conflicts=("$_pkgname" "pinedash")
+backup=(
+    "etc/$_pkgname/app_config.json"
+    "etc/$_pkgname/roles_config.json"
+    "etc/$_pkgname/services.local.json"
+)
+source=(
+    "$pkgname::git+$url.git"
+    "tinarchy.service"
+    "tinarchy.tmpfiles"
+    "tinarchy-launcher.sh"
+)
+sha256sums=(
+    'SKIP'
+    '2e92029ea46d8010177fa4d2d4ce10b330442a91c602d5a4b6fce6cd3a0a9895'
+    '5e4ac970832690f4de5eae573ffa5a25a1960cc1adf5be95bcb0ea66ce7916b3'
+    'e40544f28daedf76cabe46396e9ec00b8b97ed7ddd513ce1a16ca9b9dffe3441'
+)
+
+pkgver() {
+    cd "$srcdir/$pkgname"
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+package() {
+    cd "$srcdir/$pkgname"
+
+    # Install core application files
+    install -dm755 "$pkgdir/usr/share/$_pkgname"
+    install -Dm644 server.py pywal_generator.py "$pkgdir/usr/share/$_pkgname/"
+    chmod 755 "$pkgdir/usr/share/$_pkgname/server.py"
+
+    # Install web assets and templates
+    cp -dr --no-preserve=ownership public "$pkgdir/usr/share/$_pkgname/"
+    cp -dr --no-preserve=ownership configs "$pkgdir/usr/share/$_pkgname/"
+
+    # Install helper scripts
+    install -Dm755 tor_exit_node.sh "$pkgdir/usr/lib/$_pkgname/tor_exit_node.sh"
+    install -Dm755 configs/scripts/pinedash-drive-sync "$pkgdir/usr/bin/pinedash-drive-sync"
+
+    # Install binary launcher
+    install -Dm755 "$srcdir/tinarchy-launcher.sh" "$pkgdir/usr/bin/$_pkgname"
+    ln -sr "$pkgdir/usr/bin/$_pkgname" "$pkgdir/usr/bin/pinedash"
+
+    # Configuration files in /etc/tinarchy
+    install -dm755 "$pkgdir/etc/$_pkgname"
+    if [ -f app_config.json ]; then
+        install -Dm644 app_config.json "$pkgdir/etc/$_pkgname/app_config.json"
+    else
+        cat > "$pkgdir/etc/$_pkgname/app_config.json" << 'EOF_APP'
+{
+  "server_name": "",
+  "project_name": ""
+}
+EOF_APP
+    fi
+
+    cat > "$pkgdir/etc/$_pkgname/roles_config.json" << 'EOF_ROLES'
+{
+  "owner": "",
+  "owner_name": "Admin",
+  "roles": {},
+  "default_role": "viewer"
+}
+EOF_ROLES
+
+    cat > "$pkgdir/etc/$_pkgname/services.local.json" << 'EOF_SERVICES'
+[]
+EOF_SERVICES
+
+    # Symlink configurations from /usr/share/tinarchy to /etc/tinarchy
+    ln -sf "/etc/$_pkgname/app_config.json" "$pkgdir/usr/share/$_pkgname/app_config.json"
+    ln -sf "/etc/$_pkgname/roles_config.json" "$pkgdir/usr/share/$_pkgname/roles_config.json"
+    ln -sf "/etc/$_pkgname/services.local.json" "$pkgdir/usr/share/$_pkgname/services.local.json"
+
+    # Runtime state directory
+    install -dm755 "$pkgdir/var/lib/$_pkgname"
+    install -dm755 "$pkgdir/var/lib/$_pkgname/thumbnails"
+
+    # Systemd unit & tmpfiles
+    install -Dm644 "$srcdir/$_pkgname.service" "$pkgdir/usr/lib/systemd/system/$_pkgname.service"
+    install -Dm644 "$srcdir/$_pkgname.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/$_pkgname.conf"
+
+    # License and documentation
+    if [ -f LICENSE ]; then
+        install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    fi
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$_pkgname/README.md"
+}

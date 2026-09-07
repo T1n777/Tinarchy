@@ -1,0 +1,2 @@
+d /var/lib/tinarchy 0755 root root -
+d /etc/tinarchy 0755 root root -
