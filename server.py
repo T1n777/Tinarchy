@@ -665,6 +665,24 @@ if ENABLE_COUCHDB:
         'link_text': f':{couchdb_port}'
     })
 
+def get_syncthing_home_dir():
+    candidates = [
+        f"/home/{PRIMARY_USER}/.local/state/syncthing",
+        f"/home/{PRIMARY_USER}/.config/syncthing",
+        os.path.expanduser('~/.local/state/syncthing'),
+        os.path.expanduser('~/.config/syncthing'),
+    ]
+    for c in candidates:
+        if os.path.exists(os.path.join(c, 'config.xml')):
+            return c
+    return None
+
+def get_syncthing_cli_cmd():
+    home_dir = get_syncthing_home_dir()
+    if home_dir:
+        return ['syncthing', '--home', home_dir, 'cli']
+    return ['syncthing', 'cli']
+
 _SYNCTHING_DEVICE_ID_CACHE = {'id': None, 'ts': 0}
 
 def get_syncthing_device_id():
@@ -672,20 +690,18 @@ def get_syncthing_device_id():
     now = time.time()
     if _SYNCTHING_DEVICE_ID_CACHE['id'] and (now - _SYNCTHING_DEVICE_ID_CACHE['ts'] < 3600):
         return _SYNCTHING_DEVICE_ID_CACHE['id']
+    home_dir = get_syncthing_home_dir()
+    cmd = ['syncthing', '--home', home_dir, 'device-id'] if home_dir else ['syncthing', 'device-id']
     try:
-        res = subprocess.run(['syncthing', 'device-id'], capture_output=True, text=True, timeout=2)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
         if res.returncode == 0 and res.stdout.strip():
             dev_id = res.stdout.strip()
             _SYNCTHING_DEVICE_ID_CACHE = {'id': dev_id, 'ts': now}
             return dev_id
     except Exception:
         pass
-    cfg_paths = [
-        os.path.expanduser('~/.local/state/syncthing/config.xml'),
-        f"/home/{PRIMARY_USER}/.local/state/syncthing/config.xml",
-        os.path.expanduser('~/.config/syncthing/config.xml'),
-    ]
-    for cp in cfg_paths:
+    if home_dir:
+        cp = os.path.join(home_dir, 'config.xml')
         if os.path.exists(cp):
             try:
                 import xml.etree.ElementTree as ET
@@ -698,7 +714,7 @@ def get_syncthing_device_id():
                         return dev_id
             except Exception:
                 pass
-    return "G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV"
+    return ""
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
 LOCAL_SERVICES_FILE = os.path.join(os.path.dirname(__file__), 'services.local.json')
@@ -995,18 +1011,26 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_GET(self):
-        # Allow static assets, scripts and public endpoints
-        if self.path in ['/pair', '/pair.sh']:
+        clean_path = self.path.split('?')[0]
+        if clean_path in ['/pair', '/pair.sh']:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             pair_script = os.path.join(base_dir, 'configs', 'scripts', 'pair-client.sh')
             if os.path.isfile(pair_script):
-                with open(pair_script, 'rb') as f:
+                with open(pair_script, 'r', encoding='utf-8') as f:
                     content = f.read()
+                server_id = get_syncthing_device_id()
+                app_cfg = get_app_config()
+                srv_name = app_cfg.get('display_name') or app_cfg.get('server_name') or 'Tinarchy'
+                if server_id:
+                    content = re.sub(r'SERVER_ID="[^"]*"', f'SERVER_ID="{server_id}"', content)
+                content = re.sub(r'SERVER_NAME="[^"]*"', f'SERVER_NAME="{srv_name}"', content)
+                content = content.replace('Pineapple Station', srv_name)
+                encoded = content.encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8')
-                self.send_header('Content-Length', str(len(content)))
+                self.send_header('Content-Length', str(len(encoded)))
                 self.end_headers()
-                self.wfile.write(content)
+                self.wfile.write(encoded)
                 return
 
         if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp', '.sh')):
@@ -1609,27 +1633,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 def start_syncthing_auto_pair_thread():
     def _worker():
         time.sleep(3)
+        cli_cmd = get_syncthing_cli_cmd()
         while True:
             try:
                 # 1. Check pending devices
-                res = subprocess.run(['syncthing', 'cli', 'show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
+                res = subprocess.run(cli_cmd + ['show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
                 if res.returncode == 0 and res.stdout:
                     pending = json.loads(res.stdout)
                     for dev_id, dev_info in pending.items():
                         name = dev_info.get('name') or 'Client Device'
-                        subprocess.run(['syncthing', 'cli', 'config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
-                        subprocess.run(['syncthing', 'cli', 'config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
-                        subprocess.run(['syncthing', 'cli', 'config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+                        subprocess.run(cli_cmd + ['config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
+                        subprocess.run(cli_cmd + ['config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
+                        subprocess.run(cli_cmd + ['config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
 
                 # 2. Check pending folders
-                res_f = subprocess.run(['syncthing', 'cli', 'show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
+                res_f = subprocess.run(cli_cmd + ['show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
                 if res_f.returncode == 0 and res_f.stdout:
                     pending_f = json.loads(res_f.stdout)
                     for folder_id, f_info in pending_f.items():
                         if folder_id == 'shared-drive':
                             dev_id = f_info.get('deviceID')
                             if dev_id:
-                                subprocess.run(['syncthing', 'cli', 'config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+                                subprocess.run(cli_cmd + ['config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
             except Exception:
                 pass
             time.sleep(5)

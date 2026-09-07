@@ -1,1 +1,1 @@
-/home/pineapple/Tinarchy/configs/scripts/pair-client.sh
+../configs/scripts/pair-client.sh
