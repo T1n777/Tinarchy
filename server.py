@@ -995,8 +995,21 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def do_GET(self):
-        # Allow static assets and public endpoints
-        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp')):
+        # Allow static assets, scripts and public endpoints
+        if self.path in ['/pair', '/pair.sh']:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            pair_script = os.path.join(base_dir, 'configs', 'scripts', 'pair-client.sh')
+            if os.path.isfile(pair_script):
+                with open(pair_script, 'rb') as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
+        if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp', '.sh')):
             super().do_GET()
             return
 
@@ -1593,6 +1606,37 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(b'{"error": "Endpoint not found"}')
 
 
+def start_syncthing_auto_pair_thread():
+    def _worker():
+        time.sleep(3)
+        while True:
+            try:
+                # 1. Check pending devices
+                res = subprocess.run(['syncthing', 'cli', 'show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
+                if res.returncode == 0 and res.stdout:
+                    pending = json.loads(res.stdout)
+                    for dev_id, dev_info in pending.items():
+                        name = dev_info.get('name') or 'Client Device'
+                        subprocess.run(['syncthing', 'cli', 'config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
+                        subprocess.run(['syncthing', 'cli', 'config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
+                        subprocess.run(['syncthing', 'cli', 'config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+
+                # 2. Check pending folders
+                res_f = subprocess.run(['syncthing', 'cli', 'show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
+                if res_f.returncode == 0 and res_f.stdout:
+                    pending_f = json.loads(res_f.stdout)
+                    for folder_id, f_info in pending_f.items():
+                        if folder_id == 'shared-drive':
+                            dev_id = f_info.get('deviceID')
+                            if dev_id:
+                                subprocess.run(['syncthing', 'cli', 'config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+            except Exception:
+                pass
+            time.sleep(5)
+
+    t = threading.Thread(target=_worker, daemon=True, name="SyncthingAutoPair")
+    t.start()
+
 class ThreadingSimpleServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
@@ -1600,6 +1644,7 @@ if __name__ == '__main__':
     ThreadingSimpleServer.allow_reuse_address = True
     bind_host = os.environ.get('HOST', '127.0.0.1')
     app_cfg = get_app_config()
+    start_syncthing_auto_pair_thread()
     with ThreadingSimpleServer((bind_host, PORT), DashboardHandler) as httpd:
         print(f"Serving {app_cfg.get('project_name', 'Tinarchy')} backend ({app_cfg.get('display_name')}) on {bind_host}:{PORT}")
         httpd.serve_forever()

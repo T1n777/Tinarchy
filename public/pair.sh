@@ -1,0 +1,1 @@
+/home/pineapple/Tinarchy/configs/scripts/pair-client.sh
