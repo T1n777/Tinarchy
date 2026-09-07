@@ -534,7 +534,7 @@
             </div>
             <div class="header-info">
                 <h1>Tailscale SSH Access</h1>
-                <p>Keyless, authenticated command-line shell access to <code style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code> over your private Tailscale mesh network.</p>
+                <p>Keyless, authenticated command-line shell access to <code style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code> over your private Tailscale mesh network.</p>
                 <a href="https://login.tailscale.com/admin/machines" target="_blank" style="display:inline-flex; align-items:center; gap:8px; margin-top:12px; background:var(--primary); color:#0b0f14; padding:8px 16px; border-radius:8px; text-decoration:none; font-weight:700; font-size:0.85rem; box-shadow:0 0 16px var(--primary-glow);">Open In-Browser Terminal in Tailscale Console ↗</a>
             </div>
         </div>
@@ -543,11 +543,11 @@
         <div class="meta-grid">
             <div class="meta-box">
                 <div class="meta-label">Tailscale MagicDNS</div>
-                <div class="meta-val" id="dnsHost">pineapple-station.taildb42a2.ts.net</div>
+                <div class="meta-val" id="dnsHost">tinarchy.tail3dee69.ts.net</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Tailscale IP</div>
-                <div class="meta-val" id="tsIp">100.112.193.54</div>
+                <div class="meta-val" id="tsIp">100.67.207.60</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Auth Method</div>
@@ -555,7 +555,7 @@
             </div>
             <div class="meta-box">
                 <div class="meta-label">Port & Default User</div>
-                <div class="meta-val">22 · pineapple</div>
+                <div class="meta-val">22 · tin</div>
             </div>
         </div>
 
@@ -571,7 +571,7 @@
             </div>
 
             <div class="code-container">
-                <code id="sshCommand">tailscale ssh pineapple@pineapple-station</code>
+                <code id="sshCommand">tailscale ssh tin@tinarchy</code>
                 <button class="copy-btn" onclick="copyCode('sshCommand')">📋 Copy</button>
             </div>
         </div>
@@ -581,7 +581,7 @@
             <h2><span class="sec-num">2</span> Keyless Authentication (Zero Config)</h2>
             <p>Tailscale SSH manages authentication and ephemeral encryption keys automatically. Your terminal session verifies against your Tailnet identity without managing <code style="color:var(--primary); font-family:var(--font-mono);">~/.ssh/authorized_keys</code>.</p>
             <div style="background:rgba(105, 180, 195, 0.08); border:1px solid var(--glass-border); padding:1rem; border-radius:12px; font-size:0.9rem; line-height:1.6;">
-                <strong>Web Browser Terminal:</strong> You can also SSH into this machine from any web browser without opening a local terminal by visiting the <a href="https://login.tailscale.com/admin/machines" target="_blank" style="color:var(--primary); font-weight:600;">Tailscale Machines Console</a> and clicking <strong>SSH...</strong> next to <code style="font-family:var(--font-mono); color:var(--text);">pineapple-station</code>.
+                <strong>Web Browser Terminal:</strong> You can also SSH into this machine from any web browser without opening a local terminal by visiting the <a href="https://login.tailscale.com/admin/machines" target="_blank" style="color:var(--primary); font-weight:600;">Tailscale Machines Console</a> and clicking <strong>SSH...</strong> next to <code style="font-family:var(--font-mono); color:var(--text);">tinarchy</code>.
             </div>
         </div>
 
@@ -591,15 +591,15 @@
             <p>Develop directly on the server inside VS Code using the official <strong>Remote - SSH</strong> extension. Add this block to your local <code style="color:var(--primary); font-family:var(--font-mono);">~/.ssh/config</code>:</p>
             
             <div class="code-container">
-                <code id="vscodeConfig">Host pineapple-station
-    HostName pineapple-station.taildb42a2.ts.net
-    User pineapple
+                <code id="vscodeConfig">Host tinarchy
+    HostName tinarchy.tail3dee69.ts.net
+    User tin
     Port 22
     IdentityFile ~/.ssh/id_ed25519
     ServerAliveInterval 60</code>
                 <button class="copy-btn" onclick="copyCode('vscodeConfig')">📋 Copy</button>
             </div>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.5rem;">Then open VS Code ➔ press <code style="color:var(--text); font-family:var(--font-mono);">Ctrl+Shift+P</code> ➔ type <strong>Remote-SSH: Connect to Host...</strong> ➔ select <strong>pineapple-station</strong>.</p>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.5rem;">Then open VS Code ➔ press <code style="color:var(--text); font-family:var(--font-mono);">Ctrl+Shift+P</code> ➔ type <strong>Remote-SSH: Connect to Host...</strong> ➔ select <strong>tinarchy</strong>.</p>
         </div>
 
         <!-- 4. Mobile SSH Apps -->
@@ -622,7 +622,7 @@
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px;">
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Host / Address</div>
-                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">100.112.193.54</div>
+                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">100.67.207.60</div>
                             </div>
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Port</div>
@@ -630,7 +630,7 @@
                             </div>
                             <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 8px;">
                                 <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Username</div>
-                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">pineapple</div>
+                                <div style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--primary); margin-top: 2px;">tin</div>
                             </div>
                         </div>
                     </div>
@@ -658,7 +658,7 @@
                         <span>⚡</span> Reconnect Instantly
                     </div>
                     <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.5;">
-                        Simply run <code style="color:var(--primary); font-family:var(--font-mono);">tailscale ssh pineapple@pineapple-station</code> again from any device to re-attach immediately.
+                        Simply run <code style="color:var(--primary); font-family:var(--font-mono);">tailscale ssh tin@tinarchy</code> again from any device to re-attach immediately.
                     </p>
                 </div>
 
@@ -693,7 +693,7 @@
             </div>
             
             <p style="font-size:0.8rem; color:var(--text-muted); margin-top:14px; margin-bottom:0;">
-                <em>Note: Non-interactive commands (e.g. <code style="font-family:var(--font-mono);">tailscale ssh pineapple@pineapple-station ls</code>) and file transfers run directly without tmux. To bypass tmux in an interactive shell, connect with <code style="font-family:var(--font-mono);">NO_AUTO_TMUX=1</code>.</em>
+                <em>Note: Non-interactive commands (e.g. <code style="font-family:var(--font-mono);">tailscale ssh tin@tinarchy ls</code>) and file transfers run directly without tmux. To bypass tmux in an interactive shell, connect with <code style="font-family:var(--font-mono);">NO_AUTO_TMUX=1</code>.</em>
             </p>
         </div>
 
@@ -712,11 +712,11 @@
             
             const el = document.getElementById('sshCommand');
             if (type === 'tailscale') {
-                el.textContent = 'tailscale ssh pineapple@pineapple-station';
+                el.textContent = 'tailscale ssh tin@tinarchy';
             } else if (type === 'magic') {
-                el.textContent = 'ssh pineapple@pineapple-station.taildb42a2.ts.net';
+                el.textContent = 'ssh tin@tinarchy.tail3dee69.ts.net';
             } else if (type === 'tsip') {
-                el.textContent = 'ssh pineapple@100.112.193.54';
+                el.textContent = 'ssh tin@100.67.207.60';
             }
         }
 
@@ -742,7 +742,7 @@
         if (window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
             const h = window.location.hostname;
             document.getElementById('dnsHost').textContent = h;
-            document.getElementById('sshCopyId').textContent = 'ssh-copy-id -i ~/.ssh/id_ed25519.pub pineapple@' + h;
+            document.getElementById('sshCopyId').textContent = 'ssh-copy-id -i ~/.ssh/id_ed25519.pub tin@' + h;
         }
     </script>
 </body>
