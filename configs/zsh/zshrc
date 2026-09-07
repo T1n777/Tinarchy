@@ -58,12 +58,17 @@ if [[ -n "$SSH_CONNECTION" || -n "$SSH_CLIENT" || -n "$SSH_TTY" ]] && \
     exec tmux new-session -A -s main
 fi
 
-# ─── Interactive Startup Banner (Telemetry & Shortcuts) ───────────────────────
-if [[ -o interactive ]] && [[ -t 1 ]]; then
-    fastfetch
-fi
-
-# ─── Helpful Aliases ─────────────────────────────────────────────────────────
-alias ff="fastfetch"
-alias tmux-keys="fastfetch"
-alias shortcuts="fastfetch"
+# ─── Helpful Cheatsheet Aliases ──────────────────────────────────────────────
+tmux-keys() {
+    cat << 'EOF'
+─── ⚡ Persistent SSH / tmux Shortcuts (Prefix: Ctrl+Space) ───
+  Detach Session     : Ctrl+Space d
+  New Window         : Ctrl+Space c
+  Next / Prev Window : Ctrl+Space n / Ctrl+Space p
+  Split Vertical     : Ctrl+Space %
+  Split Horizontal   : Ctrl+Space "
+  Navigate Panes     : Ctrl+Space Left/Right/Up/Down
+  Scroll / History   : Mouse Scroll or Ctrl+Space [ (q to exit)
+EOF
+}
+alias shortcuts="tmux-keys"

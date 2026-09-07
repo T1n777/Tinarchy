@@ -17,10 +17,9 @@ optdepends=(
     'nginx: unified reverse proxy and multi-service routing'
     'tailscale: mesh networking and Tailscale Whois identity'
     'tmux: persistent remote SSH sessions'
-    'fastfetch: system telemetry and terminal cheatsheet banner'
+    'syncthing: continuous encrypted drive synchronization'
     'tor: SOCKS5 proxy and global exit node routing'
     'iptables: NAT packet routing for Tor exit node'
-    'couchdb: backend storage for Obsidian LiveSync'
     'rclone: cloud drive backups to Google Drive'
 )
 makedepends=('git')
