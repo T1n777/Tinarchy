@@ -16,9 +16,11 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 ## 📸 Interface Previews
 
-| 💻 **Tin's Setup (`tinarchy`)** | 🍍 **Pineapple's Setup (`Pineapple Station`)** |
-| :---: | :---: |
-| [![Tin's Dashboard Preview](public/screenshots/tinarchy-preview.png)](public/screenshots/tinarchy-preview.png) | [![Pineapple's Dashboard Preview](public/screenshots/pineapple-preview.png)](public/screenshots/pineapple-preview.png) |
+### 💻 Tin's Setup (`tinarchy`)
+[![Tin's Dashboard Preview](public/screenshots/tinarchy-preview.png)](public/screenshots/tinarchy-preview.png)
+
+### 🍍 Pineapple's Setup (`Pineapple Station`)
+[![Pineapple's Dashboard Preview](public/screenshots/pineapple-preview.png)](public/screenshots/pineapple-preview.png)
 
 > *Dynamic Pywal palette generation, frosted glassmorphism, and live telemetry across different home server environments.*
 
