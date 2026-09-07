@@ -61,8 +61,7 @@ for script_path in "$USER_HOME/scripts/backup-server-databases.sh" "/usr/local/b
     fi
 done
 
-# 4. Signal FileBrowser
+# 4. Touch Drive Directory
 touch "$DRIVE_DIR"
-[ -f "$DRIVE_DIR/.filebrowser.db" ] && touch "$DRIVE_DIR/.filebrowser.db"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Tinarchy Drive Sync completed successfully."

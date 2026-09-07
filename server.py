@@ -352,7 +352,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'tor', 'filebrowser', 'couchdb', 'tailscale-ssh']
+        return ['suwayomi', 'jellyfin', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi']
 
 def get_roles_config():
     default_cfg = {
@@ -617,8 +617,6 @@ SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
     {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
     {'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
-    {'id': 'filebrowser', 'name': 'File Manager', 'port': int(os.environ.get('FILEBROWSER_PORT', 8081)), 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
-    {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': int(os.environ.get('COUCHDB_PORT', 5984)), 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
     {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
     {'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
 ]
@@ -637,6 +635,41 @@ if ENABLE_SYNCYOMI:
         'link': '/syncyomi',
         'link_text': f':{syncyomi_port}'
     })
+
+_SYNCTHING_DEVICE_ID_CACHE = {'id': None, 'ts': 0}
+
+def get_syncthing_device_id():
+    global _SYNCTHING_DEVICE_ID_CACHE
+    now = time.time()
+    if _SYNCTHING_DEVICE_ID_CACHE['id'] and (now - _SYNCTHING_DEVICE_ID_CACHE['ts'] < 3600):
+        return _SYNCTHING_DEVICE_ID_CACHE['id']
+    try:
+        res = subprocess.run(['syncthing', 'device-id'], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0 and res.stdout.strip():
+            dev_id = res.stdout.strip()
+            _SYNCTHING_DEVICE_ID_CACHE = {'id': dev_id, 'ts': now}
+            return dev_id
+    except Exception:
+        pass
+    cfg_paths = [
+        os.path.expanduser('~/.local/state/syncthing/config.xml'),
+        f"/home/{PRIMARY_USER}/.local/state/syncthing/config.xml",
+        os.path.expanduser('~/.config/syncthing/config.xml'),
+    ]
+    for cp in cfg_paths:
+        if os.path.exists(cp):
+            try:
+                import xml.etree.ElementTree as ET
+                tree = ET.parse(cp)
+                root = tree.getroot()
+                for dev in root.findall('device'):
+                    dev_id = dev.get('id')
+                    if dev_id:
+                        _SYNCTHING_DEVICE_ID_CACHE = {'id': dev_id, 'ts': now}
+                        return dev_id
+            except Exception:
+                pass
+    return "G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV"
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
 LOCAL_SERVICES_FILE = os.path.join(os.path.dirname(__file__), 'services.local.json')
@@ -868,11 +901,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return self.serve_access_denied('Tor Proxy')
             return self.serve_guide_page('tor.html')
 
-        if clean_path in ['/obsidian', '/livesync', '/notes', '/guides/obsidian', '/guides/obsidian.html']:
-            if 'couchdb' not in allowed_services:
-                return self.serve_access_denied('Obsidian LiveSync')
-            return self.serve_guide_page('obsidian.html')
-
         if clean_path in ['/syncthing', '/sync', '/guides/syncthing', '/guides/syncthing.html']:
             if 'syncthing' not in allowed_services:
                 return self.serve_access_denied('Syncthing')
@@ -889,10 +917,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         host = raw_host.split(':')[0] if raw_host else get_system_hostname()
 
         target_url = None
-        if clean_path in ['/files', '/file', '/drive', '/quantum', '/filebrowser']:
-            if 'filebrowser' not in allowed_services:
-                return self.serve_access_denied('File Manager')
-            target_url = f"https://{host}:8081/"
+        if clean_path in ['/files', '/file', '/quantum', '/filebrowser', '/couchdb', '/obsidian', '/livesync', '/notes', '/guides/obsidian', '/guides/obsidian.html']:
+            target_url = "/syncthing"
         elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
             if 'suwayomi' not in allowed_services:
                 return self.serve_access_denied('Suwayomi Server')
@@ -908,10 +934,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             port = svc.get('port', 4533) if svc else 4533
             scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
             target_url = f"{scheme}://{host}:{port}/"
-        elif clean_path == '/couchdb':
-            if 'couchdb' not in allowed_services:
-                return self.serve_access_denied('Obsidian LiveSync')
-            target_url = "/couchdb/_utils/"
 
         if target_url:
             self.send_response(302)
@@ -979,12 +1001,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         service_link = s['link']
                     else:
                         service_link = f"/{s['id']}"
-                        if s['id'] == 'filebrowser':
-                            service_link = '/files'
-                        elif s['id'] == 'suwayomi':
+                        if s['id'] == 'suwayomi':
                             service_link = '/manga'
-                        elif s['id'] == 'couchdb':
-                            service_link = '/obsidian'
                         elif s['id'] == 'tor':
                             service_link = '/tor'
                         elif 'navidrome' in s['id']:
@@ -1208,6 +1226,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     stats['drive_last_sync_human'] = 'Synced'
             else:
                 stats['drive_last_sync_human'] = 'Pending'
+
+            stats['syncthing_device_id'] = get_syncthing_device_id()
 
             self.send_compressed(json.dumps(stats).encode(), "application/json")
             

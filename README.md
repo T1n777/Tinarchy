@@ -6,12 +6,11 @@
 [![Python 3](https://img.shields.io/badge/Python_3.12+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white)](https://nginx.org)
 [![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard-000000?logo=tailscale&logoColor=white)](https://tailscale.com)
-[![Apache CouchDB](https://img.shields.io/badge/Apache_CouchDB-3.5-E42528?logo=apachecouchdb&logoColor=white)](https://couchdb.apache.org)
 [![Syncthing](https://img.shields.io/badge/Syncthing-Continuous_Sync-2196F3?logo=syncthing&logoColor=white)](https://syncthing.net)
 [![tmux](https://img.shields.io/badge/tmux-Persistent_Sessions-1BB954?logo=tmux&logoColor=white)](https://github.com/tmux/tmux)
 [![Cloudflare DoT](https://img.shields.io/badge/Cloudflare-1.1.1.1_DoT-F38020?logo=cloudflare&logoColor=white)](https://1.1.1.1)
 
-A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, passwordless **Obsidian LiveSync**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
+A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, end-to-end encrypted **Syncthing full shared folder sync with LZ4/Zstandard compression**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
 
 ---
 
@@ -38,26 +37,25 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 - **🌐 Unified Reverse Proxy & Smart Routing (Nginx)**:
   - Consolidates all web services under standard HTTP (`80`, `8080`) and HTTPS (`443`) ports.
-  - Path-based routing: `/` (Dashboard), `/files/` (FileBrowser), `/couchdb/` (Obsidian LiveSync), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
-  - Clean pseudo links: `/links/<service>` (`/links/files`, `/links/manga`, `/links/couchdb`, `/links/navidrome`, etc.) for direct browser redirection.
-  - Dedicated legacy direct port (`8081`) for FileBrowser.
+  - Path-based routing: `/` (Dashboard), `/syncthing/` (Syncthing Web GUI), `/syncthing` (Syncthing Guide), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
+  - Clean pseudo links: `/links/<service>` (`/links/manga`, `/links/syncthing`, `/links/navidrome`, etc.) for direct browser redirection.
 
 - **⚡ Multi-Trigger `$HOME/drive/` Synchronization Engine**:
   - Unifies storage (wallpapers, manga, note vaults, and media) into a clean `$HOME/drive/` hierarchy with zero duplication.
   - Debounced automated triggers:
     1. System boot via `pinedash-drive-sync.service`
-    2. File uploads/changes in FileBrowser via Nginx mirror hook (`/internal_drive_sync`)
-    3. Interactive dashboard button (`[ ⚡ Sync Now ]` at `/api/drive/sync`)
+    2. Interactive dashboard button (`[ ⚡ Sync Now ]` at `/api/drive/sync`)
   - Automated cloud backups to Google Drive via rclone (`configs/scripts/backup-drive-to-gdrive.sh` + systemd timer).
 
-- **🔮 Passwordless Obsidian LiveSync (Apache CouchDB 3.5)**:
-  - Real-time, end-to-end encrypted note vault synchronization.
-  - Transparent authorization mapping over Tailscale (`/couchdb/` via `$final_auth`).
-
-- **🔄 Syncthing Continuous Encrypted Folder Sync**:
-  - Continuous, decentralized real-time bidirectional folder sync between client laptops and the server.
+- **🔄 Syncthing Full Shared Folder Sync with File Compression**:
+  - Decentralized, real-time bidirectional synchronization of the entire `$HOME/drive/` folder across all personal devices (Desktop & Mobile).
+  - Enforced file and block-level compression (`compression="always"`) via LZ4/Zstandard to minimize mobile data consumption and maximize transfer speed.
+  - Dedicated interactive setup guide with one-click Device ID copying, folder ID configuration (`shared-drive`), and OS-specific tabs at `/syncthing`.
   - Multi-tier zero-trust guest isolation: network-layer Tailscale ACL block, application-layer cryptographic mutual TLS device pairing, and dashboard-level RBAC route gating.
-  - Dedicated step-by-step setup guide with one-click Device ID copying at `/syncthing`.
+
+- **📝 Native Obsidian Vault & Notes Sync (Syncthing)**:
+  - Obsidian vaults sync seamlessly as standard Markdown folders within `$HOME/drive/notes/` via Syncthing.
+  - Zero database overhead, complete offline note availability on iOS/Android/Desktop, and preconfigured `.stignore` rules for workspace layouts.
 
 - **🧅 Tor SOCKS5 Proxy & Global Tailscale Exit Node**:
   - Standalone SOCKS5 proxy on `127.0.0.1:9050` with per-service toggling.
@@ -83,16 +81,13 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 flowchart TD
     subgraph Clients ["Client Access (Tailscale Mesh / LAN)"]
         Browser["🌐 Web Browser (HTTP/HTTPS)"]
-        Obsidian["📱 Obsidian App (LiveSync)"]
-        FileClient["📂 File Manager Client"]
+        SyncDesktop["💻 Syncthing Desktop (Linux/Win/Mac)"]
+        SyncMobile["📱 Syncthing Mobile (Android/iOS)"]
         SSHClient["💻 SSH / Tailscale Terminal"]
-        SyncClient["🔄 Syncthing Client (Laptop)"]
     end
 
-    subgraph NginxProxy ["Nginx Reverse Proxy (Ports 80 / 443 / 8080 / 8081)"]
+    subgraph NginxProxy ["Nginx Reverse Proxy (Ports 80 / 443 / 8080)"]
         Nginx["Nginx Core (HTTP/2, SSL, WebSockets)"]
-        AuthMap["$final_auth CouchDB Mapping"]
-        SyncMirror["Nginx Mirror -> /internal_drive_sync"]
     end
 
     subgraph TerminalEnv ["Terminal Ecosystem"]
@@ -103,8 +98,6 @@ flowchart TD
 
     subgraph Backend ["Server Daemons (Localhost)"]
         Dashboard["🍍 Dashboard Backend (:8085)"]
-        CouchDB["🔮 Apache CouchDB (:5984)"]
-        FileBrowser["📂 FileBrowser Quantum (:8082)"]
         Suwayomi["📚 Suwayomi Manga (:4567)"]
         Jellyfin["🍿 Jellyfin Media (:8096)"]
         Tor["🧅 Tor SOCKS5 (:9050) / Exit (:9040)"]
@@ -112,31 +105,29 @@ flowchart TD
     end
 
     subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
-        DriveRoot["$HOME/drive/"]
+        DriveRoot["$HOME/drive/ (shared-drive)"]
         Wallpapers["Wallpapers/ -> $HOME/Wall"]
         Manga["Media/Manga/ -> Suwayomi downloads"]
-        Notes["notes/ (Obsidian Vaults)"]
-        Backups["shared/backups/ (Rclone Cloud Sync)"]
+        Notes["notes/ (Obsidian Markdown Vaults)"]
+        Shared["shared/ (General files & Backups)"]
     end
 
     Browser -->|HTTP: 80, 8080 / HTTPS: 443| Nginx
-    Obsidian -->|HTTPS /couchdb/| AuthMap --> CouchDB
-    FileClient -->|Port 8081 or /files/| SyncMirror --> FileBrowser
-    SyncMirror -.->|Trigger Hook| Dashboard
+    Nginx -->|Proxy /| Dashboard
+    Nginx -->|Proxy /syncthing/| Syncthing
+    Nginx -->|Proxy /manga/| Suwayomi
 
     SSHClient -->|Tailscale SSH / Port 22| Tmux --> Zsh --> Fastfetch
-    SyncClient -->|Encrypted TLS / Port 22000| Syncthing
 
-    Nginx -->|Proxy /| Dashboard
-    Nginx -->|Proxy /files/| FileBrowser
-    Nginx -->|Proxy /manga/| Suwayomi
-    Nginx -->|Proxy /couchdb/| CouchDB
+    SyncDesktop <-->|BEP TLS 22000 + Compression| Syncthing
+    SyncMobile <-->|BEP TLS 22000 + Compression| Syncthing
 
-    Dashboard -->|Manual Sync| DriveRoot
+    Syncthing <-->|Continuous Full Sync| DriveRoot
     DriveRoot --> Wallpapers
     DriveRoot --> Manga
     DriveRoot --> Notes
-    DriveRoot --> Backups
+    DriveRoot --> Shared
+    Dashboard -->|Manual Sync Trigger| DriveRoot
 ```
 
 ---
@@ -146,9 +137,7 @@ flowchart TD
 | Service | Internal Port | External Path / Port | Systemd Service | Description |
 | :--- | :---: | :---: | :--- | :--- |
 | **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `tinarchy.service` (alias: `server-dashboard.service`) | Glassmorphic telemetry & control center |
-| **FileBrowser Quantum** | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager with sync hook |
-| **Obsidian LiveSync** | `5984` | `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization |
-| **Syncthing Web GUI** | `8384` | `/syncthing` & `:8384` | `syncthing@<user>.service` | Continuous encrypted folder sync & device pairing |
+| **Syncthing Web GUI** | `8384` | `/syncthing` & `/syncthing/` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
 | **Suwayomi Manga** | `4567` | `/manga/` & `/api/v1/` | `suwayomi-server.service` | Manga library server & WebUI reader |
 | **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
@@ -166,10 +155,10 @@ Install core runtime dependencies:
 
 ```bash
 # Arch Linux
-sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone tmux zsh fastfetch syncthing
+sudo pacman -S python python-pillow nginx tor iptables tailscale rclone tmux zsh fastfetch syncthing
 
 # Debian / Ubuntu
-sudo apt update && sudo apt install -y python3 python3-pil nginx couchdb tor iptables rclone tmux zsh fastfetch
+sudo apt update && sudo apt install -y python3 python3-pil nginx tor iptables rclone tmux zsh fastfetch syncthing
 ```
 
 ### 2. Clone the Repository
@@ -246,7 +235,7 @@ sudo systemctl enable --now tinarchy.service
 ```
 
 Additional service unit templates are available under `configs/systemd/`:
-- `filebrowser-quantum.service`
+- `syncthing@<user>.service` (systemd user/system service for background folder sync)
 - `pinedash-drive-sync.service`
 - `rclone-drive-backup.service` & `rclone-drive-backup.timer`
 - `cloudflare-dot.conf` (DNS-over-TLS)
@@ -452,7 +441,7 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
 
 1. **Tailscale Whois Identity**: Authenticates users dynamically based on verified WireGuard mesh identities.
 2. **Guest Isolation**: Guest accounts only see explicitly permitted services. Management toggles (Tor exit node, service daemons, and connected Tailnet peers) are excluded both from the API and the UI.
-3. **Transparent LiveSync Authentication**: CouchDB credentials are mapped in Nginx (`$final_auth`), allowing seamless Obsidian syncing across the mesh without exposing raw database passwords to clients.
+3. **Mutual Cryptographic Pairing & TLS 1.3**: Syncthing requires explicit reciprocal 56-character Device ID fingerprint authorization, ensuring no unauthenticated device can ever access or sync the drive.
 4. **Leak-Proof Tor Routing**: The Tor exit node script rejects non-TCP/DNS traffic and filters IPv6 to prevent accidental deanonymization.
 5. **Persistent Session Sandboxing**: Remote SSH sessions are contained in detachable tmux sessions, preventing abrupt network drops from terminating background administration jobs.
 

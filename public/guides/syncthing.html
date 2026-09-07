@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="/icons/syncthing-icon.svg">
     <link rel="alternate icon" type="image/x-icon" href="/icons/syncthing-icon.svg">
-    <title>Syncthing Folder Synchronization Guide - Server Dashboard</title>
+    <title>Continuous Shared Drive Synchronization - Syncthing Guide</title>
     <script>
         // Universal Wallpaper & Pywal Sync Engine
         const DB_NAME = 'PinedashStorage';
@@ -117,10 +117,12 @@
             --primary: #69B4C3;
             --primary-glow: rgba(105, 180, 195, 0.25);
             --online: #4edea3;
+            --warning: #f1c40f;
+            --accent: #a78bfa;
             --bg: #0b0f14;
             --text: #cae5ef;
             --text-muted: rgba(202, 229, 239, 0.65);
-            --card-bg: rgba(18, 26, 36, 0.72);
+            --card-bg: rgba(18, 26, 36, 0.75);
             --glass-border: rgba(105, 180, 195, 0.18);
             --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -177,7 +179,7 @@
 
         .container {
             width: 100%;
-            max-width: 780px;
+            max-width: 840px;
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
@@ -289,11 +291,25 @@
             font-size: 0.85rem;
             box-shadow: 0 0 16px var(--primary-glow);
             transition: filter 0.2s, transform 0.2s;
+            cursor: pointer;
+            border: none;
         }
 
         .btn-action:hover {
             filter: brightness(1.15);
             transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #fff;
         }
 
         .meta-grid {
@@ -337,7 +353,7 @@
         }
 
         .card h2 {
-            font-size: 1.15rem;
+            font-size: 1.2rem;
             font-weight: 700;
             margin-bottom: 0.8rem;
             color: #fff;
@@ -350,12 +366,12 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             background: var(--primary-glow);
             color: var(--primary);
-            border-radius: 6px;
-            font-size: 0.8rem;
+            border-radius: 7px;
+            font-size: 0.85rem;
             font-family: var(--font-mono);
             font-weight: 700;
         }
@@ -369,16 +385,16 @@
 
         .code-container {
             position: relative;
-            background: rgba(0, 0, 0, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.09);
             border-radius: 10px;
-            padding: 1rem 1.1rem;
+            padding: 1.1rem 1.2rem;
             margin-bottom: 0.85rem;
         }
 
         .code-container code {
             font-family: var(--font-mono);
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             color: var(--primary);
             line-height: 1.5;
             display: block;
@@ -391,9 +407,9 @@
             top: 8px;
             right: 8px;
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.14);
             color: var(--text);
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 6px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -406,21 +422,71 @@
             color: #0b0f14;
         }
 
+        .tab-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 8px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tab-btn.active {
+            background: rgba(105, 180, 195, 0.15);
+            color: #fff;
+            border-color: var(--glass-border);
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .step-list {
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.1rem;
         }
 
         .step-item {
             display: flex;
-            gap: 1rem;
+            gap: 1.1rem;
             align-items: flex-start;
         }
 
         .step-circle {
-            width: 28px;
-            height: 28px;
+            width: 30px;
+            height: 30px;
             background: rgba(105, 180, 195, 0.12);
             color: var(--primary);
             border: 1px solid var(--glass-border);
@@ -429,7 +495,7 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             flex-shrink: 0;
             margin-top: 2px;
         }
@@ -440,29 +506,46 @@
 
         .step-content strong {
             display: block;
-            font-size: 0.92rem;
+            font-size: 0.95rem;
             color: var(--text);
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.3rem;
         }
 
         .step-content p {
             margin-bottom: 0.4rem;
             font-size: 0.88rem;
+            color: var(--text-muted);
         }
 
         .highlight-box {
             background: rgba(105, 180, 195, 0.08);
             border: 1px solid var(--glass-border);
-            padding: 1rem 1.15rem;
+            padding: 1rem 1.2rem;
             border-radius: 12px;
             font-size: 0.88rem;
             line-height: 1.55;
             color: var(--text-muted);
-            margin-top: 0.5rem;
+            margin-top: 0.75rem;
         }
 
         .highlight-box strong {
             color: var(--text);
+        }
+
+        .pill {
+            display: inline-block;
+            background: rgba(105, 180, 195, 0.15);
+            color: var(--primary);
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .pill-success {
+            background: rgba(78, 222, 163, 0.15);
+            color: var(--online);
         }
 
         .toast {
@@ -473,7 +556,7 @@
             background: #18232e;
             color: #fff;
             border: 1px solid var(--primary);
-            padding: 10px 20px;
+            padding: 10px 22px;
             border-radius: 30px;
             font-size: 0.85rem;
             font-weight: 600;
@@ -491,7 +574,7 @@
             opacity: 1;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 650px) {
             .header-card {
                 flex-direction: column;
                 align-items: center;
@@ -499,6 +582,9 @@
             }
             .meta-grid {
                 grid-template-columns: 1fr;
+            }
+            .header-actions {
+                justify-content: center;
             }
         }
     </style>
@@ -524,15 +610,18 @@
         <!-- Header Card -->
         <div class="header-card">
             <div class="header-icon" style="display:flex; align-items:center; justify-content:center;">
-                <img src="/icons/syncthing-icon.svg" alt="Syncthing" style="width:46px; height:46px; object-fit:contain;">
+                <img src="/icons/syncthing-icon.svg" alt="Syncthing" style="width:48px; height:48px; object-fit:contain;">
             </div>
             <div class="header-info">
-                <h1>Continuous Folder Sync</h1>
-                <p>Private, real-time, peer-to-peer folder synchronization between your devices and <code class="syncthing-server-name" style="color:var(--primary); font-family:var(--font-mono);">tinarchy</code>.</p>
+                <h1>Continuous Shared Drive Synchronization</h1>
+                <p>Private, real-time, peer-to-peer folder synchronization between your devices (Mobile & Desktop) and <code class="syncthing-server-name" style="color:var(--primary); font-family:var(--font-mono);">pineapple-station</code>. Full <code class="syncthing-drive-folder" style="color:var(--primary); font-family:var(--font-mono);">$HOME/drive</code> sync with LZ4/Zstandard file compression enabled.</p>
                 <div class="header-actions">
-                    <a href="http://127.0.0.1:8384" target="_blank" class="btn-action">
+                    <a id="guiActionBtn" href="/syncthing/" target="_blank" class="btn-action">
                         <span>Open Syncthing Web GUI ↗</span>
                     </a>
+                    <button class="btn-action btn-secondary" onclick="copyCode('deviceIdCode')">
+                        <span>📋 Copy Device ID</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -540,89 +629,230 @@
         <!-- Parameters Grid -->
         <div class="meta-grid">
             <div class="meta-box">
-                <div class="meta-label">Web GUI Address</div>
-                <div class="meta-val" id="syncthingGuiAddress">http://127.0.0.1:8384</div>
+                <div class="meta-label">Shared Folder ID</div>
+                <div class="meta-val" id="sharedFolderIdVal">shared-drive</div>
             </div>
             <div class="meta-box">
-                <div class="meta-label">Sync Protocol & Port</div>
-                <div class="meta-val">BEP / 22000 (TLS E2EE)</div>
+                <div class="meta-label">File Compression</div>
+                <div class="meta-val" style="color:var(--online);">Always (All Data & Metadata)</div>
             </div>
             <div class="meta-box">
-                <div class="meta-label">Access Restriction</div>
-                <div class="meta-val" style="color:var(--online);">Owner Only (Guests Blocked)</div>
+                <div class="meta-label">Server Folder Path</div>
+                <div class="meta-val" id="serverFolderPathVal">/home/pineapple/drive</div>
             </div>
             <div class="meta-box">
-                <div class="meta-label">Transfer Network</div>
-                <div class="meta-val">Direct Tailscale WireGuard</div>
+                <div class="meta-label">Sync Protocol & Mesh</div>
+                <div class="meta-val">BEP / 22000 (TLS E2EE WireGuard)</div>
             </div>
         </div>
 
         <!-- 1. Server Device ID -->
         <div class="card">
             <h2><span class="sec-num">1</span> Server Device ID</h2>
-            <p>Paste this Device ID on your client's Syncthing client to pair with <strong class="syncthing-server-name">tinarchy</strong>:</p>
+            <p>Paste this 56-character cryptographic Device ID on your desktop or mobile Syncthing client to establish a peer relationship with <strong class="syncthing-server-name">pineapple-station</strong>:</p>
             
             <div class="code-container">
-                <code id="deviceIdCode">OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU</code>
+                <code id="deviceIdCode">G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV</code>
                 <button class="copy-btn" onclick="copyCode('deviceIdCode')">📋 Copy ID</button>
+            </div>
+            <div class="highlight-box">
+                <strong>💡 Note on Compression:</strong> Full file compression (<span class="pill pill-success">compression="always"</span>) is activated on the server. When adding this device or folder on your client, set <strong>Compression</strong> to <strong>All Data</strong> under the Advanced tab for minimum cellular and network bandwidth.
             </div>
         </div>
 
-        <!-- 2. Step-by-Step Device Pairing -->
+        <!-- 2. Desktop Client Setup -->
         <div class="card">
-            <h2><span class="sec-num">2</span> Pair Your Device (Client)</h2>
-            <div class="step-list">
+            <h2><span class="sec-num">2</span> Desktop Client Setup (Linux, Windows, macOS)</h2>
+            <p>Install and pair your laptop or desktop workstation with the server's shared folder:</p>
+
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('desktop', 'arch')">🐧 Arch Linux</button>
+                <button class="tab-btn" onclick="switchTab('desktop', 'ubuntu')">📦 Ubuntu / Debian</button>
+                <button class="tab-btn" onclick="switchTab('desktop', 'windows')">🪟 Windows</button>
+                <button class="tab-btn" onclick="switchTab('desktop', 'macos')">🍎 macOS</button>
+            </div>
+
+            <!-- Arch Linux Tab -->
+            <div id="desktop-arch" class="tab-pane active">
+                <div class="code-container">
+                    <code>sudo pacman -S syncthing
+systemctl --user enable --now syncthing</code>
+                    <button class="copy-btn" onclick="copyText('sudo pacman -S syncthing\nsystemctl --user enable --now syncthing')">📋 Copy</button>
+                </div>
+                <p>Access the client GUI locally at <a href="http://127.0.0.1:8384" target="_blank" style="color:var(--primary); font-weight:600;">http://127.0.0.1:8384</a>.</p>
+            </div>
+
+            <!-- Ubuntu / Debian Tab -->
+            <div id="desktop-ubuntu" class="tab-pane">
+                <div class="code-container">
+                    <code>sudo apt update && sudo apt install -y syncthing
+systemctl --user enable --now syncthing</code>
+                    <button class="copy-btn" onclick="copyText('sudo apt update && sudo apt install -y syncthing\nsystemctl --user enable --now syncthing')">📋 Copy</button>
+                </div>
+                <p>Access the client GUI locally at <a href="http://127.0.0.1:8384" target="_blank" style="color:var(--primary); font-weight:600;">http://127.0.0.1:8384</a>.</p>
+            </div>
+
+            <!-- Windows Tab -->
+            <div id="desktop-windows" class="tab-pane">
+                <div class="code-container">
+                    <code>winget install Canton1.SyncTrayzor</code>
+                    <button class="copy-btn" onclick="copyText('winget install Canton1.SyncTrayzor')">📋 Copy</button>
+                </div>
+                <p>Or download the installer from <a href="https://github.com/canton7/SyncTrayzor/releases" target="_blank" style="color:var(--primary); font-weight:600;">SyncTrayzor GitHub Releases</a>. SyncTrayzor runs in your Windows System Tray and starts automatically on login.</p>
+            </div>
+
+            <!-- macOS Tab -->
+            <div id="desktop-macos" class="tab-pane">
+                <div class="code-container">
+                    <code>brew install --cask syncthing
+# Or via Homebrew background service:
+brew install syncthing && brew services start syncthing</code>
+                    <button class="copy-btn" onclick="copyText('brew install --cask syncthing')">📋 Copy</button>
+                </div>
+            </div>
+
+            <!-- Step-by-Step Desktop Instructions -->
+            <div class="step-list" style="margin-top: 1.25rem;">
                 <div class="step-item">
                     <div class="step-circle">1</div>
                     <div class="step-content">
-                        <strong>Install Syncthing on Client Device:</strong>
-                        <p>• <strong>Arch / Omarchy Linux:</strong> <code style="font-family:var(--font-mono); color:var(--primary);">sudo pacman -S syncthing</code> then <code style="font-family:var(--font-mono); color:var(--primary);">systemctl --user enable --now syncthing</code></p>
-                        <p>• <strong>Ubuntu / Debian:</strong> <code style="font-family:var(--font-mono); color:var(--primary);">sudo apt install syncthing</code></p>
-                        <p>• <strong>Windows:</strong> Download <strong style="color:#fff;">SyncTrayzor</strong> or official installer from syncthing.net.</p>
-                        <p>• <strong>macOS:</strong> <code style="font-family:var(--font-mono); color:var(--primary);">brew install syncthing</code></p>
+                        <strong>Add Server as Remote Device:</strong>
+                        <p>In client Syncthing GUI (bottom right), click <strong>Add Remote Device</strong>. Paste the Server Device ID, set Device Name to <code class="syncthing-server-name" style="font-family:var(--font-mono); color:var(--primary);">pineapple-station</code>.</p>
+                        <p>Under the <strong>Advanced</strong> tab: Set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
                     </div>
                 </div>
 
                 <div class="step-item">
                     <div class="step-circle">2</div>
                     <div class="step-content">
-                        <strong>Add Server as a Remote Device:</strong>
-                        <p>Open Syncthing on your client (<code style="font-family:var(--font-mono); color:var(--primary);">http://127.0.0.1:8384</code>) ➔ Bottom right: click <strong>Add Remote Device</strong> ➔ Paste the Server Device ID from above ➔ Name it <code class="syncthing-server-name" style="font-family:var(--font-mono); color:var(--primary);">tinarchy</code> ➔ Save.</p>
+                        <strong>Configure Shared Drive Folder:</strong>
+                        <p>Click <strong>Add Folder</strong> in your client GUI:</p>
+                        <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared Drive</code></p>
+                        <p>• <strong>Folder ID:</strong> <span class="pill">shared-drive</span> (must match exactly!)</p>
+                        <p>• <strong>Folder Path:</strong> Choose your local folder (e.g. <code style="color:var(--primary);">~/drive</code> on Linux/Mac, or <code style="color:var(--primary);">C:\Users\&lt;user&gt;\drive</code> on Windows).</p>
+                        <p>• <strong>Sharing Tab:</strong> Check the checkbox for <strong class="syncthing-server-name">pineapple-station</strong>.</p>
+                        <p>• <strong>Advanced Tab:</strong> Set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
                     </div>
                 </div>
 
                 <div class="step-item">
                     <div class="step-circle">3</div>
                     <div class="step-content">
-                        <strong>Confirm Connection on Server:</strong>
-                        <p>Open the <a href="http://127.0.0.1:8384" target="_blank" style="color:var(--primary); font-weight:600;"><span class="syncthing-server-name">tinarchy</span> Web GUI</a>. A prompt will appear stating your client wants to connect. Click <strong>Add Device</strong>.</p>
-                    </div>
-                </div>
-
-                <div class="step-item">
-                    <div class="step-circle">4</div>
-                    <div class="step-content">
-                        <strong>Share Directory & Start Syncing:</strong>
-                        <p>In your client's GUI, click <strong>Add Folder</strong> (e.g. <code style="font-family:var(--font-mono); color:var(--text);">~/Sync</code>) ➔ Under the <strong>Sharing</strong> tab, check <strong class="syncthing-server-name">tinarchy</strong> ➔ Click Save.</p>
-                        <p>On the server, accept the shared folder and specify where to store it (e.g. <code id="syncthingSyncFolder" style="font-family:var(--font-mono); color:var(--text);">~/Sync</code>). Files will sync in real-time!</p>
+                        <strong>Approve Pairing on Server:</strong>
+                        <p>Open the <a href="/syncthing/" target="_blank" style="color:var(--primary); font-weight:600;">Server Syncthing GUI</a>. Accept the incoming device prompt. The server will immediately link the <code style="font-family:var(--font-mono); color:var(--primary);">shared-drive</code> folder with full end-to-end LZ4 block compression!</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Security & Guest Isolation -->
+        <!-- 3. Mobile Client Setup -->
         <div class="card">
-            <h2><span class="sec-num">3</span> Impenetrable Guest Isolation</h2>
-            <p>This service is strictly isolated so that only you (the Owner) can access it:</p>
+            <h2><span class="sec-num">3</span> Mobile Client Setup (Android & iOS)</h2>
+            <p>Sync your notes, wallpapers, photos, and files directly with your phone:</p>
 
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('mobile', 'android')">🤖 Android (Syncthing-Fork)</button>
+                <button class="tab-btn" onclick="switchTab('mobile', 'ios')">🍏 iOS / iPadOS (Möbius Sync)</button>
+            </div>
+
+            <!-- Android Tab -->
+            <div id="mobile-android" class="tab-pane active">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Install Syncthing-Fork:</strong>
+                            <p>Download <strong style="color:#fff;">Syncthing-Fork</strong> by Catfriend1 from <a href="https://play.google.com/store/apps/details?id=com.github.catfriend1.syncthingflex" target="_blank" style="color:var(--primary); font-weight:600;">Google Play Store</a> or <a href="https://f-droid.org/en/packages/com.github.catfriend1.syncthingflex/" target="_blank" style="color:var(--primary); font-weight:600;">F-Droid</a> (recommended over stock for modern Android scoped storage).</p>
+                            <p>Grant <strong>All Files Access (Manage External Storage)</strong> when prompted so it can sync files outside the sandbox.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Add Server Device:</strong>
+                            <p>In Syncthing-Fork, tap <strong>Devices</strong> ➔ <strong>+</strong>. Paste the Server Device ID (or scan QR code). Set Name to <code class="syncthing-server-name" style="color:var(--primary);">pineapple-station</code>.</p>
+                            <p>Under <strong>Advanced</strong>, set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Add Shared Drive Folder:</strong>
+                            <p>Tap <strong>Folders</strong> ➔ <strong>+</strong>:</p>
+                            <p>• <strong>Folder ID:</strong> <span class="pill">shared-drive</span></p>
+                            <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared Drive</code></p>
+                            <p>• <strong>Folder Directory:</strong> Select or create a folder on storage (e.g. <code style="color:var(--primary);">/storage/emulated/0/Documents/drive</code> or <code style="color:var(--primary);">/storage/emulated/0/Drive</code>).</p>
+                            <p>• <strong>Share with Devices:</strong> Toggle <strong class="syncthing-server-name">pineapple-station</strong> to ON.</p>
+                            <p>• <strong>Run Conditions (Optional):</strong> In app settings, enable "Sync only on Wi-Fi" or "Sync while charging" if you wish to strictly conserve battery.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- iOS Tab -->
+            <div id="mobile-ios" class="tab-pane">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Install Möbius Sync:</strong>
+                            <p>Download <strong style="color:#fff;">Möbius Sync</strong> from the <a href="https://apps.apple.com/app/mobius-sync/id1539203217" target="_blank" style="color:var(--primary); font-weight:600;">Apple App Store</a>.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Pair Device & Add Folder:</strong>
+                            <p>• Tap <strong>Devices</strong> ➔ <strong>+</strong> ➔ Paste Server Device ID ➔ Set Compression to <span class="pill pill-success">All Data</span>.</p>
+                            <p>• Tap <strong>Folders</strong> ➔ <strong>+</strong> ➔ Set Folder ID to <span class="pill">shared-drive</span>.</p>
+                            <p>• Select storage path inside the app container or link to a folder in the Files app.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Access Files in iOS Files App:</strong>
+                            <p>Open the native iOS <strong>Files app</strong> ➔ browse to <strong>On My iPhone / iPad</strong> ➔ <strong>Möbius Sync</strong>. Your synced files (including Obsidian vaults, notes, and media) are instantly accessible to iOS apps!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Recommended Ignore Patterns (.stignore) -->
+        <div class="card">
+            <h2><span class="sec-num">4</span> Recommended Ignore Patterns (.stignore)</h2>
+            <p>To avoid syncing operating system metadata, temporary cache files, and editor workspace layout locks, create a <code style="color:var(--primary); font-family:var(--font-mono);">.stignore</code> file in your drive folder with the following rules:</p>
+
+            <div class="code-container">
+                <code id="stignoreCode">(?d)**/.obsidian/workspace.json
+(?d)**/.obsidian/workspace-mobile.json
+(?d)**/.obsidian/cache
+(?d)**/.trash
+(?d).DS_Store
+(?d)desktop.ini
+(?d)Thumbs.db
+(?d)*.tmp
+(?d)*.crdownload</code>
+                <button class="copy-btn" onclick="copyCode('stignoreCode')">📋 Copy Patterns</button>
+            </div>
+        </div>
+
+        <!-- 5. Security & Guest Isolation -->
+        <div class="card">
+            <h2><span class="sec-num">5</span> Impenetrable Security & Isolation</h2>
             <div class="highlight-box">
-                <strong>🛡️ WireGuard Packet-Level Firewall:</strong> Tailscale ACL rules strictly whitelist guests to ports 80, 443, 8080, 8081, and 4533. Any attempt by guest devices to connect to port 8384 (Web GUI) or 22000 (Sync) is instantly dropped by the kernel.
+                <strong>🛡️ WireGuard Packet-Level Firewall:</strong> Syncthing ports (8384 Web GUI and 22000 BEP sync) are strictly bound to localhost and protected via Tailscale ACL rules. Guest accounts cannot establish sync connections.
             </div>
             <div class="highlight-box" style="margin-top: 8px;">
-                <strong>🔑 Mutual Cryptographic Pairing:</strong> Syncthing rejects any device that hasn't been explicitly paired with your personal Device ID.
+                <strong>🔑 Mutual Cryptographic Pairing:</strong> Every incoming connection is rejected unless explicitly approved with a verified Device ID fingerprint.
             </div>
             <div class="highlight-box" style="margin-top: 8px;">
-                <strong>👁️ Dashboard RBAC:</strong> The Syncthing management tile is completely hidden from guest accounts on the server dashboard.
+                <strong>⚡ Hardware Accelerated LZ4 / Zstandard Compression:</strong> Data is compressed before being sent across the encrypted wire, maximizing sync speed over cellular or constrained networks.
             </div>
         </div>
 
@@ -631,7 +861,7 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        <span>Device ID copied to clipboard!</span>
+        <span>Copied to clipboard!</span>
     </div>
 
     <script>
@@ -639,7 +869,15 @@
             const el = document.getElementById(id);
             if (!el) return;
             navigator.clipboard.writeText((el.innerText || el.textContent).trim()).then(() => {
-                showToast('Device ID copied to clipboard!');
+                showToast('Copied to clipboard!');
+            }).catch(() => {
+                showToast('Failed to copy');
+            });
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                showToast('Copied to clipboard!');
             }).catch(() => {
                 showToast('Failed to copy');
             });
@@ -653,10 +891,24 @@
             setTimeout(() => t.classList.remove('show'), 2200);
         }
 
+        function switchTab(group, name) {
+            const container = document.querySelector(`.tab-bar button[onclick*="${group}"][onclick*="${name}"]`)?.closest('.card');
+            if (!container) return;
+            container.querySelectorAll(`.tab-bar button[onclick*="${group}"]`).forEach(btn => btn.classList.remove('active'));
+            container.querySelectorAll(`.tab-pane[id^="${group}-"]`).forEach(pane => pane.classList.remove('active'));
+            
+            const activeBtn = container.querySelector(`.tab-bar button[onclick*="${group}"][onclick*="${name}"]`);
+            const activePane = document.getElementById(`${group}-${name}`);
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activePane) activePane.classList.add('active');
+        }
+
         async function initSyncthingGuide() {
             let host = window.location.hostname || '127.0.0.1';
-            let serverName = 'tinarchy';
-            let sshUser = 'user';
+            let serverName = 'pineapple-station';
+            let sshUser = 'pineapple';
+            let devId = 'G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV';
+
             try {
                 const res = await fetch('/api/system');
                 if (res.ok) {
@@ -665,18 +917,24 @@
                     else if (data.tailscale_domain) host = data.tailscale_domain;
                     if (data.display_name || data.server_name) serverName = data.display_name || data.server_name;
                     if (data.ssh_user) sshUser = data.ssh_user;
+                    if (data.syncthing_device_id) devId = data.syncthing_device_id;
                 }
             } catch (e) {}
 
-            const guiUrl = `http://${host}:8384`;
-            document.querySelectorAll('a[href*=":8384"]').forEach(a => a.href = guiUrl);
-            const guiAddrEl = document.getElementById('syncthingGuiAddress');
-            if (guiAddrEl) guiAddrEl.textContent = guiUrl;
+            const devIdEl = document.getElementById('deviceIdCode');
+            if (devIdEl) devIdEl.textContent = devId;
+
             document.querySelectorAll('.syncthing-server-name').forEach(el => {
                 el.textContent = serverName;
             });
-            const syncFolderEl = document.getElementById('syncthingSyncFolder');
-            if (syncFolderEl) syncFolderEl.textContent = `/home/${sshUser}/Sync`;
+
+            const folderPathEl = document.getElementById('serverFolderPathVal');
+            if (folderPathEl) folderPathEl.textContent = `/home/${sshUser}/drive`;
+
+            const driveFolderEls = document.querySelectorAll('.syncthing-drive-folder');
+            driveFolderEls.forEach(el => {
+                el.textContent = `/home/${sshUser}/drive`;
+            });
         }
         window.addEventListener('DOMContentLoaded', initSyncthingGuide);
     </script>

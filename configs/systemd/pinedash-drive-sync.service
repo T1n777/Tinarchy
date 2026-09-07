@@ -1,6 +1,5 @@
 [Unit]
-Description=Pinedash Drive Storage Synchronization at Boot
-Before=filebrowser-quantum.service
+Description=Tinarchy Drive Storage Synchronization at Boot
 After=network.target
 
 [Service]
