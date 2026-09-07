@@ -7,9 +7,10 @@
 [![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white)](https://nginx.org)
 [![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard-000000?logo=tailscale&logoColor=white)](https://tailscale.com)
 [![Apache CouchDB](https://img.shields.io/badge/Apache_CouchDB-3.5-E42528?logo=apachecouchdb&logoColor=white)](https://couchdb.apache.org)
+[![tmux](https://img.shields.io/badge/tmux-Persistent_Sessions-1BB954?logo=tmux&logoColor=white)](https://github.com/tmux/tmux)
 [![Cloudflare DoT](https://img.shields.io/badge/Cloudflare-1.1.1.1_DoT-F38020?logo=cloudflare&logoColor=white)](https://1.1.1.1)
 
-A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, passwordless **Obsidian LiveSync**, and **Tor anonymity routing**.
+A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, passwordless **Obsidian LiveSync**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
 
 ---
 
@@ -19,10 +20,24 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - Automatically samples color palettes from 150+ static images and animated MP4 video files.
   - Intelligently tunes luminance ($L \in [0.72, 0.85]$) and contrast for frosted glass readability.
   - Pre-renders lightweight `.webp` thumbnails for instant, flicker-free wallpaper switching.
+  - **Live Glassmorphic Sliders**: Real-time slider controls for background blur and glass translucency with immediate cross-page synchronization between `/settings` and the main dashboard.
+  - **Adaptive Small-Screen Layouts**: Responsive single-column list view with compact tiles on mobile phones and small viewports without horizontal or vertical overflow.
+
+- **⚡ Persistent Remote SSH & Terminal Ecosystem (tmux + Zsh + Fastfetch)**:
+  - **Automatic Session Persistence**: Interactive SSH and Tailscale SSH logins automatically attach to a persistent `tmux` session (`main`). Running builds, downloads, and servers never get killed if Wi-Fi drops or your client machine sleeps.
+  - **Pinedash-Themed tmux (`configs/tmux/tmux.conf`)**: Features 50,000 lines of scrollback, full mouse scrolling & selection, instant 0ms Esc-key modal switching for Vim/Neovim, truecolor RGB, and custom glass-matching status bar badges.
+  - **Optimized Zsh Shell (`configs/zsh/zshrc`)**: Tuned for ultra-low latency over remote SSH connections with async autosuggestions, non-blocking buffer limits, and custom syntax highlighting colors.
+  - **Interactive Telemetry & Cheatsheets**: Interactive shells automatically launch `fastfetch` with system metrics alongside a built-in tmux keyboard shortcuts reference table (`tmux-keys` / `shortcuts`).
+  - **Bypass Flag**: Non-interactive commands execute directly; to bypass tmux in an interactive shell, simply connect with `NO_AUTO_TMUX=1 ssh ...`.
+
+- **💻 Headless Laptop Server Display & Power Management**:
+  - **True 0-Watt LCD Screen Sleep**: Configures VESA DPMS hardware powerdown (`bl_power = 4`, `actual_brightness = 0`) after 3 minutes of console inactivity instead of keeping the backlight burning.
+  - **ACPI Lid Handling**: Automatically turns off the display backlight instantly when the laptop lid is closed while keeping all 24/7 background server processes, Tailscale, and Nginx running.
+  - **Instant Keyboard Wake**: Hitting any key on the physical console immediately wakes up the screen with full brightness.
 
 - **🌐 Unified Reverse Proxy & Smart Routing (Nginx)**:
   - Consolidates all web services under standard HTTP (`80`, `8080`) and HTTPS (`443`) ports.
-  - Path-based routing: `/` (Dashboard), `/files/` (FileBrowser), `/couchdb/` (Obsidian LiveSync), `/manga/` & `/api/v1/` (Suwayomi).
+  - Path-based routing: `/` (Dashboard), `/files/` (FileBrowser), `/couchdb/` (Obsidian LiveSync), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
   - Clean pseudo links: `/links/<service>` (`/links/files`, `/links/manga`, `/links/couchdb`, `/links/navidrome`, etc.) for direct browser redirection.
   - Dedicated legacy direct port (`8081`) for FileBrowser.
 
@@ -49,6 +64,7 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
     - `admin`: Service start/stop/restart and Tor proxy controls.
     - `viewer`: Read-only telemetry and allowed service links.
     - `guest`: Isolated view restricted to whitelisted services (e.g. personal Navidrome, FileBrowser); Tor exit node and Tailnet device sections are automatically hidden.
+  - Robust multi-user identity resolution: prevents duplicate "You" badges across multiple connected devices on the same tailnet account.
 
 - **🧩 Extensible Local Services (`services.local.json`)**:
   - Register machine-specific or private services (such as multi-user Navidrome instances) without touching Git-tracked code.
@@ -63,12 +79,19 @@ flowchart TD
         Browser["🌐 Web Browser (HTTP/HTTPS)"]
         Obsidian["📱 Obsidian App (LiveSync)"]
         FileClient["📂 File Manager Client"]
+        SSHClient["💻 SSH / Tailscale Terminal"]
     end
 
     subgraph NginxProxy ["Nginx Reverse Proxy (Ports 80 / 443 / 8080 / 8081)"]
         Nginx["Nginx Core (HTTP/2, SSL, WebSockets)"]
         AuthMap["$final_auth CouchDB Mapping"]
         SyncMirror["Nginx Mirror -> /internal_drive_sync"]
+    end
+
+    subgraph TerminalEnv ["Terminal Ecosystem"]
+        Tmux["⚡ Persistent tmux Session (:main)"]
+        Zsh["🐚 Low-Latency Zsh + Async Autosuggest"]
+        Fastfetch["📊 Telemetry & Cheatsheet Banner"]
     end
 
     subgraph Backend ["Server Daemons (Localhost)"]
@@ -92,6 +115,8 @@ flowchart TD
     Obsidian -->|HTTPS /couchdb/| AuthMap --> CouchDB
     FileClient -->|Port 8081 or /files/| SyncMirror --> FileBrowser
     SyncMirror -.->|Trigger Hook| Dashboard
+
+    SSHClient -->|Tailscale SSH / Port 22| Tmux --> Zsh --> Fastfetch
 
     Nginx -->|Proxy /| Dashboard
     Nginx -->|Proxy /files/| FileBrowser
@@ -118,7 +143,7 @@ flowchart TD
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
-| **SSH Server** | `22` | `:22` | `sshd.service` | Secure remote shell access |
+| **SSH & tmux Persistence** | `22` | `:22` | `sshd.service` / `tmux` | Resilient remote sessions with auto-attach |
 
 ---
 
@@ -130,10 +155,10 @@ Install core runtime dependencies:
 
 ```bash
 # Arch Linux
-sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone
+sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone tmux zsh fastfetch
 
 # Debian / Ubuntu
-sudo apt update && sudo apt install -y python3 python3-pil nginx couchdb tor iptables rclone
+sudo apt update && sudo apt install -y python3 python3-pil nginx couchdb tor iptables rclone tmux zsh fastfetch
 ```
 
 ### 2. Clone the Repository
@@ -208,6 +233,7 @@ Additional service unit templates are available under `configs/systemd/`:
 - `pinedash-drive-sync.service`
 - `rclone-drive-backup.service` & `rclone-drive-backup.timer`
 - `cloudflare-dot.conf` (DNS-over-TLS)
+- `console-screen-blank.service` & `getty-powersave.conf` (Display powerdown)
 
 ---
 
@@ -253,6 +279,43 @@ To allow the dashboard backend to toggle the Tor exit node without password prom
 
 ---
 
+### 8. Configure Persistent SSH & Terminal (tmux + Zsh + Fastfetch)
+
+Install the low-latency Zsh configuration, persistent tmux environment, and fastfetch cheatsheet banner:
+
+```bash
+# Copy and activate shell and tmux configs
+cp configs/zsh/zshrc ~/.zshrc
+cp configs/tmux/tmux.conf ~/.tmux.conf
+
+# Install fastfetch cheatsheet banner
+mkdir -p ~/.config/fastfetch
+cp configs/fastfetch/config.jsonc ~/.config/fastfetch/config.jsonc
+```
+
+---
+
+### 9. Headless Laptop Display Powerdown (Optional)
+
+For home server laptops running 24/7 with the lid open or closed, enforce true hardware DPMS backlight shutoff after 3 minutes of console inactivity:
+
+```bash
+# 1. Install systemd getty powersave drop-in (enforces root DPMS powerdown on login prompts)
+sudo mkdir -p /etc/systemd/system/getty@.service.d
+sudo cp configs/systemd/getty-powersave.conf /etc/systemd/system/getty@.service.d/powersave.conf
+
+# 2. Install interactive shell powersave trigger
+sudo cp configs/scripts/console-powersave.sh /etc/profile.d/console-powersave.sh
+
+# 3. Add consoleblank=180 to GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub and update GRUB:
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+
+# 4. Reload systemd
+sudo systemctl daemon-reload
+```
+
+---
+
 ## 🛠️ Management & Useful Commands
 
 | Task | Command |
@@ -264,6 +327,9 @@ To allow the dashboard backend to toggle the Tor exit node without password prom
 | **Test Nginx Configuration** | `sudo nginx -t` |
 | **Check Tor Exit Node Status** | `sudo iptables -t nat -L TOR_EXIT -n -v` |
 | **Check Tailscale Peer Status**| `tailscale status` |
+| **Attach to Persistent Terminal** | `tmux attach -t main` |
+| **Bypass Persistent tmux on SSH** | `NO_AUTO_TMUX=1 ssh user@host` |
+| **View Telemetry & tmux Cheatsheet** | `shortcuts` or `tmux-keys` or `ff` |
 
 ---
 
@@ -273,6 +339,7 @@ To allow the dashboard backend to toggle the Tor exit node without password prom
 2. **Guest Isolation**: Guest accounts only see explicitly permitted services. Management toggles (Tor exit node, service daemons, and connected Tailnet peers) are excluded both from the API and the UI.
 3. **Transparent LiveSync Authentication**: CouchDB credentials are mapped in Nginx (`$final_auth`), allowing seamless Obsidian syncing across the mesh without exposing raw database passwords to clients.
 4. **Leak-Proof Tor Routing**: The Tor exit node script rejects non-TCP/DNS traffic and filters IPv6 to prevent accidental deanonymization.
+5. **Persistent Session Sandboxing**: Remote SSH sessions are contained in detachable tmux sessions, preventing abrupt network drops from terminating background administration jobs.
 
 ---
 

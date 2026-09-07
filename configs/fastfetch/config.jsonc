@@ -1,0 +1,94 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "display": {
+    "separator": " ➜ ",
+    "color": {
+      "keys": "cyan",
+      "title": "cyan"
+    }
+  },
+  "modules": [
+    "title",
+    "separator",
+    "os",
+    {
+      "type": "host",
+      "format": "{name}"
+    },
+    "kernel",
+    "uptime",
+    {
+      "type": "packages",
+      "format": "{all}"
+    },
+    "shell",
+    "terminal",
+    {
+      "type": "cpu",
+      "format": "{name} @ {freq-max}"
+    },
+    {
+      "type": "memory",
+      "format": "{used} / {total} - {percentage}"
+    },
+    {
+      "type": "localip",
+      "key": "Local IP",
+      "format": "{ipv4}"
+    },
+    "break",
+    {
+      "type": "custom",
+      "format": "─── \u001b[1;36m⚡ Persistent SSH / tmux Shortcuts\u001b[0m ───"
+    },
+    {
+      "type": "custom",
+      "key": "Detach Session",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b d\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "New Window",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b c\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Next / Prev Window",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b n\u001b[0m / \u001b[1;32mCtrl+b p\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Split Screen",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b %\u001b[0m / \u001b[1;32mCtrl+b \"\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Switch / Zoom Pane",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b Arrows\u001b[0m / \u001b[1;32mCtrl+b z\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Scroll History",
+      "keyColor": "yellow",
+      "format": "\u001b[1;36mMouse Wheel\u001b[0m / \u001b[1;32mCtrl+b [\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Rename / Close Tab",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b ,\u001b[0m / \u001b[1;32mCtrl+b &\u001b[0m"
+    },
+    {
+      "type": "custom",
+      "key": "Help / Command Prompt",
+      "keyColor": "yellow",
+      "format": "\u001b[1;32mCtrl+b ?\u001b[0m / \u001b[1;32mCtrl+b :\u001b[0m"
+    },
+    "break"
+  ]
+}
