@@ -414,6 +414,40 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
 
 ---
 
+### 11. Optional: SyncYomi Manga Synchronization Setup
+
+SyncYomi synchronizes reading progress, library status, bookmarks, and read history across **Suwayomi-Server** (desktop/server) and **Komikku / Tachiyomi / Mihon** (Android mobile devices).
+
+#### A. Automated Server Installation
+Run the turnkey installation script included in the repository:
+```bash
+sudo ./configs/scripts/install-syncyomi.sh
+```
+This automatically fetches the latest release, registers the dedicated `syncyomi` system user, initializes `/var/lib/syncyomi/`, deploys `syncyomi.service`, and enables it.
+
+Alternatively, install via AUR on Arch Linux:
+```bash
+yay -S syncyomi-git
+```
+
+#### B. Enable in Dashboard
+In your server's `.env` file, activate the service:
+```ini
+ENABLE_SYNCYOMI=true
+SYNCYOMI_PORT=8282
+```
+Then reload the dashboard:
+```bash
+sudo systemctl restart tinarchy
+```
+
+#### C. Pair Suwayomi & Mobile Devices
+1. Open the SyncYomi web dashboard at `http://<tailscale-ip>:8282` and create your admin account.
+2. In SyncYomi, go to **Settings** ➔ **API Keys** ➔ click **Add API Key** and copy the generated token.
+3. Access the interactive setup guide at `/syncyomi` on your dashboard for live connection snippets for Suwayomi's `server.conf` and Komikku on Android.
+
+---
+
 ## 🛠️ Management & Useful Commands
 
 | Task | Command |
@@ -423,6 +457,8 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
 | **Restart Dashboard Service** | `sudo systemctl restart tinarchy` |
 | **Check Syncthing Status** | `systemctl status syncthing@<user>` (server) / `systemctl --user status syncthing` (client) |
 | **View Syncthing Logs** | `journalctl -u syncthing@<user> -f` |
+| **Check SyncYomi Status** | `systemctl status syncyomi` |
+| **View SyncYomi Logs** | `journalctl -u syncyomi -f` |
 | **Trigger Manual Drive Sync** | `curl -X POST http://127.0.0.1:8085/api/drive/sync` |
 | **Test Nginx Configuration** | `sudo nginx -t` |
 | **Check Tor Exit Node Status** | `sudo iptables -t nat -L TOR_EXIT -n -v` |

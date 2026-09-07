@@ -532,6 +532,48 @@
             </div>
         </div>
 
+        <!-- 0. Install SyncYomi on Server -->
+        <div class="card">
+            <h2><span class="sec-num">0</span> Install SyncYomi on Your Server (Optional)</h2>
+            <p>If SyncYomi is not yet installed on this server, deploy it using the turnkey installer or package manager:</p>
+
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-circle">A</div>
+                    <div class="step-content">
+                        <strong>Automated Setup Script (Recommended):</strong>
+                        <p style="margin-top:4px;">Run the turnkey installer included in the repository:</p>
+                        <div class="code-container" style="margin-top:6px;">
+                            <code id="installerCmd">sudo ./configs/scripts/install-syncyomi.sh</code>
+                            <button class="copy-btn" onclick="copyCode('installerCmd')">Copy</button>
+                        </div>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;"><em>(If installed via AUR package: <code style="font-family:var(--font-mono);">sudo /usr/share/tinarchy/configs/scripts/install-syncyomi.sh</code>)</em></p>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle">B</div>
+                    <div class="step-content">
+                        <strong>Package Managers:</strong>
+                        <p style="margin-top:4px;">• <strong>Arch / Omarchy Linux (AUR):</strong> <code style="font-family:var(--font-mono); color:var(--primary);">yay -S syncyomi-git</code></p>
+                        <p>• <strong>Debian / Ubuntu / Generic:</strong> Download the latest <code style="font-family:var(--font-mono);">.deb</code> or release binary from <a href="https://github.com/SyncYomi/SyncYomi/releases" target="_blank" style="color:var(--primary); font-weight:600;">SyncYomi GitHub Releases</a>.</p>
+                    </div>
+                </div>
+
+                <div class="step-item">
+                    <div class="step-circle">C</div>
+                    <div class="step-content">
+                        <strong>Enable in Dashboard Environment:</strong>
+                        <p style="margin-top:4px;">In your server's <code style="font-family:var(--font-mono);">.env</code> file, set <code style="font-family:var(--font-mono); color:var(--primary);">ENABLE_SYNCYOMI=true</code>, then reload the dashboard:</p>
+                        <div class="code-container" style="margin-top:6px;">
+                            <code id="restartDashCmd">sudo systemctl restart server-dashboard.service</code>
+                            <button class="copy-btn" onclick="copyCode('restartDashCmd')">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 1. Generate API Key -->
         <div class="card">
             <h2><span class="sec-num">1</span> Create Account & Generate API Key</h2>

@@ -21,6 +21,8 @@ optdepends=(
     'tor: SOCKS5 proxy and global exit node routing'
     'iptables: NAT packet routing for Tor exit node'
     'rclone: cloud drive backups to Google Drive'
+    'syncthing: continuous encrypted peer-to-peer folder synchronization'
+    'syncyomi-git: Tachiyomi, Mihon and Suwayomi reading progress sync'
 )
 makedepends=('git')
 provides=("$_pkgname" "pinedash")
