@@ -261,12 +261,19 @@ def get_app_config():
     env_app_icon = os.environ.get('APP_ICON', '🍍')
     env_subtitle = os.environ.get('BRANDING_SUBTITLE', 'Server Control Center')
     env_ssh_user = os.environ.get('SSH_USER', '')
-    if not env_ssh_user:
-        try:
-            import getpass
-            env_ssh_user = getpass.getuser()
-        except Exception:
+    if not env_ssh_user or env_ssh_user == 'root':
+        if os.path.isdir('/home/tin'):
+            env_ssh_user = 'tin'
+        elif os.path.isdir('/home/pineapple'):
             env_ssh_user = 'pineapple'
+        elif os.environ.get('SUDO_USER'):
+            env_ssh_user = os.environ.get('SUDO_USER')
+        else:
+            try:
+                import getpass
+                env_ssh_user = getpass.getuser()
+            except Exception:
+                env_ssh_user = 'user'
 
     server_name = env_server_name
     project_name = env_project_name or 'Tinarchy'
@@ -604,16 +611,16 @@ PORT = int(os.environ.get('PORT', 8085))
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
-PRIMARY_USER = 'tin' if os.path.isdir('/home/tin') else ('pineapple' if os.path.isdir('/home/pineapple') else (os.environ.get('SUDO_USER') or os.environ.get('USER', 'tin')))
+PRIMARY_USER = os.environ.get('SSH_USER') or ('tin' if os.path.isdir('/home/tin') else ('pineapple' if os.path.isdir('/home/pineapple') else (os.environ.get('SUDO_USER') or os.environ.get('USER', 'tin'))))
 
 SERVICES = [
-    {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
-    {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': 8096, 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
-    {'id': 'tor', 'name': 'Tor Proxy', 'port': 9050, 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
-    {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
-    {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
-    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': 22, 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
-    {'id': 'syncthing', 'name': 'Syncthing', 'port': 8384, 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
+    {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
+    {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
+    {'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
+    {'id': 'filebrowser', 'name': 'File Manager', 'port': int(os.environ.get('FILEBROWSER_PORT', 8081)), 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
+    {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': int(os.environ.get('COUCHDB_PORT', 5984)), 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
+    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
+    {'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
 ]
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)

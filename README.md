@@ -331,6 +331,100 @@ sudo systemctl daemon-reload
 
 ---
 
+### 10. Syncthing Continuous Cross-Platform Sync Setup
+
+Syncthing delivers private, continuous, decentralized folder synchronization across all your personal devices without sending data through third-party cloud servers.
+
+#### A. Client Installation by Platform
+
+* **🐧 Linux (Arch / Debian / Ubuntu / Fedora)**:
+  ```bash
+  # Arch Linux
+  sudo pacman -S syncthing
+  systemctl --user enable --now syncthing
+
+  # Ubuntu / Debian
+  sudo apt update && sudo apt install -y syncthing
+  systemctl --user enable --now syncthing
+
+  # Fedora
+  sudo dnf install syncthing
+  systemctl --user enable --now syncthing
+  ```
+  Once started, access the local client Web GUI in your browser at `http://127.0.0.1:8384`.
+
+* **🪟 Windows**:
+  1. Download **[SyncTrayzor](https://github.com/canton7/SyncTrayzor/releases)** (recommended for desktop tray integration, built-in file watching, and auto-start) or the official installer from [syncthing.net](https://syncthing.net).
+  2. Run the installer and enable **Start on Windows login**.
+  3. The tray icon opens the Syncthing Web GUI at `http://localhost:8384`.
+
+* **📱 Mobile Phones**:
+  * **Android**:
+    1. Install **[Syncthing-Fork](https://github.com/Catfriend1/syncthing-android)** from Google Play or F-Droid (preferred over stock for modern Android scoped storage and battery optimization).
+    2. Under **Settings** ➔ **Run Conditions**, configure when syncing runs (e.g. *Only on Wi-Fi* or *Only while charging*) to preserve battery.
+  * **iOS (iPhone / iPad)**:
+    1. Install **[Möbius Sync](https://www.mobiussync.com/)** from the Apple App Store.
+    2. Möbius Sync bundles Syncthing internally and integrates with the native iOS **Files** app.
+
+---
+
+#### B. Step-by-Step Device Pairing
+
+Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devices must add each other before any sync can occur:
+
+1. **Get the Server's Device ID**:
+   * Open the dashboard at `/syncthing` (or navigate to `http://<server-tailscale-ip>:8384` on the server).
+   * Copy the 56-character **Server Device ID** (or scan the QR code).
+
+2. **Add Server on Client Device**:
+   * Open Syncthing on your client device (`http://127.0.0.1:8384` on desktop, or the mobile app).
+   * Click / tap **Add Remote Device** (bottom right on desktop).
+   * Paste the Server Device ID into the **Device ID** field.
+   * Under **Device Name**, label it (e.g. `tinarchy` or `Home Server`).
+   * Under the **Advanced** tab ➔ **Addresses**, enter:
+     ```text
+     tcp://<server-tailscale-ip>:22000, dynamic
+     ```
+   * Click **Save**.
+
+3. **Approve on the Server**:
+   * Open the server's Syncthing GUI at `http://<server-tailscale-ip>:8384` (or via the dashboard tile `/syncthing`).
+   * A prompt will appear: *`New Device "Device-ID" wants to connect`*.
+   * Click **Add Device** ➔ check **Auto Accept Folders** (optional, recommended for trusted owner devices) ➔ click **Save**.
+   * Status will transition to **Connected** over TLS 1.3.
+
+---
+
+#### C. Adding & Sharing Folders
+
+1. **Add Folder on Client**:
+   * In the client GUI / app, click **Add Folder**.
+   * **General Tab**:
+     * **Folder Label**: A human-friendly display name (e.g. `Notes`, `Documents`, or `Camera Backup`).
+     * **Folder ID**: A unique identifier string (e.g. `default`, `obsidian-vault`, or `phone-photos`). **This Folder ID must match on both machines.**
+     * **Folder Path**: Select your local folder path (e.g. `~/Documents/Notes` on Linux, `C:\Users\<user>\Documents\Notes` on Windows, or `/storage/emulated/0/DCIM` on Android).
+   * **Sharing Tab**:
+     * Check the checkbox for your server (e.g. `tinarchy`).
+   * Click **Save**.
+
+2. **Accept Folder on Server**:
+   * If *Auto Accept Folders* is enabled, the server creates the folder automatically under `~/Sync/<folder-id>`.
+   * Otherwise, click **Add** on the server's incoming share notification, set your desired server storage path (e.g. `/home/<user>/Documents/Notes` or `/home/<user>/drive/notes/`), and click **Save**.
+
+3. **Recommended Ignore Patterns (`.stignore`)**:
+   For synchronized workspaces and Obsidian vaults, prevent transient caches and layout conflicts across devices by adding these patterns under **Folder Edit** ➔ **Ignore Patterns** (or in a `.stignore` file in the folder root):
+   ```text
+   (?d)**/.obsidian/workspace.json
+   (?d)**/.obsidian/workspace-mobile.json
+   (?d)**/.obsidian/cache
+   (?d)**/.trash
+   (?d).DS_Store
+   (?d)desktop.ini
+   (?d)Thumbs.db
+   ```
+
+---
+
 ## 🛠️ Management & Useful Commands
 
 | Task | Command |
@@ -338,6 +432,8 @@ sudo systemctl daemon-reload
 | **Check Dashboard Status** | `systemctl status tinarchy` (or `server-dashboard`) |
 | **View Live Dashboard Logs** | `journalctl -u tinarchy -f` |
 | **Restart Dashboard Service** | `sudo systemctl restart tinarchy` |
+| **Check Syncthing Status** | `systemctl status syncthing@<user>` (server) / `systemctl --user status syncthing` (client) |
+| **View Syncthing Logs** | `journalctl -u syncthing@<user> -f` |
 | **Trigger Manual Drive Sync** | `curl -X POST http://127.0.0.1:8085/api/drive/sync` |
 | **Test Nginx Configuration** | `sudo nginx -t` |
 | **Check Tor Exit Node Status** | `sudo iptables -t nat -L TOR_EXIT -n -v` |
