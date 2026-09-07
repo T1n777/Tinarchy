@@ -524,7 +524,7 @@
             </div>
             <div class="meta-box">
                 <div class="meta-label">Internal Port</div>
-                <div class="meta-val">8282 (TCP)</div>
+                <div class="meta-val" id="syncyomiPortVal">8282 (TCP)</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Systemd Daemon</div>
@@ -562,7 +562,7 @@
         <!-- 2. Configure Suwayomi (Server) -->
         <div class="card">
             <h2><span class="sec-num">2</span> Connect Suwayomi Server</h2>
-            <p>Suwayomi-Server on <strong class="syncyomi-server-name">tinarchy</strong> has native SyncYomi client support built-in. Connect it using your API key:</p>
+            <p>Suwayomi-Server on <strong class="syncyomi-server-name">Server</strong> has native SyncYomi client support built-in. Connect it using your API key:</p>
 
             <div class="code-container">
                 <button class="copy-btn" onclick="copyCode('suwayomiConf')">Copy Config</button>
@@ -604,7 +604,7 @@ server.syncDataCategories = true</code>
                     <div class="step-content">
                         <strong>Select SyncYomi & Enter Server Address:</strong>
                         <p style="margin-top: 4px;">• Provider: <strong>SyncYomi</strong></p>
-                        <p>• Host: <code id="komikkuHostVal" style="color:var(--primary); font-family:var(--font-mono);">http://100.67.207.60:8282</code></p>
+                        <p>• Host: <code id="komikkuHostVal" style="color:var(--primary); font-family:var(--font-mono);">http://127.0.0.1:8282</code></p>
                         <p>• API Key: Paste the token generated in Step 1.</p>
                     </div>
                 </div>
@@ -620,7 +620,7 @@ server.syncDataCategories = true</code>
         <!-- 4. Security Model -->
         <div class="card">
             <h2><span class="sec-num">4</span> Security & Guest Isolation</h2>
-            <p>• <strong>Tailscale WireGuard ACL:</strong> Port 8282 is only accessible to authorized owner devices. Guest accounts are rejected at the kernel packet level.<br>
+            <p>• <strong>Tailscale WireGuard ACL:</strong> SyncYomi port is only accessible to authorized owner devices. Guest accounts are rejected at the kernel packet level.<br>
             • <strong>Token Authentication:</strong> Sync requests require the <code style="color:var(--primary); font-family:var(--font-mono);">X-API-Token</code> header.<br>
             • <strong>Local SQLite Storage:</strong> All synced manga metadata is stored in <code style="font-family:var(--font-mono); color:var(--text);">/var/lib/syncyomi/syncyomi.db</code> with automatic rollback history.</p>
         </div>
@@ -644,7 +644,8 @@ server.syncDataCategories = true</code>
 
         async function initSyncYomiGuide() {
             let host = window.location.hostname || '127.0.0.1';
-            let serverName = 'tinarchy';
+            let port = 8282;
+            let serverName = 'Server';
             try {
                 const res = await fetch('/api/system');
                 if (res.ok) {
@@ -655,11 +656,22 @@ server.syncDataCategories = true</code>
                 }
             } catch (e) {}
 
-            const fullUrl = `http://${host}:8282`;
+            try {
+                const svcsRes = await fetch('/api/services');
+                if (svcsRes.ok) {
+                    const svcs = await svcsRes.json();
+                    const syncyomiSvc = svcs.find(s => s.id === 'syncyomi');
+                    if (syncyomiSvc && syncyomiSvc.port) port = syncyomiSvc.port;
+                }
+            } catch (e) {}
+
+            const fullUrl = `http://${host}:${port}`;
             const btn = document.getElementById('syncyomiWebBtn');
             if (btn) btn.href = fullUrl;
             const hostVal = document.getElementById('syncyomiHostVal');
             if (hostVal) hostVal.textContent = fullUrl;
+            const portVal = document.getElementById('syncyomiPortVal');
+            if (portVal) portVal.textContent = `${port} (TCP)`;
             const komikkuHostVal = document.getElementById('komikkuHostVal');
             if (komikkuHostVal) komikkuHostVal.textContent = fullUrl;
             document.querySelectorAll('.syncyomi-host-link').forEach(a => {
@@ -669,6 +681,19 @@ server.syncDataCategories = true</code>
             document.querySelectorAll('.syncyomi-server-name').forEach(el => {
                 el.textContent = serverName;
             });
+            const suwayomiConf = document.getElementById('suwayomiConf');
+            if (suwayomiConf) {
+                suwayomiConf.textContent = `# Add to /var/lib/suwayomi/.local/share/Tachidesk/server.conf:
+server.syncYomiEnabled = true
+server.syncYomiHost = "http://127.0.0.1:${port}"
+server.syncYomiApiKey = "YOUR_API_KEY_HERE"
+server.syncInterval = "30m"
+server.syncDataManga = true
+server.syncDataChapters = true
+server.syncDataTracking = true
+server.syncDataHistory = true
+server.syncDataCategories = true`;
+            }
         }
         window.addEventListener('DOMContentLoaded', initSyncYomiGuide);
     </script>

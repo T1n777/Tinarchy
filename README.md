@@ -150,7 +150,7 @@ flowchart TD
 | **Obsidian LiveSync** | `5984` | `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization |
 | **Syncthing Web GUI** | `8384` | `/syncthing` & `:8384` | `syncthing@<user>.service` | Continuous encrypted folder sync & device pairing |
 | **Suwayomi Manga** | `4567` | `/manga/` & `/api/v1/` | `suwayomi-server.service` | Manga library server & WebUI reader |
-| **SyncYomi Server** | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync |
+| **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
@@ -199,6 +199,8 @@ Key configuration variables:
 - `SSH_USER`: Default SSH username shown in guides and command generators.
 - `PORT`: Internal dashboard HTTP port (default: `8085`).
 - `TAILSCALE_DOMAIN`: Optional MagicDNS domain override (automatically detected via Tailscale if left blank).
+- `ENABLE_SYNCYOMI`: Optional toggle (`true`/`false`) to activate SyncYomi manga synchronization service and tile (default: `false`).
+- `SYNCYOMI_PORT`: SyncYomi daemon port (default: `8282`).
 
 #### B. Access Roles (`roles_config.json`)
 Assign roles based on Tailscale login emails (`owner`, `admin`, `guest`, `viewer`):

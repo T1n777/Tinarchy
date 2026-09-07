@@ -543,11 +543,11 @@
         <div class="meta-grid">
             <div class="meta-box">
                 <div class="meta-label">Tailscale MagicDNS</div>
-                <div class="meta-val" id="dnsHost">tinarchy.tail3dee69.ts.net</div>
+                <div class="meta-val" id="dnsHost">hostname.tailnet.ts.net</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Tailscale IP</div>
-                <div class="meta-val" id="tsIp">100.67.207.60</div>
+                <div class="meta-val" id="tsIp">100.x.y.z</div>
             </div>
             <div class="meta-box">
                 <div class="meta-label">Auth Method</div>
@@ -591,15 +591,15 @@
             <p>Develop directly on the server inside VS Code using the official <strong>Remote - SSH</strong> extension. Add this block to your local <code style="color:var(--primary); font-family:var(--font-mono);">~/.ssh/config</code>:</p>
             
             <div class="code-container">
-                <code id="vscodeConfig">Host tinarchy
-    HostName tinarchy.tail3dee69.ts.net
-    User tin
+                <code id="vscodeConfig">Host server
+    HostName hostname.tailnet.ts.net
+    User user
     Port 22
     IdentityFile ~/.ssh/id_ed25519
     ServerAliveInterval 60</code>
                 <button class="copy-btn" onclick="copyCode('vscodeConfig')">📋 Copy</button>
             </div>
-            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.5rem;">Then open VS Code ➔ press <code style="color:var(--text); font-family:var(--font-mono);">Ctrl+Shift+P</code> ➔ type <strong>Remote-SSH: Connect to Host...</strong> ➔ select <strong>tinarchy</strong>.</p>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:-0.5rem;">Then open VS Code ➔ press <code style="color:var(--text); font-family:var(--font-mono);">Ctrl+Shift+P</code> ➔ type <strong>Remote-SSH: Connect to Host...</strong> ➔ select the server.</p>
         </div>
 
         <!-- 4. Mobile SSH Apps -->
