@@ -7,6 +7,7 @@
 [![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white)](https://nginx.org)
 [![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard-000000?logo=tailscale&logoColor=white)](https://tailscale.com)
 [![Apache CouchDB](https://img.shields.io/badge/Apache_CouchDB-3.5-E42528?logo=apachecouchdb&logoColor=white)](https://couchdb.apache.org)
+[![Syncthing](https://img.shields.io/badge/Syncthing-Continuous_Sync-2196F3?logo=syncthing&logoColor=white)](https://syncthing.net)
 [![tmux](https://img.shields.io/badge/tmux-Persistent_Sessions-1BB954?logo=tmux&logoColor=white)](https://github.com/tmux/tmux)
 [![Cloudflare DoT](https://img.shields.io/badge/Cloudflare-1.1.1.1_DoT-F38020?logo=cloudflare&logoColor=white)](https://1.1.1.1)
 
@@ -53,6 +54,11 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - Real-time, end-to-end encrypted note vault synchronization.
   - Transparent authorization mapping over Tailscale (`/couchdb/` via `$final_auth`).
 
+- **🔄 Syncthing Continuous Encrypted Folder Sync**:
+  - Continuous, decentralized real-time bidirectional folder sync between client laptops and the server.
+  - Multi-tier zero-trust guest isolation: network-layer Tailscale ACL block, application-layer cryptographic mutual TLS device pairing, and dashboard-level RBAC route gating.
+  - Dedicated step-by-step setup guide with one-click Device ID copying at `/syncthing`.
+
 - **🧅 Tor SOCKS5 Proxy & Global Tailscale Exit Node**:
   - Standalone SOCKS5 proxy on `127.0.0.1:9050` with per-service toggling.
   - Global Exit Node routing: routes all Tailscale client traffic through Tor via `iptables` NAT tables, with intelligent auto-start when toggled.
@@ -80,6 +86,7 @@ flowchart TD
         Obsidian["📱 Obsidian App (LiveSync)"]
         FileClient["📂 File Manager Client"]
         SSHClient["💻 SSH / Tailscale Terminal"]
+        SyncClient["🔄 Syncthing Client (Laptop)"]
     end
 
     subgraph NginxProxy ["Nginx Reverse Proxy (Ports 80 / 443 / 8080 / 8081)"]
@@ -101,6 +108,7 @@ flowchart TD
         Suwayomi["📚 Suwayomi Manga (:4567)"]
         Jellyfin["🍿 Jellyfin Media (:8096)"]
         Tor["🧅 Tor SOCKS5 (:9050) / Exit (:9040)"]
+        Syncthing["🔄 Syncthing (:8384 / :22000)"]
     end
 
     subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
@@ -117,6 +125,7 @@ flowchart TD
     SyncMirror -.->|Trigger Hook| Dashboard
 
     SSHClient -->|Tailscale SSH / Port 22| Tmux --> Zsh --> Fastfetch
+    SyncClient -->|Encrypted TLS / Port 22000| Syncthing
 
     Nginx -->|Proxy /| Dashboard
     Nginx -->|Proxy /files/| FileBrowser
@@ -139,6 +148,7 @@ flowchart TD
 | **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `server-dashboard.service` | Glassmorphic telemetry & control center |
 | **FileBrowser Quantum** | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager with sync hook |
 | **Obsidian LiveSync** | `5984` | `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization |
+| **Syncthing Web GUI** | `8384` | `/syncthing` & `:8384` | `syncthing@<user>.service` | Continuous encrypted folder sync & device pairing |
 | **Suwayomi Manga** | `4567` | `/manga/` & `/api/v1/` | `suwayomi-server.service` | Manga library server & WebUI reader |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
@@ -155,7 +165,7 @@ Install core runtime dependencies:
 
 ```bash
 # Arch Linux
-sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone tmux zsh fastfetch
+sudo pacman -S python python-pillow nginx couchdb tor iptables tailscale rclone tmux zsh fastfetch syncthing
 
 # Debian / Ubuntu
 sudo apt update && sudo apt install -y python3 python3-pil nginx couchdb tor iptables rclone tmux zsh fastfetch

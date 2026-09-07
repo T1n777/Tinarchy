@@ -549,6 +549,8 @@ PORT = int(os.environ.get('PORT', 8085))
 PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
 WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
 
+PRIMARY_USER = 'tin' if os.path.isdir('/home/tin') else ('pineapple' if os.path.isdir('/home/pineapple') else (os.environ.get('SUDO_USER') or os.environ.get('USER', 'tin')))
+
 SERVICES = [
     {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': 4567, 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
     {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': 8096, 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
@@ -556,6 +558,7 @@ SERVICES = [
     {'id': 'filebrowser', 'name': 'File Manager', 'port': 8081, 'systemd': 'filebrowser-quantum', 'icon': '📂', 'description': 'Modern web-based file manager'},
     {'id': 'couchdb', 'name': 'Obsidian LiveSync', 'port': 5984, 'systemd': 'couchdb', 'icon': '🔮', 'description': 'Real-time E2EE sync backend for Obsidian vaults'},
     {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': 22, 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
+    {'id': 'syncthing', 'name': 'Syncthing', 'port': 8384, 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
 ]
 
 # Load optional machine-specific services (untracked in git, e.g. Navidrome)
@@ -774,6 +777,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if 'couchdb' not in allowed_services:
                 return self.serve_access_denied('Obsidian LiveSync')
             return self.serve_guide_page('obsidian.html')
+
+        if clean_path in ['/syncthing', '/sync', '/guides/syncthing', '/guides/syncthing.html']:
+            if 'syncthing' not in allowed_services:
+                return self.serve_access_denied('Syncthing')
+            return self.serve_guide_page('syncthing.html')
 
         # 2. Top-Level Web Application Redirects
         raw_host = self.headers.get('Host', '')
