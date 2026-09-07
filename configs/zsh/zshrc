@@ -2,6 +2,9 @@
 # Pinedash Server Zsh Configuration
 # ==============================================================================
 
+# Omarchy environment (OMARCHY_PATH + PATH)
+[[ -r /usr/share/omarchy/default/bash/env-bootstrap ]] && source /usr/share/omarchy/default/bash/env-bootstrap
+
 # Path to Oh My Zsh installation
 export ZSH="$HOME/.oh-my-zsh"
 
