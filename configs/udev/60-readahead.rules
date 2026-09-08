@@ -1,1 +1,1 @@
-ACTION=="add|change", KERNEL=="sd[a-z]|nvme[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/read_ahead_kb}="2048"
+ACTION=="add|change", KERNEL=="sd[a-z]|nvme[0-9]n[0-9]|mmcblk[0-9]", ATTR{queue/rotational}=="0", ATTR{queue/read_ahead_kb}="4096"

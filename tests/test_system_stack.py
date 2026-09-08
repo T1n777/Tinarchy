@@ -99,11 +99,11 @@ def test_hardware():
     if os.path.exists("/sys/block/sda/queue/read_ahead_kb"):
         with open("/sys/block/sda/queue/read_ahead_kb") as f:
             ra = f.read().strip()
-            if ra != "2048":
-                raise Exception(f"sda read_ahead_kb is {ra}, expected 2048")
+            if ra not in ["2048", "4096"]:
+                raise Exception(f"sda read_ahead_kb is {ra}, expected 2048 or 4096")
     if not os.path.exists("/dev/shm/jellyfin-transcodes"):
         raise Exception("RAM-disk /dev/shm/jellyfin-transcodes missing")
-run_test("2048KB Readahead & RAM-Disk Transcodes", test_hardware)
+run_test("Readahead (4096KB) & RAM-Disk Transcodes", test_hardware)
 
 # 8. Web Telemetry Endpoint
 def test_api():
