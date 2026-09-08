@@ -606,6 +606,14 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
     if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server.service" ]; then
         cp "$REPO_ROOT/configs/systemd/suwayomi-server.service" /etc/systemd/system/
     fi
+    if [ -f "$REPO_ROOT/configs/scripts/suwayomi-trigger-sync" ]; then
+        cp "$REPO_ROOT/configs/scripts/suwayomi-trigger-sync" /usr/local/bin/
+        chmod 755 /usr/local/bin/suwayomi-trigger-sync
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server-sync-triggers.conf" ]; then
+        mkdir -p /etc/systemd/system/suwayomi-server.service.d/
+        cp "$REPO_ROOT/configs/systemd/suwayomi-server-sync-triggers.conf" /etc/systemd/system/suwayomi-server.service.d/sync-triggers.conf
+    fi
 fi
 
 # SyncYomi Auto-Download
@@ -617,6 +625,14 @@ if [ "$INSTALL_SYNCYOMI" = "true" ]; then
         if [ -x "$REPO_ROOT/configs/scripts/install-syncyomi.sh" ]; then
             "$REPO_ROOT/configs/scripts/install-syncyomi.sh" || true
         fi
+    fi
+    if [ -f "$REPO_ROOT/configs/scripts/syncyomi-suwayomi-bridge" ]; then
+        cp "$REPO_ROOT/configs/scripts/syncyomi-suwayomi-bridge" /usr/local/bin/
+        chmod 755 /usr/local/bin/syncyomi-suwayomi-bridge
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/syncyomi-suwayomi-bridge.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/syncyomi-suwayomi-bridge.service" /etc/systemd/system/
+        systemctl enable --now syncyomi-suwayomi-bridge.service 2>/dev/null || true
     fi
 fi
 
@@ -769,6 +785,8 @@ fi
 # 4. Nginx Reverse Proxy
 if [ "$INSTALL_NGINX" = "true" ]; then
     echo -e "${CYAN}🌐 Deploying Nginx reverse proxy configuration...${NC}"
+    mkdir -p /var/cache/nginx/suwayomi
+    chown -R http:http /var/cache/nginx/suwayomi 2>/dev/null || chown -R www-data:www-data /var/cache/nginx/suwayomi 2>/dev/null || chown -R nginx:nginx /var/cache/nginx/suwayomi 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
         cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf

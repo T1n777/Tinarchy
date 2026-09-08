@@ -518,9 +518,29 @@ sudo systemctl restart tinarchy
 ```
 
 #### C. Pair Suwayomi & Mobile Devices
-1. Open the SyncYomi web dashboard at `http://<tailscale-ip>:8282` and create your admin account.
+1. Open the SyncYomi web dashboard at `http://<tailscale-ip>:8282` (or via Nginx at `https://<tailscale-domain>/syncyomi/`) and create your admin account.
 2. In SyncYomi, go to **Settings** ➔ **API Keys** ➔ click **Add API Key** and copy the generated token.
 3. Access the interactive setup guide at `/syncyomi` on your dashboard for live connection snippets for Suwayomi's `server.conf` and Komikku on Android.
+
+#### D. Automated Bidirectional Sync Triggers & Reactive Bridge
+Manual syncing is completely eliminated through a unified 5-point lifecycle hook system:
+- **Service Start Trigger (`ExecStartPost`)**: As soon as Suwayomi starts and port 4567 is reachable, `/usr/local/bin/suwayomi-trigger-sync` pulls the latest reading progress from SyncYomi.
+- **Service Stop Trigger (`ExecStop`)**: When stopping or restarting Suwayomi via systemd or the Dashboard, an immediate sync is flushed to SyncYomi *before* the JVM halts.
+- **Service Open Trigger**: Launching the Manga Reader from the dashboard (`/manga`, `/reader`, etc.) fires a non-blocking background sync request.
+- **Service Close Trigger (Beacon)**: When closing or navigating away from the `/manga/` web tab, the browser transmits a background beacon (`navigator.sendBeacon('/api/suwayomi/sync')`), automatically recording reading progress.
+- **Reactive Sync Bridge (`syncyomi-suwayomi-bridge.service`)**: A lightweight background daemon monitors SyncYomi's database. Whenever an external client (such as your phone) finishes an upload, the bridge triggers Suwayomi to sync within 2 seconds.
+
+#### E. Mobile Optimization Guide (Komikku / Mihon on Android)
+If mobile sync feels slow to connect or background triggers fail to fire:
+1. **Disable Samsung One UI / Android Battery Throttling**:
+   - Open **Settings** ➔ **Apps** ➔ **Komikku** (or your Mihon fork).
+   - Tap **Battery** ➔ Change from **"Optimized"** to **"Unrestricted"**.
+   - Tap **Mobile data** ➔ Enable **"Allow background data usage"** and **"Allow data usage while Data saver is on"**.
+   - In **Settings** ➔ **Battery and device care** ➔ **Background usage limits** ➔ Add **Komikku** to **"Never sleeping apps"**.
+2. **Prevent Tailscale Sleep Delays**:
+   - In Android **Settings** ➔ **Connections** ➔ **More connection settings** ➔ **VPN** ➔ **Tailscale** (Gear icon) ➔ Enable **"Always-on VPN"** (leave "Block connections without VPN" off). This eliminates WireGuard sleep/wake handshake delays when Komikku opens.
+3. **Large Library Delta Optimization**:
+   - With large libraries (>50k chapters/items), building the protocol payload on mobile CPU takes significant time before network transmission begins. Ensure Komikku is updated to the latest build supporting SyncYomi protocol v2, or prune dropped manga categories from sync to maintain sub-second sync speeds.
 
 ---
 

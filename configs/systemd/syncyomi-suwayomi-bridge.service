@@ -1,0 +1,17 @@
+[Unit]
+Description=SyncYomi to Suwayomi Reactive Sync Bridge
+After=network.target syncyomi.service suwayomi-server.service
+Wants=syncyomi.service suwayomi-server.service
+
+[Service]
+Type=simple
+User=root
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/syncyomi-suwayomi-bridge
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

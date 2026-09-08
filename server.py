@@ -677,6 +677,18 @@ if ENABLE_COUCHDB:
         'link_text': f':{couchdb_port}'
     })
 
+def trigger_suwayomi_sync_async(force=False):
+    """Triggers Suwayomi GraphQL startSync in a non-blocking background thread."""
+    def _run():
+        try:
+            cmd = ['/usr/local/bin/suwayomi-trigger-sync']
+            if force:
+                cmd.append('--force')
+            subprocess.run(cmd, capture_output=True, timeout=15)
+        except Exception:
+            pass
+    threading.Thread(target=_run, daemon=True).start()
+
 def get_syncthing_home_dir():
     candidates = [
         f"/home/{PRIMARY_USER}/.local/state/syncthing",
@@ -986,6 +998,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return True
             return self.serve_guide_page('syncthing.html')
 
+        if clean_path in ['/api/suwayomi/sync', '/api/manga/sync']:
+            trigger_suwayomi_sync_async(force=True)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(b'{"status": "ok"}')
+            return True
+
         if clean_path in ['/syncyomi', '/manga-sync', '/guides/syncyomi', '/guides/syncyomi.html']:
             if any(s['id'] == 'syncyomi' for s in SERVICES):
                 if 'syncyomi' not in allowed_services:
@@ -1004,7 +1025,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 target_url = "/files/"
             else:
                 target_url = "/syncthing"
-        elif clean_path in ['/obsidian', '/livesync', '/notes', '/guides/obsidian', '/guides/obsidian.html']:
+        elif clean_path in ['/obsidian', '/sync', '/livesync', '/couchdb']:
             if any(s['id'] == 'couchdb' for s in SERVICES):
                 if 'couchdb' not in allowed_services:
                     return self.serve_access_denied('Obsidian LiveSync')
@@ -1016,6 +1037,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
             if 'suwayomi' not in allowed_services:
                 return self.serve_access_denied('Suwayomi Server')
+            trigger_suwayomi_sync_async()
             target_url = f"https://{host}:4567/"
         elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
             if 'jellyfin' not in allowed_services:
@@ -1381,7 +1403,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
 
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
     def do_POST(self):
+        if self.path in ['/api/suwayomi/sync', '/api/manga/sync']:
+            trigger_suwayomi_sync_async(force=True)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(b'{"status": "ok"}')
+            return
+
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
         try:

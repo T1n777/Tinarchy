@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""
+SyncYomi to Suwayomi Reactive Sync Bridge
+Monitors SyncYomi SQLite database for successful client uploads (e.g. from mobile / Komikku).
+When a new upload is completed from a device other than Suwayomi, immediately triggers
+Suwayomi to sync, achieving real-time instant synchronization across devices.
+"""
+
+import os
+import sqlite3
+import subprocess
+import sys
+import time
+
+DB_PATH = "/var/lib/syncyomi/syncyomi.db"
+TRIGGER_CMD = ["/usr/local/bin/suwayomi-trigger-sync", "--force"]
+POLL_INTERVAL = 2.0  # seconds
+
+
+def get_last_sync_info():
+    if not os.path.exists(DB_PATH):
+        return None
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True, timeout=1.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT last_device, last_synced_at, last_event, last_status FROM sync_status LIMIT 1;")
+        row = cursor.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
+
+
+def main():
+    print("[syncyomi-suwayomi-bridge] Starting SyncYomi -> Suwayomi Bridge daemon...")
+    print(f"[syncyomi-suwayomi-bridge] Monitoring {DB_PATH}")
+
+    last_processed_timestamp = None
+
+    # Initialize with current timestamp so we don't trigger unnecessarily on startup
+    initial_info = get_last_sync_info()
+    if initial_info:
+        last_processed_timestamp = initial_info[1]
+        print(f"[syncyomi-suwayomi-bridge] Initial sync state: device={initial_info[0]}, time={last_processed_timestamp}")
+
+    while True:
+        try:
+            info = get_last_sync_info()
+            if info:
+                device, synced_at, event, status = info
+                # If a new sync occurred, status is success, and it's NOT from Suwayomi itself
+                if synced_at and synced_at != last_processed_timestamp:
+                    last_processed_timestamp = synced_at
+                    if status == "success" and device and "Suwayomi" not in device:
+                        print(f"[syncyomi-suwayomi-bridge] Detected upload from external device '{device}' at {synced_at}. Triggering Suwayomi...")
+                        res = subprocess.run(TRIGGER_CMD, capture_output=True, text=True, timeout=15)
+                        if res.returncode == 0:
+                            print("[syncyomi-suwayomi-bridge] Suwayomi sync triggered successfully.")
+                        else:
+                            print(f"[syncyomi-suwayomi-bridge] Trigger warning: {res.stderr.strip()}")
+            time.sleep(POLL_INTERVAL)
+        except KeyboardInterrupt:
+            print("[syncyomi-suwayomi-bridge] Stopping bridge daemon.")
+            break
+        except Exception:
+            time.sleep(POLL_INTERVAL)
+
+
+if __name__ == "__main__":
+    main()
