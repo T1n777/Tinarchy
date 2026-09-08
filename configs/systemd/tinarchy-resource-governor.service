@@ -1,0 +1,23 @@
+[Unit]
+Description=Tinarchy Autonomous Activity & Resource Governor
+Documentation=https://github.com/aayush1105/Tinarchy
+After=network.target suwayomi-server.service thermald.service
+Wants=suwayomi-server.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=10
+
+# High-priority scheduling to guarantee instant reaction to user wakeups
+User=root
+Group=root
+Nice=-5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
