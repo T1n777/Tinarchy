@@ -62,7 +62,7 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 - **🔄 Syncthing Full Shared Folder Sync with File Compression**:
   - Decentralized, real-time bidirectional synchronization of the entire `$HOME/drive/` folder across all personal devices (Desktop & Mobile).
   - Enforced file and block-level compression (`compression="always"`) via LZ4/Zstandard to minimize mobile data consumption and maximize transfer speed.
-  - Dedicated interactive setup guide with one-click Device ID copying, folder ID configuration (`shared-drive`), and OS-specific tabs at `/syncthing`.
+  - Dedicated interactive setup guide with one-click Device ID copying, folder ID configuration (`shared`), and OS-specific tabs at `/syncthing`.
   - Multi-tier zero-trust guest isolation: network-layer Tailscale ACL block, application-layer cryptographic mutual TLS device pairing, and dashboard-level RBAC route gating.
 
 - **📝 Native Obsidian Vault & Notes Sync (Syncthing)**:
@@ -117,11 +117,11 @@ flowchart TD
     end
 
     subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
-        DriveRoot["$HOME/drive/ (shared-drive)"]
+        DriveRoot["$HOME/drive/ (shared)"]
         Wallpapers["Wallpapers/ -> $HOME/Wall"]
         Manga["Media/Manga/ -> Suwayomi downloads"]
         Notes["notes/ (Obsidian Markdown Vaults)"]
-        Shared["shared/ (General files & Backups)"]
+        Backups["backups/ (System & App Backups)"]
     end
 
     Browser -->|HTTP: 80, 8080 / HTTPS: 443| Nginx

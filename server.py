@@ -1680,17 +1680,19 @@ def start_syncthing_auto_pair_thread():
                         name = dev_info.get('name') or 'Client Device'
                         subprocess.run(cli_cmd + ['config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
                         subprocess.run(cli_cmd + ['config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
-                        subprocess.run(cli_cmd + ['config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+                        for fid in ('shared', 'shared-drive'):
+                            if subprocess.run(cli_cmd + ['config', 'folders', fid, 'dump-json'], capture_output=True).returncode == 0:
+                                subprocess.run(cli_cmd + ['config', 'folders', fid, 'devices', 'add', '--device-id', dev_id], capture_output=True)
 
                 # 2. Check pending folders
                 res_f = subprocess.run(cli_cmd + ['show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
                 if res_f.returncode == 0 and res_f.stdout:
                     pending_f = json.loads(res_f.stdout)
                     for folder_id, f_info in pending_f.items():
-                        if folder_id == 'shared-drive':
+                        if folder_id in ('shared', 'shared-drive'):
                             dev_id = f_info.get('deviceID')
                             if dev_id:
-                                subprocess.run(cli_cmd + ['config', 'folders', 'shared-drive', 'devices', 'add', '--device-id', dev_id], capture_output=True)
+                                subprocess.run(cli_cmd + ['config', 'folders', folder_id, 'devices', 'add', '--device-id', dev_id], capture_output=True)
             except Exception:
                 pass
             time.sleep(5)

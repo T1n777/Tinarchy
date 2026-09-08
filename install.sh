@@ -712,10 +712,25 @@ chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/app_config.json" 2>/dev/null || tr
 DRIVE_ROOT="${CFG_STORAGE_DIR:-$USER_HOME/drive}"
 if [ "$INSTALL_DRIVE_ENGINE" = "true" ]; then
     echo -e "${CYAN}📂 Scaffolding drive hierarchy at $DRIVE_ROOT...${NC}"
-    mkdir -p "$DRIVE_ROOT"/{notes,shared/backups,Media/{Manga,Movies,Shows,Music}}
+    mkdir -p "$DRIVE_ROOT"/{notes,backups,Media/{Manga,Movies,Shows,Music}}
     WALL_DIR="$USER_HOME/Wall"
     mkdir -p "$WALL_DIR"
     [ ! -e "$DRIVE_ROOT/Wallpapers" ] && ln -sfn "$WALL_DIR" "$DRIVE_ROOT/Wallpapers"
+
+    if [ ! -f "$DRIVE_ROOT/.stignore" ]; then
+        cat << 'STIGNORE_EOF' > "$DRIVE_ROOT/.stignore"
+(?d)$RECYCLE.BIN
+(?d).Trash-*
+(?d)System Volume Information
+(?d).syncthing.*.tmp
+(?d).filebrowser.db*
+(?d).cache
+(?d)Wallpapers
+(?d)Media/Manga
+(?d)/shared
+STIGNORE_EOF
+        chown "$TARGET_USER:$TARGET_USER" "$DRIVE_ROOT/.stignore" 2>/dev/null || true
+    fi
 
     if [ -f "$REPO_ROOT/configs/scripts/tinarchy-drive-sync" ]; then
         cp "$REPO_ROOT/configs/scripts/tinarchy-drive-sync" /usr/local/bin/tinarchy-drive-sync
@@ -768,18 +783,20 @@ if [ "$INSTALL_SYNCTHING" = "true" ]; then
     sleep 2
     if command -v syncthing >/dev/null 2>&1; then
         sudo -u "$TARGET_USER" syncthing cli config defaults device compression set always 2>/dev/null || true
+        sudo -u "$TARGET_USER" syncthing cli config defaults folder path set "$DRIVE_ROOT" 2>/dev/null || true
+        sudo -u "$TARGET_USER" syncthing cli config options local-ann-enabled set false 2>/dev/null || true
         DEV_ID=$(sudo -u "$TARGET_USER" syncthing device-id 2>/dev/null || syncthing device-id 2>/dev/null || echo "")
         if [ -n "$DEV_ID" ]; then
             sudo -u "$TARGET_USER" syncthing cli config devices "$DEV_ID" compression set always 2>/dev/null || true
-            if ! sudo -u "$TARGET_USER" syncthing cli config folders list 2>/dev/null | grep -q "shared-drive"; then
+            if ! sudo -u "$TARGET_USER" syncthing cli config folders list 2>/dev/null | grep -q "^shared$"; then
                 sudo -u "$TARGET_USER" syncthing cli config folders add \
-                    --id shared-drive \
-                    --label "Shared Drive" \
+                    --id shared \
+                    --label "Shared" \
                     --path "$DRIVE_ROOT" \
                     --type sendreceive 2>/dev/null || true
             fi
             echo -e "${GREEN}✅ Syncthing device ID configured:${NC} ${BOLD}$DEV_ID${NC}"
-            echo -e "${GREEN}✅ Folder 'shared-drive' mapped to $DRIVE_ROOT with compression='always'.${NC}"
+            echo -e "${GREEN}✅ Folder 'shared' mapped to $DRIVE_ROOT with compression='always'.${NC}"
         fi
     fi
 fi

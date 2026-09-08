@@ -7,8 +7,8 @@ set -e
 
 SERVER_ID="G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV"
 SERVER_NAME="Pineapple Station"
-FOLDER_ID="shared-drive"
-FOLDER_LABEL="Drive"
+FOLDER_ID="shared"
+FOLDER_LABEL="Shared"
 TARGET_DIR="${HOME}/drive"
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
