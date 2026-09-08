@@ -1,0 +1,16 @@
+[Unit]
+Description=Suwayomi Manga Server
+After=network.target
+
+[Service]
+Type=simple
+User=suwayomi
+Group=suwayomi
+WorkingDirectory=/var/lib/suwayomi
+ExecStart=/usr/bin/java -Xmx512m -jar /opt/suwayomi/suwayomi-server.jar
+Restart=on-failure
+RestartSec=10
+Environment=HOME=/var/lib/suwayomi
+
+[Install]
+WantedBy=multi-user.target

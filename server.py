@@ -613,13 +613,25 @@ WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(o
 
 PRIMARY_USER = os.environ.get('SSH_USER') or ('tin' if os.path.isdir('/home/tin') else ('pineapple' if os.path.isdir('/home/pineapple') else (os.environ.get('SUDO_USER') or os.environ.get('USER', 'tin'))))
 
-SERVICES = [
-    {'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'},
-    {'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'},
-    {'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'},
-    {'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'},
-    {'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'},
-]
+# Core Service Toggles (configurable via .env, default: true)
+ENABLE_SUWAYOMI = os.environ.get('ENABLE_SUWAYOMI', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_JELLYFIN = os.environ.get('ENABLE_JELLYFIN', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
+
+SERVICES = []
+if ENABLE_SUWAYOMI:
+    SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'})
+if ENABLE_JELLYFIN:
+    SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'})
+if ENABLE_TOR:
+    SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'})
+if ENABLE_TAILSCALE_SSH:
+    SERVICES.append({'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'})
+if ENABLE_SYNCTHING:
+    SERVICES.append({'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'})
+
 
 # Optional Services (toggleable via .env)
 ENABLE_SYNCYOMI = os.environ.get('ENABLE_SYNCYOMI', 'false').strip().lower() in ('true', '1', 'yes')

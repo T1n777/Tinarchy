@@ -187,14 +187,38 @@ ln -s ~/Tinarchy ~/server-dashboard
 
 ### 3. Automated Interactive Installation (Recommended)
 
-Run the master interactive installer to choose and configure components:
+Run the master interactive installer to configure your server with complete freedom:
 
 ```bash
 cd ~/Tinarchy
 ./install.sh
 ```
 
-The installer prompts for each server individually and asks for all modifiable server personal settings (server display name, project suite, branding subtitle, emoji icon, SSH user, Tailscale MagicDNS domain, owner email, web admin password, drive storage path) upfront, batch installs package dependencies, applies all configurations, activates systemd daemons, and credits upstream creators. For non-interactive unattended installation:
+#### 🛠️ What the Installer Provides:
+- **🎨 Complete Branding & Personalization Freedom**:
+  Prompted upfront for your Project Suite title (`PROJECT_NAME`), Server Display Name (`SERVER_NAME`), Branding Subtitle, Top-nav Emoji icon (`APP_ICON`), Dashboard HTTP Port (`PORT`), Web Admin Password, Primary SSH User, Unified Storage Directory (`STORAGE_DIR`), Tailscale MagicDNS Domain, and Owner Email.
+- **🧩 13 Modular, Individually Selectable Services**:
+  Choose exactly which components you want running on your server:
+  1. **Dashboard Backend & Web UI** (`:8085` / `:8080`)
+  2. **Nginx Reverse Proxy & SSL Engine** (`:80`, `:8080`, `:443`)
+  3. **Syncthing Continuous Folder Sync** (`:8384`)
+  4. **Suwayomi Manga Library & Reader** (`:4567`)
+  5. **SyncYomi Manga Reading Progress Sync Daemon** (`:8282`)
+  6. **Jellyfin Media Server** (`:8096`)
+  7. **Tor SOCKS5 Proxy & Global Exit Node** (`:9050`)
+  8. **Tailscale WireGuard Mesh & Keyless SSH** (`:22`)
+  9. **Persistent Terminal Ecosystem** (`tmux` + `Zsh`)
+  10. **Unified Drive Engine & Rclone Cloud Backups** (`$HOME/drive/`)
+  11. **FileBrowser Quantum Web File Manager** (`:8081` / `:8082`)
+  12. **Obsidian LiveSync CouchDB Database** (`:5984`)
+  13. **Headless Powerdown & Display Inactivity Sleep Daemon**
+- **⚡ Smart Auto-Download & Dependency Resolution**:
+  The installer automatically checks if chosen service binaries or dependencies already exist on your system. It **only downloads missing components** (e.g. automatically pulling the latest Suwayomi Server `.jar` from GitHub Releases, invoking the automated SyncYomi installer, downloading FileBrowser Quantum, or installing packages via your system package manager) and skips anything already installed.
+- **🚀 Immediate Dashboard Launch**:
+  As soon as setup finishes and services are initialized, the script identifies your optimal reachable address (Tailscale HTTPS domain, Tailscale IP, or localhost) and **immediately launches the dashboard in your browser** (`xdg-open` / `open`), or provides a direct clickable endpoint if running in a headless SSH session.
+
+#### Non-Interactive / Unattended Mode:
+To run unattended with sensible defaults or existing `.env` values:
 
 ```bash
 ./install.sh --yes
@@ -218,9 +242,20 @@ Key configuration variables:
 - `BRANDING_SUBTITLE`: Subtitle shown on headers and login.
 - `SSH_USER`: Default SSH username shown in guides and command generators.
 - `PORT`: Internal dashboard HTTP port (default: `8085`).
+- `STORAGE_DIR`: Unified storage base path (default: `$HOME/drive`).
 - `TAILSCALE_DOMAIN`: Optional MagicDNS domain override (automatically detected via Tailscale if left blank).
-- `ENABLE_SYNCYOMI`: Optional toggle (`true`/`false`) to activate SyncYomi manga synchronization service and tile (default: `false`).
-- `SYNCYOMI_PORT`: SyncYomi daemon port (default: `8282`).
+- **Core Service Toggles**:
+  - `ENABLE_SUWAYOMI`: Enable/disable Suwayomi Manga server (`true`/`false`, default: `true`).
+  - `ENABLE_JELLYFIN`: Enable/disable Jellyfin media server (`true`/`false`, default: `true`).
+  - `ENABLE_TOR`: Enable/disable Tor SOCKS5 proxy (`true`/`false`, default: `true`).
+  - `ENABLE_TAILSCALE_SSH`: Enable/disable Tailscale SSH integration (`true`/`false`, default: `true`).
+  - `ENABLE_SYNCTHING`: Enable/disable Syncthing continuous folder sync (`true`/`false`, default: `true`).
+- **Optional Service Toggles**:
+  - `ENABLE_FILEBROWSER`: Toggle FileBrowser Quantum (`true`/`false`, default: `false`).
+  - `ENABLE_COUCHDB`: Toggle CouchDB / Obsidian LiveSync (`true`/`false`, default: `false`).
+  - `ENABLE_SYNCYOMI`: Toggle SyncYomi manga progress sync (`true`/`false`, default: `false`).
+- **Port Overrides**:
+  - `SUWAYOMI_PORT` (`4567`), `JELLYFIN_PORT` (`8096`), `TOR_SOCKS_PORT` (`9050`), `SYNCTHING_PORT` (`8384`), `FILEBROWSER_PORT` (`8082`), `COUCHDB_PORT` (`5984`), `SYNCYOMI_PORT` (`8282`).
 
 #### B. Access Roles (`roles_config.json`)
 Assign roles based on Tailscale login emails (`owner`, `admin`, `guest`, `viewer`):
@@ -266,6 +301,7 @@ sudo systemctl enable --now tinarchy.service
 ```
 
 Additional service unit templates are available under `configs/systemd/`:
+- `suwayomi-server.service` (Suwayomi Manga library daemon)
 - `syncthing@<user>.service` (systemd user/system service for background folder sync)
 - `pinedash-drive-sync.service`
 - `rclone-drive-backup.service` & `rclone-drive-backup.timer`

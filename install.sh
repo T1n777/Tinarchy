@@ -2,9 +2,11 @@
 # ==============================================================================
 # 🍍 Tinarchy Server Ecosystem - Master Interactive Installer & Configurator
 # ==============================================================================
-# Prompts for each server/service individually upfront, prompts for modifiable
-# server personal settings (identity, credentials, paths), batch installs
-# packages, deploys configurations, enables services, and credits creators.
+# Complete freedom of customization:
+# - Dashboard branding, display name, project name, subtitle, icon, port, credentials
+# - Modular selection of all services and ecosystem components
+# - Auto-downloads selected services if not already installed
+# - Immediately launches the dashboard upon completion
 # ==============================================================================
 set -eo pipefail
 
@@ -27,8 +29,9 @@ for arg in "$@"; do
             echo "Usage: ./install.sh [OPTIONS]"
             echo ""
             echo "Interactive server installer for Tinarchy / Pinedash ecosystem."
-            echo "Prompts for each server individually and all modifiable personal settings upfront,"
-            echo "batch installs packages, applies configs, enables services, and credits creators."
+            echo "Gives complete freedom in choosing dashboard branding and services."
+            echo "Auto-downloads selected services if not already present, and launches"
+            echo "the dashboard immediately when setup is complete."
             echo ""
             echo "Options:"
             echo "  -h, --help    Show this help message"
@@ -75,22 +78,47 @@ EXISTING_SERVER_NAME=""
 EXISTING_PROJECT_NAME=""
 EXISTING_BRANDING_SUBTITLE=""
 EXISTING_APP_ICON=""
+EXISTING_PORT=""
 EXISTING_SSH_USER=""
 EXISTING_TAILSCALE_DOMAIN=""
 EXISTING_OWNER_EMAIL=""
 EXISTING_ADMIN_PASSWORD=""
 EXISTING_STORAGE_DIR=""
 
+EXISTING_ENABLE_TINARCHY="true"
+EXISTING_ENABLE_NGINX="true"
+EXISTING_ENABLE_SYNCTHING="true"
+EXISTING_ENABLE_SUWAYOMI="true"
+EXISTING_ENABLE_SYNCYOMI="false"
+EXISTING_ENABLE_JELLYFIN="true"
+EXISTING_ENABLE_TOR="true"
+EXISTING_ENABLE_TAILSCALE="true"
+EXISTING_ENABLE_TERMINAL="true"
+EXISTING_ENABLE_DRIVE_ENGINE="true"
+EXISTING_ENABLE_FILEBROWSER="false"
+EXISTING_ENABLE_COUCHDB="false"
+EXISTING_ENABLE_POWERDOWN="false"
+
 if [ -f "$REPO_ROOT/.env" ]; then
     EXISTING_SERVER_NAME=$(grep -E '^SERVER_NAME=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_PROJECT_NAME=$(grep -E '^PROJECT_NAME=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_BRANDING_SUBTITLE=$(grep -E '^BRANDING_SUBTITLE=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_APP_ICON=$(grep -E '^APP_ICON=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+    EXISTING_PORT=$(grep -E '^PORT=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_SSH_USER=$(grep -E '^SSH_USER=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_TAILSCALE_DOMAIN=$(grep -E '^TAILSCALE_DOMAIN=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_OWNER_EMAIL=$(grep -E '^OWNER_EMAIL=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_ADMIN_PASSWORD=$(grep -E '^ADMIN_PASSWORD=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
     EXISTING_STORAGE_DIR=$(grep -E '^STORAGE_DIR=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
+
+    [ "$(grep -E '^ENABLE_SUWAYOMI=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_SUWAYOMI="false"
+    [ "$(grep -E '^ENABLE_JELLYFIN=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_JELLYFIN="false"
+    [ "$(grep -E '^ENABLE_TOR=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_TOR="false"
+    [ "$(grep -E '^ENABLE_TAILSCALE_SSH=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_TAILSCALE="false"
+    [ "$(grep -E '^ENABLE_SYNCTHING=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_SYNCTHING="false"
+    [ "$(grep -E '^ENABLE_SYNCYOMI=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_SYNCYOMI="true"
+    [ "$(grep -E '^ENABLE_FILEBROWSER=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_FILEBROWSER="true"
+    [ "$(grep -E '^ENABLE_COUCHDB=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_COUCHDB="true"
 fi
 
 # ─── Header Banner ────────────────────────────────────────────────────────────
@@ -189,104 +217,20 @@ ask_input() {
     done
 }
 
-# ─── PHASE 1A: Service Selection Prompts ──────────────────────────────────────
-echo -e "${CYAN}─── 1. Interactive Service Selection ──────────────────────────────────${NC}"
-echo -e "Select which server components and daemons you want to activate."
-echo ""
-
-# 1. Core Dashboard
-echo -e "${CYAN}[1/10]${NC} ${BOLD}Tinarchy Dashboard Control Center${NC}"
-echo -e "       ${DIM}Telemetry UI, Pywal Dynamic Theming, Tailscale Whois RBAC & API daemon (:8085)${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Yatin Rajesh (@T1n777)${NC} - https://github.com/T1n777/Tinarchy${NC}"
-ask_choice "Install and configure Tinarchy Dashboard?" "y" INSTALL_TINARCHY
-echo ""
-
-# 2. Nginx Reverse Proxy
-echo -e "${CYAN}[2/10]${NC} ${BOLD}Nginx Reverse Proxy & SSL Engine${NC}"
-echo -e "       ${DIM}High-performance HTTP/2 reverse proxy for Ports 80, 443, 8080 with TLS 1.3${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Igor Sysoev & NGINX Team${NC} - https://nginx.org${NC}"
-ask_choice "Install and configure Nginx Reverse Proxy?" "y" INSTALL_NGINX
-echo ""
-
-# 3. Syncthing Full Drive Sync
-echo -e "${CYAN}[3/10]${NC} ${BOLD}Syncthing Continuous Folder Sync${NC}"
-echo -e "       ${DIM}Private, decentralized continuous file sync for drive directory with LZ4 compression${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Jakob Borg & The Syncthing Foundation${NC} - https://syncthing.net${NC}"
-ask_choice "Install and configure Syncthing Full Folder Sync?" "y" INSTALL_SYNCTHING
-echo ""
-
-# 4. Suwayomi Manga Server
-echo -e "${CYAN}[4/10]${NC} ${BOLD}Suwayomi Server (Manga Library)${NC}"
-echo -e "       ${DIM}Free and open source manga reader server compatible with Tachiyomi / Mihon (:4567)${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}The Suwayomi Project Contributors${NC} - https://github.com/Suwayomi${NC}"
-ask_choice "Install and configure Suwayomi Manga Server?" "y" INSTALL_SUWAYOMI
-echo ""
-
-# 5. SyncYomi Reading Progress Sync
-echo -e "${CYAN}[5/10]${NC} ${BOLD}SyncYomi (Manga Progress Sync Daemon)${NC}"
-echo -e "       ${DIM}Automated reading history and progress synchronization across all client devices (:8282)${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}The SyncYomi Project Contributors${NC} - https://github.com/SyncYomi/SyncYomi${NC}"
-ask_choice "Install and configure SyncYomi Daemon?" "n" INSTALL_SYNCYOMI
-echo ""
-
-# 6. Jellyfin Media Server
-echo -e "${CYAN}[6/10]${NC} ${BOLD}Jellyfin Media Server${NC}"
-echo -e "       ${DIM}The volunteer-built media streaming system for movies, TV series and home media (:8096)${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}The Jellyfin Project & Community${NC} - https://jellyfin.org${NC}"
-ask_choice "Install and configure Jellyfin Media Server?" "y" INSTALL_JELLYFIN
-echo ""
-
-# 7. Tor Anonymity Proxy & Global Exit Node
-echo -e "${CYAN}[7/10]${NC} ${BOLD}Tor SOCKS5 Proxy & Global Exit Node${NC}"
-echo -e "       ${DIM}Standalone onion proxy (:9050) with automated Tailscale WireGuard NAT exit routing${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}The Tor Project${NC} - https://www.torproject.org${NC}"
-ask_choice "Install and configure Tor Proxy & Exit Node?" "y" INSTALL_TOR
-echo ""
-
-# 8. Tailscale Mesh Network & SSH
-echo -e "${CYAN}[8/10]${NC} ${BOLD}Tailscale WireGuard Mesh & Tailscale SSH${NC}"
-echo -e "       ${DIM}Encrypted zero-config mesh overlay network with keyless SSH terminal access${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Avery Pennarun, Brad Fitzpatrick & Tailscale Inc.${NC} - https://tailscale.com${NC}"
-ask_choice "Install and configure Tailscale & Tailscale SSH?" "y" INSTALL_TAILSCALE
-echo ""
-
-# 9. Persistent Terminal Ecosystem (tmux + Zsh)
-echo -e "${CYAN}[9/10]${NC} ${BOLD}Persistent Terminal Ecosystem (tmux + Zsh)${NC}"
-echo -e "       ${DIM}Auto-attaching tmux (:main), 50K scrollback, instant Esc, and low-latency Zsh shell${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Nicholas Marriott (tmux)${NC} & ${GREEN}Paul Falstad / Zsh Development Group${NC}"
-ask_choice "Install Persistent Terminal Ecosystem (tmux + Zsh)?" "y" INSTALL_TERMINAL
-echo ""
-
-# 10. Unified Drive Engine & Cloud Backups
-echo -e "${CYAN}[10/10]${NC} ${BOLD}Unified Drive Engine & Rclone Cloud Backups${NC}"
-echo -e "       ${DIM}Drive folder hierarchy, local symlinks, and automated cloud backups${NC}"
-echo -e "       ${DIM}Creator: ${GREEN}Tinarchy Team${NC} & ${GREEN}Nick Craig-Wood (Rclone)${NC} - https://rclone.org${NC}"
-ask_choice "Install Unified Drive Engine & Cloud Backups?" "y" INSTALL_DRIVE_ENGINE
-echo ""
-
-# Optional 11: Headless Laptop Powerdown
-INSTALL_POWERDOWN=false
-if [ -d /sys/class/power_supply ] && grep -q -i "battery" /sys/class/power_supply/*/type 2>/dev/null; then
-    echo -e "${YELLOW}⚡ Laptop battery hardware detected!${NC}"
-    echo -e "       ${DIM}Configures 0-Watt DPMS display powerdown after 3min console inactivity and lid sleep${NC}"
-    ask_choice "Configure Headless Laptop Display Powerdown & Lid Handling?" "y" INSTALL_POWERDOWN
-    echo ""
-fi
-
-# ─── PHASE 1B: Server Personalization & Modifiable Settings ───────────────────
-echo -e "${CYAN}─── 2. Server Personalization & Settings ───────────────────────────────${NC}"
-echo -e "Configure instance branding, identity, storage paths, and credentials."
+# ─── PHASE 1: Complete Dashboard Branding & Personalization Prompts ───────────
+echo -e "${CYAN}─── 1. Dashboard Branding & Personalization ───────────────────────────${NC}"
+echo -e "Configure what your dashboard will look like and how it identifies itself."
 echo -e "Press ${BOLD}Enter${NC} to accept the bracketed default values."
 echo ""
 
-# 1. Server Display Name
-DETECTED_HOST_PRETTY="$(echo "$SYS_HOST" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1')"
-DEFAULT_SERVER_NAME="${EXISTING_SERVER_NAME:-$DETECTED_HOST_PRETTY}"
-ask_input "Server Display Name" "$DEFAULT_SERVER_NAME" CFG_SERVER_NAME
-
-# 2. Project / Suite Name
+# 1. Project / Suite Name
 DEFAULT_PROJECT_NAME="${EXISTING_PROJECT_NAME:-Tinarchy}"
 ask_input "Project / Suite Name" "$DEFAULT_PROJECT_NAME" CFG_PROJECT_NAME
+
+# 2. Server Display Name
+DETECTED_HOST_PRETTY="$(echo "$SYS_HOST" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1')"
+DEFAULT_SERVER_NAME="${EXISTING_SERVER_NAME:-$DETECTED_HOST_PRETTY}"
+ask_input "Server Display Name (Tile Title)" "$DEFAULT_SERVER_NAME" CFG_SERVER_NAME
 
 # 3. Branding Subtitle
 DEFAULT_SUBTITLE="${EXISTING_BRANDING_SUBTITLE:-Server Control Center}"
@@ -296,30 +240,144 @@ ask_input "Branding Subtitle" "$DEFAULT_SUBTITLE" CFG_BRANDING_SUBTITLE
 DEFAULT_ICON="${EXISTING_APP_ICON:-🍍}"
 ask_input "Server Emoji Icon" "$DEFAULT_ICON" CFG_APP_ICON
 
-# 5. Primary SSH User
-DEFAULT_SSH_USER="${EXISTING_SSH_USER:-$TARGET_USER}"
-ask_input "Primary SSH Username" "$DEFAULT_SSH_USER" CFG_SSH_USER
+# 5. Dashboard Port
+DEFAULT_PORT="${EXISTING_PORT:-8085}"
+ask_input "Dashboard Internal HTTP Port" "$DEFAULT_PORT" CFG_PORT
 
-# 6. Tailscale MagicDNS Domain
+# 6. Web Admin Password
+DEFAULT_ADMIN_PASS="${EXISTING_ADMIN_PASSWORD:-changeme}"
+ask_input "Dashboard Web Admin Password" "$DEFAULT_ADMIN_PASS" CFG_ADMIN_PASSWORD true
+
+# 7. Primary SSH / System User
+DEFAULT_SSH_USER="${EXISTING_SSH_USER:-$TARGET_USER}"
+ask_input "Primary System / SSH Username" "$DEFAULT_SSH_USER" CFG_SSH_USER
+
+# 8. Unified Drive Storage Directory
+DEFAULT_STORAGE_DIR="${EXISTING_STORAGE_DIR:-$USER_HOME/drive}"
+ask_input "Unified Drive Storage Directory" "$DEFAULT_STORAGE_DIR" CFG_STORAGE_DIR
+
+# 9. Tailscale MagicDNS Domain (optional)
 MAGIC_SUFFIX="$(tailscale status --json 2>/dev/null | grep -o '"MagicDNSSuffix": *"[^"]*"' | head -n1 | cut -d'"' -f4 || true)"
 DETECTED_DOMAIN=""
 [ -n "$MAGIC_SUFFIX" ] && DETECTED_DOMAIN="${SYS_HOST}.${MAGIC_SUFFIX}"
 DEFAULT_TS_DOMAIN="${EXISTING_TAILSCALE_DOMAIN:-$DETECTED_DOMAIN}"
-ask_input "Tailscale MagicDNS Domain" "$DEFAULT_TS_DOMAIN" CFG_TAILSCALE_DOMAIN
+ask_input "Tailscale MagicDNS Domain (optional)" "$DEFAULT_TS_DOMAIN" CFG_TAILSCALE_DOMAIN
 
-# 7. Owner Email
+# 10. Owner Email (optional)
 DETECTED_EMAIL="$(tailscale status --json 2>/dev/null | grep -o '"LoginName": *"[^"]*"' | head -n1 | cut -d'"' -f4 || true)"
 DEFAULT_OWNER_EMAIL="${EXISTING_OWNER_EMAIL:-$DETECTED_EMAIL}"
 ask_input "Owner Email (Tailscale Identity)" "$DEFAULT_OWNER_EMAIL" CFG_OWNER_EMAIL
 
-# 8. Web Admin Password
-DEFAULT_ADMIN_PASS="${EXISTING_ADMIN_PASSWORD:-changeme}"
-ask_input "Dashboard Web Admin Password" "$DEFAULT_ADMIN_PASS" CFG_ADMIN_PASSWORD true
+echo ""
 
-# 9. Unified Drive Storage Directory
-DEFAULT_STORAGE_DIR="${EXISTING_STORAGE_DIR:-$USER_HOME/drive}"
-ask_input "Unified Drive Storage Directory" "$DEFAULT_STORAGE_DIR" CFG_STORAGE_DIR
+# ─── PHASE 2: Complete Freedom of Modular Service Selection ───────────────────
+echo -e "${CYAN}─── 2. Modular Service Selection ───────────────────────────────────────${NC}"
+echo -e "You have complete freedom to choose exactly which services and components"
+echo -e "to activate. Any service you select will be automatically downloaded and"
+echo -e "configured if not already installed."
+echo ""
 
+# 1. Core Dashboard
+echo -e "${CYAN}[1/13]${NC} ${BOLD}Dashboard Backend & Web UI (:8085)${NC}"
+echo -e "        ${DIM}Telemetry UI, Pywal Dynamic Theming, Tailscale Whois RBAC & API daemon${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Yatin Rajesh (@T1n777)${NC} - https://github.com/T1n777/Tinarchy${NC}"
+ask_choice "Install and activate ${CFG_PROJECT_NAME} Dashboard?" "y" INSTALL_TINARCHY
+echo ""
+
+# 2. Nginx Reverse Proxy
+echo -e "${CYAN}[2/13]${NC} ${BOLD}Nginx Reverse Proxy & SSL Engine (:80, :8080, :443)${NC}"
+echo -e "        ${DIM}High-performance HTTP/2 reverse proxy with unified subpath & WebSocket routing${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Igor Sysoev & NGINX Team${NC} - https://nginx.org${NC}"
+ask_choice "Install and activate Nginx Reverse Proxy?" "y" INSTALL_NGINX
+echo ""
+
+# 3. Syncthing Full Drive Sync
+echo -e "${CYAN}[3/13]${NC} ${BOLD}Syncthing Continuous Folder Sync (:8384 / :22000)${NC}"
+echo -e "        ${DIM}Private, decentralized continuous file sync for drive directory with LZ4 compression${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Jakob Borg & The Syncthing Foundation${NC} - https://syncthing.net${NC}"
+DEF_SYNC="$([ "$EXISTING_ENABLE_SYNCTHING" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Syncthing Full Folder Sync?" "$DEF_SYNC" INSTALL_SYNCTHING
+echo ""
+
+# 4. Suwayomi Manga Server
+echo -e "${CYAN}[4/13]${NC} ${BOLD}Suwayomi Server (Manga Library & Reader) (:4567)${NC}"
+echo -e "        ${DIM}Free and open source manga reader server compatible with Tachiyomi / Mihon${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}The Suwayomi Project Contributors${NC} - https://github.com/Suwayomi${NC}"
+DEF_SUW="$([ "$EXISTING_ENABLE_SUWAYOMI" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Suwayomi Manga Server?" "$DEF_SUW" INSTALL_SUWAYOMI
+echo ""
+
+# 5. SyncYomi Reading Progress Sync
+echo -e "${CYAN}[5/13]${NC} ${BOLD}SyncYomi (Manga Progress Sync Daemon) (:8282)${NC}"
+echo -e "        ${DIM}Automated reading history and progress synchronization across all client devices${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}The SyncYomi Project Contributors${NC} - https://github.com/SyncYomi/SyncYomi${NC}"
+DEF_SYNCYOMI="$([ "$EXISTING_ENABLE_SYNCYOMI" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate SyncYomi Daemon?" "$DEF_SYNCYOMI" INSTALL_SYNCYOMI
+echo ""
+
+# 6. Jellyfin Media Server
+echo -e "${CYAN}[6/13]${NC} ${BOLD}Jellyfin Media Server (:8096)${NC}"
+echo -e "        ${DIM}The volunteer-built media streaming system for movies, TV series and home media${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}The Jellyfin Project & Community${NC} - https://jellyfin.org${NC}"
+DEF_JELL="$([ "$EXISTING_ENABLE_JELLYFIN" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Jellyfin Media Server?" "$DEF_JELL" INSTALL_JELLYFIN
+echo ""
+
+# 7. Tor Anonymity Proxy & Global Exit Node
+echo -e "${CYAN}[7/13]${NC} ${BOLD}Tor SOCKS5 Proxy & Global Exit Node (:9050)${NC}"
+echo -e "        ${DIM}Standalone onion proxy with automated Tailscale WireGuard NAT exit routing${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}The Tor Project${NC} - https://www.torproject.org${NC}"
+DEF_TOR="$([ "$EXISTING_ENABLE_TOR" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Tor Proxy & Exit Node?" "$DEF_TOR" INSTALL_TOR
+echo ""
+
+# 8. Tailscale Mesh Network & SSH
+echo -e "${CYAN}[8/13]${NC} ${BOLD}Tailscale WireGuard Mesh & Keyless SSH (:22)${NC}"
+echo -e "        ${DIM}Encrypted zero-config mesh overlay network with keyless SSH terminal access${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Avery Pennarun, Brad Fitzpatrick & Tailscale Inc.${NC} - https://tailscale.com${NC}"
+DEF_TS="$([ "$EXISTING_ENABLE_TAILSCALE" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Tailscale & Tailscale SSH?" "$DEF_TS" INSTALL_TAILSCALE
+echo ""
+
+# 9. Persistent Terminal Ecosystem (tmux + Zsh)
+echo -e "${CYAN}[9/13]${NC} ${BOLD}Persistent Terminal Ecosystem (tmux + Zsh)${NC}"
+echo -e "        ${DIM}Auto-attaching tmux (:main), 50K scrollback, instant Esc, and low-latency Zsh shell${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Nicholas Marriott (tmux)${NC} & ${GREEN}Paul Falstad / Zsh Development Group${NC}"
+ask_choice "Install Persistent Terminal Ecosystem (tmux + Zsh)?" "y" INSTALL_TERMINAL
+echo ""
+
+# 10. Unified Drive Engine & Cloud Backups
+echo -e "${CYAN}[10/13]${NC} ${BOLD}Unified Drive Engine & Rclone Cloud Backups${NC}"
+echo -e "         ${DIM}Drive folder hierarchy, local symlinks, and automated cloud backups${NC}"
+echo -e "         ${DIM}Creator: ${GREEN}Tinarchy Team${NC} & ${GREEN}Nick Craig-Wood (Rclone)${NC} - https://rclone.org${NC}"
+ask_choice "Install Unified Drive Engine & Cloud Backups?" "y" INSTALL_DRIVE_ENGINE
+echo ""
+
+# 11. FileBrowser Quantum Web File Manager
+echo -e "${CYAN}[11/13]${NC} ${BOLD}FileBrowser Quantum Web File Manager (:8081 / :8082)${NC}"
+echo -e "         ${DIM}Modern web file manager with real-time drive mirror synchronization${NC}"
+echo -e "         ${DIM}Creator: ${GREEN}FileBrowser Authors & Community${NC} - https://filebrowser.org${NC}"
+DEF_FB="$([ "$EXISTING_ENABLE_FILEBROWSER" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate FileBrowser Quantum?" "$DEF_FB" INSTALL_FILEBROWSER
+echo ""
+
+# 12. Obsidian LiveSync CouchDB Database
+echo -e "${CYAN}[12/13]${NC} ${BOLD}Obsidian LiveSync CouchDB Database (:5984)${NC}"
+echo -e "         ${DIM}Real-time end-to-end encrypted synchronization backend for Obsidian markdown notes${NC}"
+echo -e "         ${DIM}Creator: ${GREEN}The Apache Software Foundation & Obsidian-LiveSync${NC}"
+DEF_COUCH="$([ "$EXISTING_ENABLE_COUCHDB" = "true" ] && echo 'y' || echo 'n')"
+ask_choice "Install and activate Obsidian LiveSync (CouchDB)?" "$DEF_COUCH" INSTALL_COUCHDB
+echo ""
+
+# 13. Headless Powerdown & Display Inactivity Sleep Daemon
+echo -e "${CYAN}[13/13]${NC} ${BOLD}Headless Powerdown & Display Sleep Daemon${NC}"
+echo -e "         ${DIM}0-Watt DPMS display powerdown after 60s inactivity, input wake-up, and ACPI lid handling${NC}"
+echo -e "         ${DIM}Creator: ${GREEN}Tinarchy Team${NC}"
+DEF_POWER="y"
+if ! grep -q -i "battery" /sys/class/power_supply/*/type 2>/dev/null && [ ! -d /sys/class/backlight ]; then
+    DEF_POWER="n"
+fi
+ask_choice "Install Display Inactivity Sleep & ACPI Power Management?" "$DEF_POWER" INSTALL_POWERDOWN
 echo ""
 
 # ─── Summary Table ────────────────────────────────────────────────────────────
@@ -335,7 +393,18 @@ format_summary() {
         echo -e "   ${DIM}✖  ${name} (Skipped)${NC}"
     fi
 }
-echo -e " ${BOLD}Activated Services:${NC}"
+echo -e " ${BOLD}Personal Server Settings:${NC}"
+echo -e "   • Project Suite Name  : ${BOLD}${CFG_PROJECT_NAME}${NC}"
+echo -e "   • Server Display Name : ${BOLD}${CFG_SERVER_NAME}${NC} (${CFG_APP_ICON})"
+echo -e "   • Branding Subtitle   : ${BOLD}${CFG_BRANDING_SUBTITLE}${NC}"
+echo -e "   • Dashboard HTTP Port : ${BOLD}${CFG_PORT}${NC}"
+echo -e "   • Primary System User : ${BOLD}${CFG_SSH_USER}${NC}"
+echo -e "   • Drive Storage Path  : ${BOLD}${CFG_STORAGE_DIR}${NC}"
+echo -e "   • Tailscale Domain    : ${BOLD}${CFG_TAILSCALE_DOMAIN:-None}${NC}"
+echo -e "   • Owner Email         : ${BOLD}${CFG_OWNER_EMAIL:-None}${NC}"
+echo -e "   • Web Admin Password  : ${BOLD}********${NC}"
+echo ""
+echo -e " ${BOLD}Selected Services & Modules:${NC}"
 format_summary "Tinarchy Dashboard Backend (:8085)" "$INSTALL_TINARCHY"
 format_summary "Nginx Reverse Proxy & SSL (:80, :443)" "$INSTALL_NGINX"
 format_summary "Syncthing Full Drive Sync (:8384)"   "$INSTALL_SYNCTHING"
@@ -346,69 +415,131 @@ format_summary "Tor Proxy & Exit Node (:9050)"       "$INSTALL_TOR"
 format_summary "Tailscale & Tailscale SSH (:22)"     "$INSTALL_TAILSCALE"
 format_summary "Persistent Terminal (tmux + Zsh)"    "$INSTALL_TERMINAL"
 format_summary "Unified Drive Sync & Rclone Backups" "$INSTALL_DRIVE_ENGINE"
-format_summary "Headless Display 0W Powerdown"       "$INSTALL_POWERDOWN"
+format_summary "FileBrowser Quantum (:8081 / :8082)" "$INSTALL_FILEBROWSER"
+format_summary "Obsidian LiveSync CouchDB (:5984)"   "$INSTALL_COUCHDB"
+format_summary "Display Inactivity Sleep & DPMS 0W"  "$INSTALL_POWERDOWN"
 
-echo ""
-echo -e " ${BOLD}Personal Server Settings:${NC}"
-echo -e "   • Server Display Name : ${BOLD}${CFG_SERVER_NAME}${NC} (${CFG_APP_ICON})"
-echo -e "   • Project Suite Name  : ${BOLD}${CFG_PROJECT_NAME}${NC}"
-echo -e "   • Branding Subtitle   : ${BOLD}${CFG_BRANDING_SUBTITLE}${NC}"
-echo -e "   • Primary SSH User    : ${BOLD}${CFG_SSH_USER}${NC}"
-echo -e "   • Tailscale Domain    : ${BOLD}${CFG_TAILSCALE_DOMAIN:-None}${NC}"
-echo -e "   • Owner Email         : ${BOLD}${CFG_OWNER_EMAIL:-None}${NC}"
-echo -e "   • Web Admin Password  : ${BOLD}********${NC}"
-echo -e "   • Drive Storage Path  : ${BOLD}${CFG_STORAGE_DIR}${NC}"
 echo -e "${CYAN}───────────────────────────────────────────────────────────────────────${NC}"
 
-ask_choice "Proceed with batch installation and configuration?" "y" PROCEED_INSTALL
+ask_choice "Proceed with batch installation, auto-downloads, and deployment?" "y" PROCEED_INSTALL
 if [ "$PROCEED_INSTALL" != "true" ]; then
     echo -e "${YELLOW}Installation aborted by user. No changes were made.${NC}"
     exit 0
 fi
 
 echo ""
-echo -e "${GREEN}🚀 Beginning batch installation and configuration...${NC}"
+echo -e "${GREEN}🚀 Beginning automated installation and service deployment...${NC}"
 echo ""
 
-# ─── PHASE 2: Consolidated Dependency Resolution ──────────────────────────────
+# ─── PHASE 3: Smart Auto-Downloads (Only if not already downloaded) ───────────
+echo -e "${CYAN}─── 3. Checking Dependencies & Auto-Downloading Services ──────────────${NC}"
+
+# Package manager batch list
 PACKAGES_TO_INSTALL=()
 
-case "$OS_FAMILY" in
-    arch)
-        [ "$INSTALL_TINARCHY" = "true" ]     && PACKAGES_TO_INSTALL+=('python' 'python-pillow' 'python-requests')
-        [ "$INSTALL_NGINX" = "true" ]        && PACKAGES_TO_INSTALL+=('nginx')
-        [ "$INSTALL_SYNCTHING" = "true" ]    && PACKAGES_TO_INSTALL+=('syncthing')
-        [ "$INSTALL_JELLYFIN" = "true" ]     && PACKAGES_TO_INSTALL+=('jellyfin-server' 'jellyfin-web')
-        [ "$INSTALL_TOR" = "true" ]          && PACKAGES_TO_INSTALL+=('tor' 'iptables')
-        [ "$INSTALL_TAILSCALE" = "true" ]    && PACKAGES_TO_INSTALL+=('tailscale')
-        [ "$INSTALL_TERMINAL" = "true" ]     && PACKAGES_TO_INSTALL+=('tmux' 'zsh')
-        [ "$INSTALL_DRIVE_ENGINE" = "true" ] && PACKAGES_TO_INSTALL+=('rclone')
-        ;;
-    debian)
-        [ "$INSTALL_TINARCHY" = "true" ]     && PACKAGES_TO_INSTALL+=('python3' 'python3-pil' 'python3-requests')
-        [ "$INSTALL_NGINX" = "true" ]        && PACKAGES_TO_INSTALL+=('nginx')
-        [ "$INSTALL_SYNCTHING" = "true" ]    && PACKAGES_TO_INSTALL+=('syncthing')
-        [ "$INSTALL_JELLYFIN" = "true" ]     && PACKAGES_TO_INSTALL+=('jellyfin')
-        [ "$INSTALL_TOR" = "true" ]          && PACKAGES_TO_INSTALL+=('tor' 'iptables')
-        [ "$INSTALL_TAILSCALE" = "true" ]    && PACKAGES_TO_INSTALL+=('tailscale')
-        [ "$INSTALL_TERMINAL" = "true" ]     && PACKAGES_TO_INSTALL+=('tmux' 'zsh')
-        [ "$INSTALL_DRIVE_ENGINE" = "true" ] && PACKAGES_TO_INSTALL+=('rclone')
-        ;;
-    fedora)
-        [ "$INSTALL_TINARCHY" = "true" ]     && PACKAGES_TO_INSTALL+=('python3' 'python3-pillow' 'python3-requests')
-        [ "$INSTALL_NGINX" = "true" ]        && PACKAGES_TO_INSTALL+=('nginx')
-        [ "$INSTALL_SYNCTHING" = "true" ]    && PACKAGES_TO_INSTALL+=('syncthing')
-        [ "$INSTALL_JELLYFIN" = "true" ]     && PACKAGES_TO_INSTALL+=('jellyfin')
-        [ "$INSTALL_TOR" = "true" ]          && PACKAGES_TO_INSTALL+=('tor' 'iptables')
-        [ "$INSTALL_TAILSCALE" = "true" ]    && PACKAGES_TO_INSTALL+=('tailscale')
-        [ "$INSTALL_TERMINAL" = "true" ]     && PACKAGES_TO_INSTALL+=('tmux' 'zsh')
-        [ "$INSTALL_DRIVE_ENGINE" = "true" ] && PACKAGES_TO_INSTALL+=('rclone')
-        ;;
-esac
+# 1. Python core dependencies
+if [ "$INSTALL_TINARCHY" = "true" ]; then
+    case "$OS_FAMILY" in
+        arch)   PACKAGES_TO_INSTALL+=('python' 'python-pillow' 'python-requests') ;;
+        debian) PACKAGES_TO_INSTALL+=('python3' 'python3-pil' 'python3-requests') ;;
+        fedora) PACKAGES_TO_INSTALL+=('python3' 'python3-pillow' 'python3-requests') ;;
+    esac
+fi
 
-# Batch install packages via package manager
+# 2. Nginx
+if [ "$INSTALL_NGINX" = "true" ]; then
+    if ! command -v nginx >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('nginx')
+    else
+        echo -e "  ${GREEN}✅ Nginx is already installed ($(command -v nginx))${NC}"
+    fi
+fi
+
+# 3. Syncthing
+if [ "$INSTALL_SYNCTHING" = "true" ]; then
+    if ! command -v syncthing >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('syncthing')
+    else
+        echo -e "  ${GREEN}✅ Syncthing is already installed ($(command -v syncthing))${NC}"
+    fi
+fi
+
+# 4. Tor & iptables
+if [ "$INSTALL_TOR" = "true" ]; then
+    if ! command -v tor >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('tor')
+    else
+        echo -e "  ${GREEN}✅ Tor is already installed ($(command -v tor))${NC}"
+    fi
+    if ! command -v iptables >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('iptables')
+    fi
+fi
+
+# 5. Tailscale
+if [ "$INSTALL_TAILSCALE" = "true" ]; then
+    if ! command -v tailscale >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('tailscale')
+    else
+        echo -e "  ${GREEN}✅ Tailscale is already installed ($(command -v tailscale))${NC}"
+    fi
+fi
+
+# 6. Terminal (tmux + Zsh)
+if [ "$INSTALL_TERMINAL" = "true" ]; then
+    if ! command -v tmux >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('tmux')
+    else
+        echo -e "  ${GREEN}✅ tmux is already installed ($(command -v tmux))${NC}"
+    fi
+    if ! command -v zsh >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('zsh')
+    else
+        echo -e "  ${GREEN}✅ Zsh is already installed ($(command -v zsh))${NC}"
+    fi
+fi
+
+# 7. Rclone
+if [ "$INSTALL_DRIVE_ENGINE" = "true" ]; then
+    if ! command -v rclone >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('rclone')
+    else
+        echo -e "  ${GREEN}✅ Rclone is already installed ($(command -v rclone))${NC}"
+    fi
+fi
+
+# 8. CouchDB
+if [ "$INSTALL_COUCHDB" = "true" ]; then
+    if ! command -v couchdb >/dev/null 2>&1 && [ ! -x /usr/lib/couchdb/bin/couchdb ]; then
+        PACKAGES_TO_INSTALL+=('couchdb')
+    else
+        echo -e "  ${GREEN}✅ CouchDB is already installed${NC}"
+    fi
+fi
+
+# 9. Jellyfin
+if [ "$INSTALL_JELLYFIN" = "true" ]; then
+    if ! command -v jellyfin >/dev/null 2>&1 && ! command -v jellyfin-server >/dev/null 2>&1; then
+        case "$OS_FAMILY" in
+            arch)   PACKAGES_TO_INSTALL+=('jellyfin-server' 'jellyfin-web') ;;
+            debian) PACKAGES_TO_INSTALL+=('jellyfin') ;;
+            fedora) PACKAGES_TO_INSTALL+=('jellyfin') ;;
+        esac
+    else
+        echo -e "  ${GREEN}✅ Jellyfin is already installed${NC}"
+    fi
+fi
+
+# 10. ACPI daemon (for powerdown)
+if [ "$INSTALL_POWERDOWN" = "true" ]; then
+    if ! command -v acpid >/dev/null 2>&1; then
+        PACKAGES_TO_INSTALL+=('acpid')
+    fi
+fi
+
+# Batch install package manager packages if any
 if [ ${#PACKAGES_TO_INSTALL[@]} -gt 0 ]; then
-    echo -e "${CYAN}📦 Installing ${#PACKAGES_TO_INSTALL[@]} package dependencies:${NC} ${PACKAGES_TO_INSTALL[*]}"
+    echo -e "${CYAN}📦 Installing ${#PACKAGES_TO_INSTALL[@]} system packages:${NC} ${PACKAGES_TO_INSTALL[*]}"
     case "$OS_FAMILY" in
         arch)
             pacman -S --needed --noconfirm "${PACKAGES_TO_INSTALL[@]}" || true
@@ -426,10 +557,96 @@ if [ ${#PACKAGES_TO_INSTALL[@]} -gt 0 ]; then
     esac
 fi
 
-# ─── PHASE 3: Apply Configurations & Deploy Services ──────────────────────────
+# Fallback Tailscale auto-download if package manager didn't install it
+if [ "$INSTALL_TAILSCALE" = "true" ] && ! command -v tailscale >/dev/null 2>&1; then
+    echo -e "  ${CYAN}📥 Auto-downloading Tailscale via official installer...${NC}"
+    curl -fsSL https://tailscale.com/install.sh | sh || true
+fi
+
+# Fallback Rclone auto-download if package manager didn't install it
+if [ "$INSTALL_DRIVE_ENGINE" = "true" ] && ! command -v rclone >/dev/null 2>&1; then
+    echo -e "  ${CYAN}📥 Auto-downloading Rclone via official installer...${NC}"
+    curl https://rclone.org/install.sh | bash 2>/dev/null || true
+fi
+
+# ── Custom Auto-Downloads (Suwayomi, SyncYomi, FileBrowser) ────────────────────
+
+# Suwayomi Manga Server Auto-Download
+if [ "$INSTALL_SUWAYOMI" = "true" ]; then
+    if [ -f "/opt/suwayomi/suwayomi-server.jar" ] || command -v suwayomi-server >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✅ Suwayomi Server is already installed, skipping download.${NC}"
+    else
+        echo -e "  ${CYAN}📥 Auto-downloading Suwayomi Server jar from GitHub releases...${NC}"
+        if ! command -v java >/dev/null 2>&1; then
+            echo -e "  ${CYAN}☕ Installing Java runtime for Suwayomi...${NC}"
+            case "$OS_FAMILY" in
+                arch)   pacman -S --needed --noconfirm jre-openjdk-headless || true ;;
+                debian) apt-get install -y default-jre-headless || true ;;
+                fedora) dnf install -y java-latest-openjdk-headless || true ;;
+            esac
+        fi
+        mkdir -p /opt/suwayomi
+        SUWAYOMI_RELEASE_JSON=$(curl -sSL https://api.github.com/repos/Suwayomi/Suwayomi-Server/releases/latest 2>/dev/null || true)
+        SUWAYOMI_JAR_URL=$(echo "$SUWAYOMI_RELEASE_JSON" | grep -o 'https://[^"]*Suwayomi-Server[^"]*\.jar' | head -n 1 || true)
+        if [ -z "$SUWAYOMI_JAR_URL" ]; then
+            SUWAYOMI_JAR_URL="https://github.com/Suwayomi/Suwayomi-Server/releases/download/v1.1.1/Suwayomi-Server-v1.1.1.jar"
+        fi
+        echo -e "     ${DIM}Fetching: $SUWAYOMI_JAR_URL${NC}"
+        curl -sSL "$SUWAYOMI_JAR_URL" -o /opt/suwayomi/suwayomi-server.jar || true
+        chmod 644 /opt/suwayomi/suwayomi-server.jar 2>/dev/null || true
+        echo -e "  ${GREEN}✅ Suwayomi Server downloaded to /opt/suwayomi/suwayomi-server.jar${NC}"
+    fi
+
+    if ! id -u suwayomi >/dev/null 2>&1; then
+        useradd -r -s /usr/bin/nologin -d /var/lib/suwayomi -m suwayomi 2>/dev/null || useradd -r -s /bin/false -d /var/lib/suwayomi -m suwayomi 2>/dev/null || true
+    fi
+    mkdir -p /var/lib/suwayomi
+    chown -R suwayomi:suwayomi /var/lib/suwayomi 2>/dev/null || true
+
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-server.service" /etc/systemd/system/
+    fi
+fi
+
+# SyncYomi Auto-Download
+if [ "$INSTALL_SYNCYOMI" = "true" ]; then
+    if command -v syncyomi >/dev/null 2>&1; then
+        echo -e "  ${GREEN}✅ SyncYomi is already installed ($(command -v syncyomi)), skipping download.${NC}"
+    else
+        echo -e "  ${CYAN}📥 Auto-downloading and configuring SyncYomi...${NC}"
+        if [ -x "$REPO_ROOT/configs/scripts/install-syncyomi.sh" ]; then
+            "$REPO_ROOT/configs/scripts/install-syncyomi.sh" || true
+        fi
+    fi
+fi
+
+# FileBrowser Quantum Auto-Download
+if [ "$INSTALL_FILEBROWSER" = "true" ]; then
+    if command -v filebrowser >/dev/null 2>&1 || [ -x /usr/local/bin/filebrowser ]; then
+        echo -e "  ${GREEN}✅ FileBrowser is already installed ($(command -v filebrowser 2>/dev/null || echo '/usr/local/bin/filebrowser')), skipping download.${NC}"
+    else
+        echo -e "  ${CYAN}📥 Auto-downloading FileBrowser binary...${NC}"
+        curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash || true
+    fi
+    if [ -x /usr/local/bin/filebrowser ] && [ ! -e /usr/local/bin/filebrowser-quantum ]; then
+        ln -sfn /usr/local/bin/filebrowser /usr/local/bin/filebrowser-quantum
+    fi
+    mkdir -p /etc/filebrowser
+    if [ ! -f /etc/filebrowser/config.yaml ] && [ -f "$REPO_ROOT/configs/filebrowser/config.yaml" ]; then
+        cp "$REPO_ROOT/configs/filebrowser/config.yaml" /etc/filebrowser/config.yaml
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/filebrowser-quantum.service" ]; then
+        sed "s/User=pineapple/User=$TARGET_USER/g; s/Group=pineapple/Group=$TARGET_USER/g; s|/home/pineapple|$USER_HOME|g" \
+            "$REPO_ROOT/configs/systemd/filebrowser-quantum.service" > /etc/systemd/system/filebrowser-quantum.service
+    fi
+fi
+
+# ─── PHASE 4: Apply Configurations & Deploy Services ──────────────────────────
+echo ""
+echo -e "${CYAN}─── 4. Applying Configurations & Deploying Services ────────────────────${NC}"
 
 # 1. Setup and update .env configuration file
-echo -e "${CYAN}⚙️ Writing server personal settings to .env...${NC}"
+echo -e "${CYAN}⚙️ Writing server settings to .env...${NC}"
 if [ ! -f "$REPO_ROOT/.env" ] && [ -f "$REPO_ROOT/.env.example" ]; then
     cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env"
 fi
@@ -438,9 +655,7 @@ update_env_var() {
     local key="$1"
     local val="$2"
     local file="$REPO_ROOT/.env"
-    if [ ! -f "$file" ]; then
-        touch "$file"
-    fi
+    [ ! -f "$file" ] && touch "$file"
     if grep -q "^${key}=" "$file" 2>/dev/null; then
         sed -i "s|^${key}=.*|${key}=\"${val}\"|" "$file"
     elif grep -q "^# *${key}=" "$file" 2>/dev/null; then
@@ -450,16 +665,26 @@ update_env_var() {
     fi
 }
 
-update_env_var "SERVER_NAME" "$CFG_SERVER_NAME"
 update_env_var "PROJECT_NAME" "$CFG_PROJECT_NAME"
+update_env_var "SERVER_NAME" "$CFG_SERVER_NAME"
 update_env_var "BRANDING_SUBTITLE" "$CFG_BRANDING_SUBTITLE"
 update_env_var "APP_ICON" "$CFG_APP_ICON"
+update_env_var "PORT" "$CFG_PORT"
 update_env_var "SSH_USER" "$CFG_SSH_USER"
 update_env_var "TAILSCALE_DOMAIN" "$CFG_TAILSCALE_DOMAIN"
 update_env_var "OWNER_EMAIL" "$CFG_OWNER_EMAIL"
 update_env_var "ADMIN_PASSWORD" "$CFG_ADMIN_PASSWORD"
 update_env_var "STORAGE_DIR" "$CFG_STORAGE_DIR"
+
+# Service toggle flags
+update_env_var "ENABLE_SUWAYOMI" "$INSTALL_SUWAYOMI"
+update_env_var "ENABLE_JELLYFIN" "$INSTALL_JELLYFIN"
+update_env_var "ENABLE_TOR" "$INSTALL_TOR"
+update_env_var "ENABLE_TAILSCALE_SSH" "$INSTALL_TAILSCALE"
+update_env_var "ENABLE_SYNCTHING" "$INSTALL_SYNCTHING"
 update_env_var "ENABLE_SYNCYOMI" "$INSTALL_SYNCYOMI"
+update_env_var "ENABLE_FILEBROWSER" "$INSTALL_FILEBROWSER"
+update_env_var "ENABLE_COUCHDB" "$INSTALL_COUCHDB"
 
 chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/.env" 2>/dev/null || true
 
@@ -475,6 +700,9 @@ except Exception:
 data['server_name'] = '$CFG_SERVER_NAME'
 data['project_name'] = '$CFG_PROJECT_NAME'
 data['display_name'] = '$CFG_SERVER_NAME'
+data['branding_subtitle'] = '$CFG_BRANDING_SUBTITLE'
+data['app_icon'] = '$CFG_APP_ICON'
+data['port'] = int('$CFG_PORT')
 with open(cfg_file, 'w') as f:
     json.dump(data, f, indent=2)
 " 2>/dev/null || true
@@ -489,19 +717,16 @@ if [ "$INSTALL_DRIVE_ENGINE" = "true" ]; then
     mkdir -p "$WALL_DIR"
     [ ! -e "$DRIVE_ROOT/Wallpapers" ] && ln -sfn "$WALL_DIR" "$DRIVE_ROOT/Wallpapers"
 
-    # Install drive-sync script
     if [ -f "$REPO_ROOT/configs/scripts/tinarchy-drive-sync" ]; then
         cp "$REPO_ROOT/configs/scripts/tinarchy-drive-sync" /usr/local/bin/tinarchy-drive-sync
         chmod +x /usr/local/bin/tinarchy-drive-sync
         ln -sfn /usr/local/bin/tinarchy-drive-sync /usr/local/bin/pinedash-drive-sync
     fi
 
-    # Deploy drive sync systemd unit
     if [ -f "$REPO_ROOT/configs/systemd/pinedash-drive-sync.service" ]; then
         cp "$REPO_ROOT/configs/systemd/pinedash-drive-sync.service" /etc/systemd/system/
     fi
 
-    # Deploy rclone timer if available
     if [ -f "$REPO_ROOT/configs/systemd/rclone-drive-backup.timer" ]; then
         cp "$REPO_ROOT/configs/systemd/rclone-drive-backup.timer" /etc/systemd/system/
         cp "$REPO_ROOT/configs/systemd/rclone-drive-backup.service" /etc/systemd/system/
@@ -524,7 +749,6 @@ fi
 if [ "$INSTALL_NGINX" = "true" ]; then
     echo -e "${CYAN}🌐 Deploying Nginx reverse proxy configuration...${NC}"
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
-        # Backup existing
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
         cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
         if nginx -t 2>/dev/null; then
@@ -538,17 +762,17 @@ fi
 # 5. Syncthing Continuous Sync
 if [ "$INSTALL_SYNCTHING" = "true" ]; then
     echo -e "${CYAN}🔄 Configuring Syncthing full drive sync with compression...${NC}"
-    systemctl enable "syncthing@$TARGET_USER.service" || true
-    systemctl start "syncthing@$TARGET_USER.service" || true
+    systemctl enable "syncthing@$TARGET_USER.service" 2>/dev/null || true
+    systemctl start "syncthing@$TARGET_USER.service" 2>/dev/null || true
 
     sleep 2
     if command -v syncthing >/dev/null 2>&1; then
-        syncthing cli config defaults device compression set always 2>/dev/null || true
-        DEV_ID=$(syncthing device-id 2>/dev/null || echo "")
+        sudo -u "$TARGET_USER" syncthing cli config defaults device compression set always 2>/dev/null || true
+        DEV_ID=$(sudo -u "$TARGET_USER" syncthing device-id 2>/dev/null || syncthing device-id 2>/dev/null || echo "")
         if [ -n "$DEV_ID" ]; then
-            syncthing cli config devices "$DEV_ID" compression set always 2>/dev/null || true
-            if ! syncthing cli config folders list 2>/dev/null | grep -q "shared-drive"; then
-                syncthing cli config folders add \
+            sudo -u "$TARGET_USER" syncthing cli config devices "$DEV_ID" compression set always 2>/dev/null || true
+            if ! sudo -u "$TARGET_USER" syncthing cli config folders list 2>/dev/null | grep -q "shared-drive"; then
+                sudo -u "$TARGET_USER" syncthing cli config folders add \
                     --id shared-drive \
                     --label "Shared Drive" \
                     --path "$DRIVE_ROOT" \
@@ -560,15 +784,7 @@ if [ "$INSTALL_SYNCTHING" = "true" ]; then
     fi
 fi
 
-# 6. SyncYomi Installation
-if [ "$INSTALL_SYNCYOMI" = "true" ]; then
-    echo -e "${CYAN}📖 Installing and deploying SyncYomi...${NC}"
-    if [ -x "$REPO_ROOT/configs/scripts/install-syncyomi.sh" ]; then
-        "$REPO_ROOT/configs/scripts/install-syncyomi.sh" || true
-    fi
-fi
-
-# 7. Tor Anonymity Proxy & Global Exit Node
+# 6. Tor Anonymity Proxy & Global Exit Node
 if [ "$INSTALL_TOR" = "true" ]; then
     echo -e "${CYAN}🧅 Configuring Tor SOCKS5 & Exit Node permissions...${NC}"
     [ -f "$REPO_ROOT/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/tor_exit_node.sh"
@@ -581,19 +797,33 @@ if [ "$INSTALL_TOR" = "true" ]; then
     echo -e "${GREEN}✅ Tor exit node sudoers rule configured at $SUDOERS_FILE${NC}"
 fi
 
-# 8. Tinarchy Dashboard Service
+# 7. Tinarchy Dashboard Service Unit
 if [ "$INSTALL_TINARCHY" = "true" ]; then
-    echo -e "${CYAN}🍍 Deploying Tinarchy Dashboard systemd unit...${NC}"
-    if [ -f "$REPO_ROOT/configs/systemd/tinarchy.service" ]; then
-        sed "s/User=pineapple/User=$TARGET_USER/g; s|/home/pineapple|$USER_HOME|g" \
-            "$REPO_ROOT/configs/systemd/tinarchy.service" > /etc/systemd/system/tinarchy.service
-        ln -sfn /etc/systemd/system/tinarchy.service /etc/systemd/system/server-dashboard.service
-    fi
+    echo -e "${CYAN}🍍 Deploying ${CFG_PROJECT_NAME} Dashboard systemd unit...${NC}"
+    cat << EOF > /etc/systemd/system/tinarchy.service
+[Unit]
+Description=${CFG_PROJECT_NAME} Server Management Dashboard
+After=network.target tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=simple
+User=${TARGET_USER}
+WorkingDirectory=${REPO_ROOT}
+ExecStart=/usr/bin/python3 ${REPO_ROOT}/server.py
+Restart=always
+RestartSec=5
+EnvironmentFile=-${REPO_ROOT}/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    ln -sfn /etc/systemd/system/tinarchy.service /etc/systemd/system/server-dashboard.service
 fi
 
-# 9. Headless Laptop Powerdown
+# 8. Headless Display Sleep & Powerdown
 if [ "$INSTALL_POWERDOWN" = "true" ]; then
-    echo -e "${CYAN}💻 Applying Headless Laptop 0-Watt DPMS, Inactivity Sleep & Lid Management...${NC}"
+    echo -e "${CYAN}💻 Applying Headless 0-Watt DPMS, Inactivity Sleep & Lid Management...${NC}"
     if [ -f "$REPO_ROOT/configs/scripts/tinarchy-display-sleep" ]; then
         install -m 755 "$REPO_ROOT/configs/scripts/tinarchy-display-sleep" /usr/local/bin/tinarchy-display-sleep
         ln -sfn /usr/local/bin/tinarchy-display-sleep /usr/local/bin/screen-off
@@ -607,7 +837,6 @@ if [ "$INSTALL_POWERDOWN" = "true" ]; then
         cp "$REPO_ROOT/configs/scripts/acpi-handler.sh" /etc/acpi/handler.sh
         chmod 755 /etc/acpi/handler.sh
     fi
-    # Backlight udev rule for user permissions
     cat << 'UDEV_EOF' > /etc/udev/rules.d/90-backlight-power.rules
 ACTION=="add|change", SUBSYSTEM=="backlight", RUN+="/bin/chmod a+w /sys/class/backlight/%k/bl_power /sys/class/backlight/%k/brightness"
 UDEV_EOF
@@ -625,39 +854,53 @@ UDEV_EOF
     fi
 fi
 
-# ─── PHASE 4: Reload and Enable Systemd Services ──────────────────────────────
+# ─── PHASE 5: Reload and Manage Systemd Services ──────────────────────────────
 echo ""
-echo -e "${CYAN}⚡ Reloading systemd daemon and starting services...${NC}"
+echo -e "${CYAN}⚡ Managing systemd services...${NC}"
 systemctl daemon-reload
 
-start_and_enable() {
+manage_service() {
     local svc="$1"
     local name="$2"
-    if systemctl list-unit-files "$svc" >/dev/null 2>&1 || [ -f "/etc/systemd/system/$svc" ]; then
-        echo -ne "  Starting ${BOLD}${name}${NC} (${svc})... "
-        systemctl enable --now "$svc" 2>/dev/null || true
+    local enabled="$3"
+
+    if [ "$enabled" = "true" ]; then
+        if systemctl list-unit-files "$svc" >/dev/null 2>&1 || [ -f "/etc/systemd/system/$svc" ] || [ -f "/usr/lib/systemd/system/$svc" ]; then
+            echo -ne "  Starting ${BOLD}${name}${NC} (${svc})... "
+            systemctl enable --now "$svc" 2>/dev/null || true
+            if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                echo -e "${GREEN}active (running)${NC}"
+            else
+                echo -e "${YELLOW}enabled (queued/inactive)${NC}"
+            fi
+        fi
+    else
+        # If disabled by user, stop if currently running
         if systemctl is-active --quiet "$svc" 2>/dev/null; then
-            echo -e "${GREEN}active (running)${NC}"
-        else
-            echo -e "${YELLOW}enabled (queued/inactive)${NC}"
+            echo -ne "  Stopping unselected ${DIM}${name}${NC} (${svc})... "
+            systemctl stop "$svc" 2>/dev/null || true
+            systemctl disable "$svc" 2>/dev/null || true
+            echo -e "${DIM}stopped${NC}"
         fi
     fi
 }
 
-[ "$INSTALL_TAILSCALE" = "true" ]    && start_and_enable "tailscaled.service" "Tailscale"
-[ "$INSTALL_TOR" = "true" ]          && start_and_enable "tor.service" "Tor Proxy"
-[ "$INSTALL_NGINX" = "true" ]        && start_and_enable "nginx.service" "Nginx Reverse Proxy"
-[ "$INSTALL_SYNCTHING" = "true" ]    && start_and_enable "syncthing@$TARGET_USER.service" "Syncthing Sync"
-[ "$INSTALL_SUWAYOMI" = "true" ]     && start_and_enable "suwayomi-server.service" "Suwayomi Manga"
-[ "$INSTALL_JELLYFIN" = "true" ]     && start_and_enable "jellyfin.service" "Jellyfin Media"
-[ "$INSTALL_SYNCYOMI" = "true" ]     && start_and_enable "syncyomi.service" "SyncYomi Manga Sync"
-[ "$INSTALL_DRIVE_ENGINE" = "true" ] && start_and_enable "pinedash-drive-sync.service" "Drive Sync Boot"
-[ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "acpid.service" "ACPI Event Daemon"
-[ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "tinarchy-display-sleep.service" "Display Inactivity Sleep"
-[ "$INSTALL_POWERDOWN" = "true" ]    && start_and_enable "console-screen-blank.service" "Console Screen Blank"
-[ "$INSTALL_TINARCHY" = "true" ]     && start_and_enable "tinarchy.service" "Tinarchy Dashboard"
+manage_service "tailscaled.service" "Tailscale" "$INSTALL_TAILSCALE"
+manage_service "tor.service" "Tor Proxy" "$INSTALL_TOR"
+manage_service "nginx.service" "Nginx Reverse Proxy" "$INSTALL_NGINX"
+manage_service "syncthing@$TARGET_USER.service" "Syncthing Sync" "$INSTALL_SYNCTHING"
+manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
+manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
+manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
+manage_service "filebrowser-quantum.service" "FileBrowser Quantum" "$INSTALL_FILEBROWSER"
+manage_service "couchdb.service" "Obsidian LiveSync CouchDB" "$INSTALL_COUCHDB"
+manage_service "pinedash-drive-sync.service" "Drive Sync Boot" "$INSTALL_DRIVE_ENGINE"
+manage_service "acpid.service" "ACPI Event Daemon" "$INSTALL_POWERDOWN"
+manage_service "tinarchy-display-sleep.service" "Display Inactivity Sleep" "$INSTALL_POWERDOWN"
+manage_service "console-screen-blank.service" "Console Screen Blank" "$INSTALL_POWERDOWN"
+manage_service "tinarchy.service" "${CFG_PROJECT_NAME} Dashboard" "$INSTALL_TINARCHY"
 
-# ─── PHASE 5: Creator Credits & Completion Banner ─────────────────────────────
+# ─── PHASE 6: Creator Credits & Acknowledgements ──────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}"
 cat << 'EOF'
@@ -674,6 +917,8 @@ echo -e "  📖 ${BOLD}SyncYomi${NC}               : ${GREEN}The SyncYomi Projec
 echo -e "  🍿 ${BOLD}Jellyfin${NC}               : ${GREEN}The Jellyfin Project & Community${NC} (https://jellyfin.org)"
 echo -e "  🧅 ${BOLD}Tor Project${NC}            : ${GREEN}Roger Dingledine, Nick Mathewson & Tor Project${NC} (https://torproject.org)"
 echo -e "  🔑 ${BOLD}Tailscale${NC}              : ${GREEN}Avery Pennarun, Brad Fitzpatrick & Tailscale Inc.${NC} (https://tailscale.com)"
+echo -e "  📂 ${BOLD}FileBrowser${NC}            : ${GREEN}FileBrowser Authors & Community${NC} (https://filebrowser.org)"
+echo -e "  🔮 ${BOLD}CouchDB / LiveSync${NC}     : ${GREEN}Apache Software Foundation & vran-dev${NC}"
 echo -e "  ⚡ ${BOLD}tmux${NC}                   : ${GREEN}Nicholas Marriott & Contributors${NC} (https://github.com/tmux)"
 echo -e "  🐚 ${BOLD}Zsh${NC}                    : ${GREEN}Paul Falstad & Zsh Development Group${NC} (https://zsh.org)"
 echo -e "  ☁️  ${BOLD}Rclone${NC}                 : ${GREEN}Nick Craig-Wood & Contributors${NC} (https://rclone.org)"
@@ -681,19 +926,65 @@ echo -e "${CYAN} ═════════════════════
 echo ""
 echo -e "${GREEN}${BOLD}🎉 Installation and configuration finished successfully!${NC}"
 echo ""
-echo -e "  ${BOLD}Access your server dashboard:${NC}"
-if [ -n "$CFG_TAILSCALE_DOMAIN" ]; then
-    echo -e "  • Tailscale HTTPS : ${CYAN}https://${CFG_TAILSCALE_DOMAIN}/${NC} (or http://127.0.0.1:8085)"
+
+# ─── PHASE 7: Immediate Dashboard Launch ──────────────────────────────────────
+# Determine best accessible Dashboard URL
+DASHBOARD_URL="http://127.0.0.1:${CFG_PORT:-8085}/"
+if [ "$INSTALL_NGINX" = "true" ]; then
+    if [ -n "$CFG_TAILSCALE_DOMAIN" ]; then
+        DASHBOARD_URL="https://${CFG_TAILSCALE_DOMAIN}/"
+    else
+        TS_IP="$(tailscale ip -4 2>/dev/null || true)"
+        if [ -n "$TS_IP" ]; then
+            DASHBOARD_URL="http://${TS_IP}:8080/"
+        else
+            DASHBOARD_URL="http://127.0.0.1:8080/"
+        fi
+    fi
 else
-    echo -e "  • Dashboard HTTP  : ${CYAN}http://127.0.0.1:8085/${NC}"
+    TS_IP="$(tailscale ip -4 2>/dev/null || true)"
+    if [ -n "$TS_IP" ]; then
+        DASHBOARD_URL="http://${TS_IP}:${CFG_PORT:-8085}/"
+    fi
 fi
-echo -e "  • Syncthing GUI   : ${CYAN}/syncthing/${NC} (Port 8384)"
-echo -e "  • Syncthing Guide : ${CYAN}/syncthing${NC}"
-echo -e "  • Suwayomi Manga  : ${CYAN}/manga/${NC} (Port 4567)"
-if [ "$INSTALL_SYNCYOMI" = "true" ]; then
-echo -e "  • SyncYomi Web UI : ${CYAN}http://127.0.0.1:8282${NC}"
+
+echo -e "  ${BOLD}Active Endpoints:${NC}"
+echo -e "  • Dashboard Web UI : ${CYAN}${BOLD}${DASHBOARD_URL}${NC} (Port ${CFG_PORT:-8085})"
+[ "$INSTALL_SYNCTHING" = "true" ]   && echo -e "  • Syncthing GUI    : ${CYAN}/syncthing/${NC} (Port 8384)"
+[ "$INSTALL_SUWAYOMI" = "true" ]    && echo -e "  • Suwayomi Manga   : ${CYAN}/manga/${NC} (Port 4567)"
+[ "$INSTALL_SYNCYOMI" = "true" ]    && echo -e "  • SyncYomi Web UI  : ${CYAN}http://127.0.0.1:8282${NC}"
+[ "$INSTALL_JELLYFIN" = "true" ]    && echo -e "  • Jellyfin Media   : ${CYAN}:8096${NC}"
+[ "$INSTALL_FILEBROWSER" = "true" ] && echo -e "  • FileBrowser      : ${CYAN}/files/${NC} (Port 8081/8082)"
+[ "$INSTALL_COUCHDB" = "true" ]     && echo -e "  • CouchDB Fauxton  : ${CYAN}/couchdb/_utils/${NC} (Port 5984)"
+echo ""
+
+echo -e "${GREEN}${BOLD}🚀 Launching ${CFG_PROJECT_NAME} Dashboard immediately...${NC}"
+
+# Open browser if a graphical session is active
+LAUNCHED=false
+if [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    if command -v xdg-open >/dev/null 2>&1; then
+        sudo -u "$TARGET_USER" DISPLAY="${DISPLAY:-:0}" WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" xdg-open "$DASHBOARD_URL" >/dev/null 2>&1 &
+        LAUNCHED=true
+    elif command -v open >/dev/null 2>&1; then
+        open "$DASHBOARD_URL" >/dev/null 2>&1 &
+        LAUNCHED=true
+    fi
 fi
-if [ "$INSTALL_JELLYFIN" = "true" ]; then
-echo -e "  • Jellyfin Media  : ${CYAN}:8096${NC}"
+
+# Fallback check: query loginctl or who for active graphical seat
+if [ "$LAUNCHED" = "false" ]; then
+    ACTIVE_SEAT_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $3}' | grep -v 'root' | head -n1 || echo "$TARGET_USER")
+    if [ -n "$ACTIVE_SEAT_USER" ] && command -v xdg-open >/dev/null 2>&1; then
+        sudo -u "$ACTIVE_SEAT_USER" DISPLAY=:0 xdg-open "$DASHBOARD_URL" >/dev/null 2>&1 &
+        LAUNCHED=true
+    fi
+fi
+
+if [ "$LAUNCHED" = "true" ]; then
+    echo -e "  ${GREEN}✔ Dashboard opened in your browser at: ${CYAN}${BOLD}${DASHBOARD_URL}${NC}"
+else
+    echo -e "  ${DIM}💡 Running in headless terminal session. Open dashboard at:${NC}"
+    echo -e "     👉 ${CYAN}${BOLD}${DASHBOARD_URL}${NC}"
 fi
 echo ""
