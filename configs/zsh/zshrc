@@ -2,9 +2,6 @@
 # Pinedash Server Zsh Configuration
 # ==============================================================================
 
-# Omarchy environment (OMARCHY_PATH + PATH)
-[[ -r /usr/share/omarchy/default/bash/env-bootstrap ]] && source /usr/share/omarchy/default/bash/env-bootstrap
-
 # Path to Oh My Zsh installation
 export ZSH="$HOME/.oh-my-zsh"
 
@@ -13,6 +10,11 @@ ZSH_THEME="ubunly"
 
 # Ensure user local binaries take precedence
 export PATH="$HOME/.local/bin:$PATH"
+
+# Fallback to xterm-256color if client terminal is missing in terminfo
+if [[ -n "$TERM" ]] && ! infocmp "$TERM" >/dev/null 2>&1; then
+    export TERM="xterm-256color"
+fi
 
 # ─── Plugins Configuration ───────────────────────────────────────────────────
 # Lightweight plugins for fast, responsive terminal startup

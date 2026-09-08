@@ -1,0 +1,5 @@
+# Configuration file for cpupower
+# Tuned for cool, energy-efficient 24/7 server operation
+governor="schedutil"
+min_freq="1200MHz"
+max_freq="2500MHz"

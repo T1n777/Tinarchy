@@ -1,0 +1,12 @@
+[Unit]
+Description=Set Intel Energy-Performance Bias (EPB)
+After=cpupower.service
+Wants=cpupower.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cpupower set -b 6
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
