@@ -940,6 +940,7 @@ manage_service "syncthing@$TARGET_USER.service" "Syncthing Sync" "$INSTALL_SYNCT
 manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
+manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
 manage_service "filebrowser-quantum.service" "FileBrowser Quantum" "$INSTALL_FILEBROWSER"
 manage_service "couchdb.service" "Obsidian LiveSync CouchDB" "$INSTALL_COUCHDB"
 manage_service "pinedash-drive-sync.service" "Drive Sync Boot" "$INSTALL_DRIVE_ENGINE"
