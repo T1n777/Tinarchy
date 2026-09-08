@@ -242,8 +242,12 @@ def get_suwayomi_demand() -> dict:
 def get_agy_demand() -> tuple[int | None, float]:
     """Find agy PID and measure CPU utilization from /proc/<pid>/stat."""
     try:
-        res = subprocess.run(["pgrep", "-f", "agy "], capture_output=True, text=True, timeout=2)
+        res = subprocess.run(["pgrep", "-x", "agy"], capture_output=True, text=True, timeout=2)
         pids = [int(p) for p in res.stdout.splitlines() if p.strip()]
+        if not pids:
+            # Fallback to path match
+            res = subprocess.run(["pgrep", "-f", "/agy$"], capture_output=True, text=True, timeout=2)
+            pids = [int(p) for p in res.stdout.splitlines() if p.strip()]
         if not pids:
             return None, 0.0
         pid = pids[0]
