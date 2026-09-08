@@ -457,6 +457,118 @@
             pointer-events: none;
         }
 
+        /* ─── Daily System Report Styles ─── */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .report-card {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            transition: border-color 0.2s;
+        }
+        .report-card:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+        .report-card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.92rem;
+            color: var(--text);
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .report-badge {
+            margin-left: auto;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(105, 180, 195, 0.15);
+            color: var(--primary);
+            border: 1px solid var(--primary-glow);
+            letter-spacing: 0.5px;
+        }
+        .report-metric-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.82rem;
+            gap: 8px;
+        }
+        .report-metric-label {
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .report-metric-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--text);
+            text-align: right;
+            word-break: break-word;
+        }
+        .service-matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+            margin-bottom: 20px;
+        }
+        .service-pill {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        .service-pill:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .service-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .service-dot.active {
+            background: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+        .service-dot.inactive {
+            background: var(--offline);
+            box-shadow: 0 0 8px var(--offline);
+        }
+        .markdown-preview-box {
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.55;
+            max-height: 380px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: var(--text);
+            user-select: text;
+        }
+
     </style>
 </head>
 <body>
@@ -483,6 +595,9 @@
                 </button>
                 <button class="tab-btn" onclick="switchTab('appearance', this)">
                     <span>🎨</span> Appearance
+                </button>
+                <button class="tab-btn" id="tab-btn-reports" onclick="switchTab('reports', this)">
+                    <span>📊</span> Reports
                 </button>
             </aside>
 
@@ -593,6 +708,202 @@
                         <div style="color: var(--text-muted); font-size: 0.85rem;">Loading wallpapers…</div>
                     </div>
                 </div>
+
+                <!-- 📊 Daily System Report Tab -->
+                <div id="tab-reports" class="tab-pane">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                        <div>
+                            <div class="section-header" style="margin-bottom: 4px;">Daily System Report</div>
+                            <p class="section-sub" style="margin-bottom: 0;">Autonomous Telemetry, PID Thermal Budget & Infrastructure Health</p>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button class="btn" id="report-refresh-btn" onclick="fetchDailyReport(true)" title="Force fresh telemetry generation">
+                                <span id="report-refresh-icon" style="display: inline-block;">🔄</span> Refresh
+                            </button>
+                            <button class="btn" onclick="copyDailyReport()" title="Copy Markdown Report to clipboard">
+                                📋 Copy Markdown
+                            </button>
+                            <button class="btn" onclick="downloadDailyReport()" title="Download report as .md file">
+                                💾 Download .md
+                            </button>
+                            <label style="display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); cursor: pointer; user-select: none; margin-left: 4px;">
+                                <input type="checkbox" id="report-autorefresh-toggle" onchange="toggleReportAutoRefresh(this.checked)">
+                                <span>Auto (10s)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Live Timestamp & Node Banner -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 10px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 0.82rem; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 700; color: var(--primary);">🍍 Node:</span>
+                            <span id="rep-hostname" style="font-weight: 600;">pineapple-station</span>
+                            <span style="color: rgba(255,255,255,0.2);">|</span>
+                            <span style="color: var(--text-muted);" id="rep-kernel">Linux LTS (x86_64)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="color: var(--text-muted);">Uptime: <strong id="rep-uptime" style="color: var(--text);">--</strong></span>
+                            <span style="color: rgba(255,255,255,0.2);">|</span>
+                            <span style="color: var(--text-muted);">Report Time: <strong id="rep-timestamp" style="color: var(--text);">--</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Cards Grid -->
+                    <div class="reports-grid">
+                        <!-- Card 1: Thermal & PID Governor -->
+                        <div class="report-card">
+                            <div class="report-card-title">
+                                <span style="font-size: 1.1rem;">🌡️</span>
+                                <strong>Thermal & PID Governor</strong>
+                                <span class="report-badge" id="rep-gov-tier-badge">TIER 0</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Package Temp:</span>
+                                <span class="report-metric-val" id="rep-cpu-temp" style="color: var(--primary); font-size: 0.95rem;">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Target Thermal Budget:</span>
+                                <span class="report-metric-val" id="rep-target-temp">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Intel Turbo Boost:</span>
+                                <span class="report-metric-val" id="rep-turbo">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Dynamic Clock Ceiling:</span>
+                                <span class="report-metric-val" id="rep-max-freq">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Suwayomi CPU Quota:</span>
+                                <span class="report-metric-val" id="rep-suwa-quota">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Inactivity Elapsed:</span>
+                                <span class="report-metric-val" id="rep-inactivity">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 2: Processor & Host Load -->
+                        <div class="report-card">
+                            <div class="report-card-title">
+                                <span style="font-size: 1.1rem;">⚡</span>
+                                <strong>Host Load & Tasks</strong>
+                                <span class="report-badge" id="rep-load-badge">Active</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Load Average (1/5/15m):</span>
+                                <span class="report-metric-val" id="rep-loadavg">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">CPU Utilization:</span>
+                                <span class="report-metric-val" id="rep-cpu-percent">--</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.08); height: 6px; border-radius: 4px; overflow: hidden; margin: 4px 0;">
+                                <div id="rep-cpu-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Runnable Threads:</span>
+                                <span class="report-metric-val" id="rep-runnable">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">agy Daemon Engine:</span>
+                                <span class="report-metric-val" id="rep-agy-status">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">RAM-Disk Transcodes:</span>
+                                <span class="report-metric-val" id="rep-ramdisk" style="color: var(--online);">Active</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 3: Memory & Storage -->
+                        <div class="report-card">
+                            <div class="report-card-title">
+                                <span style="font-size: 1.1rem;">💾</span>
+                                <strong>Memory & Storage Cushion</strong>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Physical RAM:</span>
+                                <span class="report-metric-val" id="rep-ram-val">--</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.08); height: 6px; border-radius: 4px; overflow: hidden; margin: 4px 0;">
+                                <div id="rep-ram-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">LZ4 ZRAM Cushion:</span>
+                                <span class="report-metric-val" id="rep-zram-val">3.8 GB (Priority 100)</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Primary SSD:</span>
+                                <span class="report-metric-val" id="rep-disk-val">--</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.08); height: 6px; border-radius: 4px; overflow: hidden; margin: 4px 0;">
+                                <div id="rep-disk-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Sequential Read-Ahead:</span>
+                                <span class="report-metric-val" id="rep-readahead">2048 KB</span>
+                            </div>
+                        </div>
+
+                        <!-- Card 4: Network & PESU Portal -->
+                        <div class="report-card">
+                            <div class="report-card-title">
+                                <span style="font-size: 1.1rem;">🌐</span>
+                                <strong>Network & PESU Portal</strong>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Multicore RPS/RFS:</span>
+                                <span class="report-metric-val" id="rep-rps">Mask f (4 Cores)</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Congestion Control:</span>
+                                <span class="report-metric-val" id="rep-cc">BBR</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Tailscale Node IP:</span>
+                                <span class="report-metric-val" id="rep-tailscale-ip">--</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">PESU Wi-Fi Account:</span>
+                                <span class="report-metric-val" id="rep-pesu-account">deltatime-4</span>
+                            </div>
+                            <div class="report-metric-row" style="align-items: flex-start;">
+                                <span class="report-metric-label">Watchdog Status:</span>
+                                <span class="report-metric-val" id="rep-pesu-status" style="font-size: 0.75rem; text-align: right; max-width: 170px; word-break: break-word;">Active</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <!-- Core Services Health Matrix -->
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Core System Services Matrix</span>
+                        <span id="rep-services-summary" style="font-size: 0.78rem; font-weight: 600; color: var(--online);">10/10 Active</span>
+                    </div>
+                    <p class="section-sub">Autonomous daemons, streaming engines, mesh networking, and proxies running under systemd.</p>
+                    <div id="rep-services-grid" class="service-matrix-grid">
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">Loading services status…</div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <!-- Pre-formatted Markdown Summary -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="section-header" style="margin-bottom: 0;">Markdown Export Preview</div>
+                        <button class="btn" style="font-size: 0.75rem; padding: 4px 10px;" onclick="copyDailyReport()">📋 Copy Text</button>
+                    </div>
+                    <p class="section-sub">Standard GitHub-flavored markdown export generated directly by the server API.</p>
+                    <pre id="rep-markdown-preview" class="markdown-preview-box">Loading report preview…</pre>
+
+                    <!-- Collapsible Raw Governor Diagnostics -->
+                    <details style="margin-top: 18px; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 10px; padding: 12px 16px;">
+                        <summary style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); cursor: pointer; outline: none; user-select: none;">
+                            🔍 View Raw Governor Diagnostic State
+                        </summary>
+                        <pre id="rep-raw-governor" style="margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.4; color: var(--text); background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre;">--</pre>
+                    </details>
+                </div>
             </main>
         </div>
     </div>
@@ -612,7 +923,206 @@
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + name).classList.add('active');
-            btn.classList.add('active');
+            if (btn) btn.classList.add('active');
+            if (name === 'reports') {
+                if (!currentDailyReportData) {
+                    fetchDailyReport(false);
+                }
+            }
+        }
+
+        // ─── Daily System Report Logic ───
+        let currentDailyReportData = null;
+        let reportAutoRefreshTimer = null;
+
+        async function fetchDailyReport(force = false) {
+            const refreshBtn = document.getElementById('report-refresh-btn');
+            const refreshIcon = document.getElementById('report-refresh-icon');
+            if (refreshIcon) refreshIcon.style.animation = 'spin 0.8s linear infinite';
+            
+            try {
+                const url = force ? '/api/reports/daily?force=true' : '/api/reports/daily';
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                currentDailyReportData = data;
+                renderDailyReport(data);
+                if (force) showToast("Daily report refreshed", "success");
+            } catch(err) {
+                console.error("Failed to load daily report:", err);
+                showToast("Error loading daily report: " + err.message, "error");
+            } finally {
+                if (refreshIcon) refreshIcon.style.animation = '';
+            }
+        }
+
+        function renderDailyReport(rep) {
+            if (!rep) return;
+            
+            // Top banner
+            const elHost = document.getElementById('rep-hostname');
+            if (elHost) elHost.innerText = rep.hostname || 'pineapple-station';
+            const elKernel = document.getElementById('rep-kernel');
+            if (elKernel) elKernel.innerText = `Linux ${rep.kernel || ''} (${rep.arch || 'x86_64'})`;
+            const elUptime = document.getElementById('rep-uptime');
+            if (elUptime) elUptime.innerText = rep.uptime || '--';
+            const elTs = document.getElementById('rep-timestamp');
+            if (elTs) elTs.innerText = rep.timestamp || '--';
+
+            // Thermal & Governor
+            const elCpuTemp = document.getElementById('rep-cpu-temp');
+            if (elCpuTemp) {
+                elCpuTemp.innerText = rep.cpu_temp || '--';
+                const tVal = rep.cpu_temp_val || parseInt(rep.cpu_temp, 10) || 50;
+                if (tVal >= 80) elCpuTemp.style.color = 'var(--offline)';
+                else if (tVal >= 72) elCpuTemp.style.color = '#e5c07b';
+                else elCpuTemp.style.color = 'var(--online)';
+            }
+            const elGovTier = document.getElementById('rep-gov-tier-badge');
+            if (elGovTier && rep.governor) {
+                const tier = rep.governor.tier || 'ACTIVE';
+                elGovTier.innerText = tier.split(':')[0].trim();
+                if (tier.includes('TIER 3') || tier.includes('UNRESTRICTED')) {
+                    elGovTier.style.background = 'rgba(90, 247, 142, 0.2)';
+                    elGovTier.style.color = 'var(--online)';
+                } else {
+                    elGovTier.style.background = 'rgba(105, 180, 195, 0.15)';
+                    elGovTier.style.color = 'var(--primary)';
+                }
+            }
+            const elTargetTemp = document.getElementById('rep-target-temp');
+            if (elTargetTemp) elTargetTemp.innerText = rep.governor?.target_temp || '--';
+            const elTurbo = document.getElementById('rep-turbo');
+            if (elTurbo) elTurbo.innerText = rep.governor?.turbo || '--';
+            const elMaxFreq = document.getElementById('rep-max-freq');
+            if (elMaxFreq) elMaxFreq.innerText = rep.governor?.max_freq || '--';
+            const elSuwaQuota = document.getElementById('rep-suwa-quota');
+            if (elSuwaQuota) elSuwaQuota.innerText = rep.governor?.suwayomi_quota || '--';
+            const elInactivity = document.getElementById('rep-inactivity');
+            if (elInactivity) elInactivity.innerText = rep.governor?.inactivity || '--';
+
+            // Load & Tasks
+            const elLoad = document.getElementById('rep-loadavg');
+            if (elLoad && rep.loadavg) elLoad.innerText = rep.loadavg.join(', ');
+            const elCpuPct = document.getElementById('rep-cpu-percent');
+            if (elCpuPct) elCpuPct.innerText = (rep.cpu_percent || 0) + '%';
+            const elCpuBar = document.getElementById('rep-cpu-bar');
+            if (elCpuBar) elCpuBar.style.width = Math.min(100, Math.max(0, rep.cpu_percent || 0)) + '%';
+            const elRunnable = document.getElementById('rep-runnable');
+            if (elRunnable) elRunnable.innerText = rep.runnable || '--';
+            const elAgy = document.getElementById('rep-agy-status');
+            if (elAgy) elAgy.innerText = rep.governor?.agy_status || 'Registered';
+            const elRamdisk = document.getElementById('rep-ramdisk');
+            if (elRamdisk) {
+                elRamdisk.innerText = rep.ramdisk_transcodes?.active ? 'Active' : 'Standby';
+                elRamdisk.style.color = rep.ramdisk_transcodes?.active ? 'var(--online)' : 'var(--text-muted)';
+            }
+
+            // RAM & Storage
+            const elRamVal = document.getElementById('rep-ram-val');
+            if (elRamVal && rep.ram) elRamVal.innerText = `${rep.ram.used} / ${rep.ram.total} (${rep.ram.percent}%)`;
+            const elRamBar = document.getElementById('rep-ram-bar');
+            if (elRamBar && rep.ram) elRamBar.style.width = Math.min(100, Math.max(0, rep.ram.percent || 0)) + '%';
+            const elZram = document.getElementById('rep-zram-val');
+            if (elZram && rep.zram) elZram.innerText = `${rep.zram.size} (${rep.zram.compression}, Pri ${rep.zram.priority})`;
+            const elDiskVal = document.getElementById('rep-disk-val');
+            if (elDiskVal && rep.disk) elDiskVal.innerText = `${rep.disk.used} / ${rep.disk.total} (${rep.disk.percent}%)`;
+            const elDiskBar = document.getElementById('rep-disk-bar');
+            if (elDiskBar && rep.disk) elDiskBar.style.width = Math.min(100, Math.max(0, rep.disk.percent || 0)) + '%';
+            const elReadAhead = document.getElementById('rep-readahead');
+            if (elReadAhead) elReadAhead.innerText = `${rep.read_ahead_kb || '2048'} KB`;
+
+            // Network
+            const elRps = document.getElementById('rep-rps');
+            if (elRps && rep.network) elRps.innerText = rep.network.rps_mask || 'f (4 Cores)';
+            const elCc = document.getElementById('rep-cc');
+            if (elCc && rep.network) elCc.innerText = rep.network.congestion_control || 'BBR';
+            const elTsIp = document.getElementById('rep-tailscale-ip');
+            if (elTsIp && rep.network) elTsIp.innerText = rep.network.tailscale_ip || '--';
+            const elPesuAcc = document.getElementById('rep-pesu-account');
+            if (elPesuAcc && rep.pesu_wifi) elPesuAcc.innerText = `${rep.pesu_wifi.ssid} (${rep.pesu_wifi.account})`;
+            const elPesuSt = document.getElementById('rep-pesu-status');
+            if (elPesuSt && rep.pesu_wifi) elPesuSt.innerText = rep.pesu_wifi.status || 'Active';
+
+            // Services matrix
+            const servWrap = document.getElementById('rep-services-grid');
+            if (servWrap && rep.services) {
+                let activeCount = 0;
+                let sHtml = '';
+                rep.services.forEach(s => {
+                    const isActive = s.status === 'active';
+                    if (isActive) activeCount++;
+                    sHtml += `
+                        <div class="service-pill" title="${s.unit}: ${s.status}">
+                            <span class="service-dot ${isActive ? 'active' : 'inactive'}"></span>
+                            <div style="min-width: 0; flex: 1;">
+                                <div style="font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.unit}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                servWrap.innerHTML = sHtml;
+                const sumEl = document.getElementById('rep-services-summary');
+                if (sumEl) {
+                    sumEl.innerText = `${activeCount}/${rep.services.length} Active`;
+                    sumEl.style.color = (activeCount === rep.services.length) ? 'var(--online)' : '#e5c07b';
+                }
+            }
+
+            // Markdown preview
+            const elMd = document.getElementById('rep-markdown-preview');
+            if (elMd) elMd.innerText = rep.markdown_report || 'No report markdown available.';
+
+            // Raw Governor Diagnostics
+            const elRawGov = document.getElementById('rep-raw-governor');
+            if (elRawGov) elRawGov.innerText = rep.governor_raw || 'No governor raw telemetry available.';
+        }
+
+        function copyDailyReport() {
+            if (!currentDailyReportData || !currentDailyReportData.markdown_report) {
+                showToast("No report data available to copy", "error");
+                return;
+            }
+            navigator.clipboard.writeText(currentDailyReportData.markdown_report)
+                .then(() => showToast("Daily Report copied to clipboard as Markdown!", "success"))
+                .catch(err => showToast("Failed to copy report: " + err, "error"));
+        }
+
+        function downloadDailyReport() {
+            if (!currentDailyReportData || !currentDailyReportData.markdown_report) {
+                showToast("No report data available to download", "error");
+                return;
+            }
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const blob = new Blob([currentDailyReportData.markdown_report], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pineapple-station-report-${dateStr}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Downloaded report markdown file", "success");
+        }
+
+        function toggleReportAutoRefresh(enabled) {
+            if (reportAutoRefreshTimer) {
+                clearInterval(reportAutoRefreshTimer);
+                reportAutoRefreshTimer = null;
+            }
+            if (enabled) {
+                reportAutoRefreshTimer = setInterval(() => {
+                    const pane = document.getElementById('tab-reports');
+                    if (pane && pane.classList.contains('active')) {
+                        fetchDailyReport(false);
+                    }
+                }, 10000);
+                showToast("Auto-refresh enabled (10s)", "success");
+            } else {
+                showToast("Auto-refresh paused", "default");
+            }
         }
 
         function selectTheme(themeName, el) {
@@ -1210,6 +1720,12 @@
             saveTranslucency(savedTrans);
 
             renderPywalSwatches();
+
+            // Direct URL hash navigation (e.g. settings#reports)
+            if (window.location.hash === '#reports') {
+                const repBtn = document.getElementById('tab-btn-reports');
+                if (repBtn) switchTab('reports', repBtn);
+            }
         })();
     </script>
 </body>
