@@ -872,6 +872,38 @@
                                 <span class="report-metric-val" id="rep-pesu-status" style="font-size: 0.75rem; text-align: right; max-width: 170px; word-break: break-word;">Active</span>
                             </div>
                         </div>
+
+                        <!-- Card 5: Autonomous UPS & Battery Guard -->
+                        <div class="report-card">
+                            <div class="report-card-title">
+                                <span style="font-size: 1.1rem;">🔋</span>
+                                <strong>Autonomous UPS & Battery</strong>
+                                <span class="report-badge" id="rep-battery-badge">AC Mains</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Power Source:</span>
+                                <span class="report-metric-val" id="rep-power-source" style="color: var(--online);">Mains AC (Online)</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Battery Level:</span>
+                                <span class="report-metric-val" id="rep-battery-cap">100% (Full)</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.08); height: 6px; border-radius: 4px; overflow: hidden; margin: 4px 0;">
+                                <div id="rep-battery-bar" style="width: 100%; height: 100%; background: var(--online); transition: width 0.3s ease;"></div>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Battery Pack Health:</span>
+                                <span class="report-metric-val" id="rep-battery-health">73.6% (3239 / 4400 mAh)</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Cell Chemistry:</span>
+                                <span class="report-metric-val" id="rep-battery-chem" style="font-size: 0.76rem;">SONY 18650 Cans</span>
+                            </div>
+                            <div class="report-metric-row">
+                                <span class="report-metric-label">Brownout Safe Cutoff:</span>
+                                <span class="report-metric-val">15% Auto-Poweroff</span>
+                            </div>
+                        </div>
                     </div>
 
                     <hr class="divider">
@@ -1043,6 +1075,34 @@
             if (elPesuAcc && rep.pesu_wifi) elPesuAcc.innerText = `${rep.pesu_wifi.ssid} (${rep.pesu_wifi.account})`;
             const elPesuSt = document.getElementById('rep-pesu-status');
             if (elPesuSt && rep.pesu_wifi) elPesuSt.innerText = rep.pesu_wifi.status || 'Active';
+
+            // Battery & UPS
+            if (rep.battery) {
+                const elPwrSrc = document.getElementById('rep-power-source');
+                if (elPwrSrc) {
+                    elPwrSrc.innerText = rep.battery.source || 'Mains AC';
+                    elPwrSrc.style.color = rep.battery.ac_online ? 'var(--online)' : '#e5c07b';
+                }
+                const elBatBadge = document.getElementById('rep-battery-badge');
+                if (elBatBadge) {
+                    elBatBadge.innerText = rep.battery.ac_online ? 'AC Mains' : 'UPS Active';
+                    elBatBadge.style.background = rep.battery.ac_online ? 'rgba(90, 247, 142, 0.15)' : 'rgba(229, 192, 123, 0.2)';
+                    elBatBadge.style.color = rep.battery.ac_online ? 'var(--online)' : '#e5c07b';
+                }
+                const elBatCap = document.getElementById('rep-battery-cap');
+                if (elBatCap) elBatCap.innerText = `${rep.battery.capacity}% (${rep.battery.status})`;
+                const elBatBar = document.getElementById('rep-battery-bar');
+                if (elBatBar) {
+                    elBatBar.style.width = Math.min(100, Math.max(0, rep.battery.capacity || 0)) + '%';
+                    if ((rep.battery.capacity || 100) <= 20) elBatBar.style.background = 'var(--offline)';
+                    else if ((rep.battery.capacity || 100) <= 50) elBatBar.style.background = '#e5c07b';
+                    else elBatBar.style.background = 'var(--online)';
+                }
+                const elBatHealth = document.getElementById('rep-battery-health');
+                if (elBatHealth) elBatHealth.innerText = `${rep.battery.health_pct}% (${rep.battery.charge_mah})`;
+                const elBatChem = document.getElementById('rep-battery-chem');
+                if (elBatChem) elBatChem.innerText = `${rep.battery.chemistry} @ ${rep.battery.voltage_v}`;
+            }
 
             // Services matrix
             const servWrap = document.getElementById('rep-services-grid');

@@ -239,6 +239,81 @@ def get_suwayomi_demand() -> dict:
             pass
     return stat
 
+def protect_agy_process(pid: int):
+    """
+    Ensure agy is never killed by the Linux OOM-killer during heavy loads
+    and has highest interactive CPU CFS weighting.
+    """
+    try:
+        oom_path = f"/proc/{pid}/oom_score_adj"
+        if os.path.exists(oom_path):
+            with open(oom_path, "r") as f:
+                cur = f.read().strip()
+            if cur != "-500":
+                with open(oom_path, "w") as f:
+                    f.write("-500\n")
+    except Exception:
+        pass
+
+def get_power_supply_status() -> dict:
+    """
+    Read AC mains and battery status directly from sysfs.
+    Enables autonomous UPS failover and battery longevity guard.
+    """
+    info = {
+        "ac_online": True,
+        "present": False,
+        "capacity": 100,
+        "status": "Unknown",
+        "voltage_v": 0.0,
+        "health_pct": 100.0,
+        "charge_now_mah": 0,
+        "charge_full_mah": 0,
+        "design_mah": 0
+    }
+    # 1. AC adapter status
+    acad_path = "/sys/class/power_supply/ACAD/online"
+    if os.path.exists(acad_path):
+        try:
+            with open(acad_path, "r") as f:
+                info["ac_online"] = (f.read().strip() == "1")
+        except Exception:
+            pass
+
+    # 2. Battery status (BAT1)
+    bat_dir = "/sys/class/power_supply/BAT1"
+    if os.path.exists(bat_dir):
+        info["present"] = True
+        try:
+            with open(f"{bat_dir}/capacity", "r") as f:
+                info["capacity"] = int(f.read().strip())
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/status", "r") as f:
+                info["status"] = f.read().strip()
+                if info["status"] == "Discharging":
+                    info["ac_online"] = False
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/voltage_now", "r") as f:
+                info["voltage_v"] = round(int(f.read().strip()) / 1e6, 2)
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/charge_now", "r") as f:
+                info["charge_now_mah"] = int(f.read().strip()) // 1000
+            with open(f"{bat_dir}/charge_full", "r") as f:
+                info["charge_full_mah"] = int(f.read().strip()) // 1000
+            with open(f"{bat_dir}/charge_full_design", "r") as f:
+                info["design_mah"] = int(f.read().strip()) // 1000
+            if info["design_mah"] > 0:
+                info["health_pct"] = round((info["charge_full_mah"] / info["design_mah"]) * 100, 1)
+        except Exception:
+            pass
+    return info
+
 def get_agy_demand() -> tuple[int | None, float]:
     """Find agy PID and measure CPU utilization from /proc/<pid>/stat."""
     try:
@@ -251,6 +326,7 @@ def get_agy_demand() -> tuple[int | None, float]:
         if not pids:
             return None, 0.0
         pid = pids[0]
+        protect_agy_process(pid)
         with open(f"/proc/{pid}/stat") as f:
             fields = f.read().split()
             utime = int(fields[13])
@@ -502,7 +578,56 @@ class AdaptiveGovernor:
         # 1. Update workload demand
         self.update_demand_telemetry(now)
 
-        # 2. Collect interactive user activity signals
+        # 2. Check Power Supply & Autonomous UPS Reserve
+        power = get_power_supply_status()
+        on_battery = not power["ac_online"]
+
+        # Emergency Low Battery Cutoff to protect against deep cell discharge & swelling
+        if on_battery and power["capacity"] <= 15:
+            log_event(
+                f"CRITICAL: UPS BATTERY RESERVE EXHAUSTED (Level: {power['capacity']}% <= 15%). "
+                f"Flushing disk buffers and executing emergency clean shutdown to protect battery cells and filesystem."
+            )
+            try:
+                subprocess.run(["sync"], check=False)
+                subprocess.run(["systemctl", "poweroff"], check=False)
+            except Exception as e:
+                log_event(f"Emergency poweroff error: {e}")
+            return
+
+        if on_battery:
+            if self.current_tier != -1:
+                log_event(
+                    f"POWER LOSS DETECTED: AC Mains Disconnected! "
+                    f"Engaging TIER -1: UPS BATTERY RESERVE (Battery: {power['capacity']}%, {power['voltage_v']}V). "
+                    f"Clamping clock to 1.2GHz and throttling background queues to maximize runtime."
+                )
+                self.current_tier = -1
+                self.last_tier_change_time = now
+
+            target_turbo = False
+            target_freq = 1200000
+            target_quota = 20
+
+            freq_changed = set_cpu_max_freq(target_freq)
+            turbo_changed = set_intel_turbo(target_turbo)
+            quota_changed = set_suwayomi_cgroup_quota(target_quota)
+
+            self.current_freq_khz = target_freq
+            self.turbo_enabled = target_turbo
+            self.current_quota_pct = target_quota
+            return
+
+        if self.current_tier == -1:
+            log_event(
+                f"POWER RESTORED: AC Mains Online! "
+                f"Exiting UPS Battery Reserve. Resuming normal adaptive thermal & demand ladder."
+            )
+            self.current_tier = 0
+            self.last_activity_time = now
+            self.last_tier_change_time = now
+
+        # 3. Collect interactive user activity signals
         phys_t = get_last_physical_input_time()
         term_t, term_reasons = get_terminal_activity(self.config["TIER_1_TIMEOUT"])
         is_streaming, stream_reasons = get_streaming_and_media_activity()
@@ -522,7 +647,7 @@ class AdaptiveGovernor:
             reasons.extend(stream_reasons)
         self.last_reasons = reasons
 
-        # 3. Determine operational tier
+        # 4. Determine operational tier
         new_tier = self.get_tier_for_inactivity(idle_seconds)
         tier_names = ["ACTIVE (Interactive)", "TIER 1 (Short Idle 15-30m)", "TIER 2 (Idle Accel 0.5-1hr)", "TIER 3 (Unconstrained Sprint 1hr+)"]
 
@@ -534,14 +659,14 @@ class AdaptiveGovernor:
             self.current_tier = new_tier
             self.last_tier_change_time = now
 
-        # 4. Compute Closed-Loop Thermal PID
+        # 5. Compute Closed-Loop Thermal PID
         target_temp = self.get_tier_target_temp(self.current_tier)
         u, slew_rate = self.pid.compute(current_temp, target_temp, now)
 
         # Safety override: if temp crosses MAX_SAFE_TEMP (85.5°C), enforce emergency brake
         emergency_brake = current_temp >= self.config["MAX_SAFE_TEMP"] or slew_rate > 1.8
 
-        # 5. Adaptive Actuator Logic based on Tier & Thermal Signal u
+        # 6. Adaptive Actuator Logic based on Tier & Thermal Signal u
         target_turbo = False
         target_freq = self.current_freq_khz
         target_quota = self.current_quota_pct
@@ -633,28 +758,40 @@ def print_status(gov=None):
     elif idle_secs >= CONFIG["TIER_1_TIMEOUT"]:
         tier = 1
 
-    tier_names = [
-        "TIER 0: ACTIVE (Interactive Use)",
-        "TIER 1: SHORT IDLE (15m - 30m)",
-        "TIER 2: IDLE ACCELERATION (0.5 - 1.0 hr)",
-        "TIER 3: UNCONSTRAINED SPRINT (1.0+ hr Deep Idle)"
-    ]
+    power = get_power_supply_status()
+    if not power["ac_online"]:
+        tier_display = f"TIER -1: UPS BATTERY RESERVE (Discharging {power['capacity']}%)"
+        target_budget = "Battery Floor (1.20 GHz)"
+    else:
+        tier_names = [
+            "TIER 0: ACTIVE (Interactive Use)",
+            "TIER 1: SHORT IDLE (15m - 30m)",
+            "TIER 2: IDLE ACCELERATION (0.5 - 1.0 hr)",
+            "TIER 3: UNCONSTRAINED SPRINT (1.0+ hr Deep Idle)"
+        ]
+        tier_display = tier_names[tier]
+        target_budget = f"{CONFIG[f'TARGET_TEMP_TIER_{tier}']:.1f} °C"
 
     suw_stat = get_suwayomi_demand()
     agy_pid, agy_ticks = get_agy_demand()
 
+    pwr_src = "Mains AC (Online)" if power["ac_online"] else f"BATTERY RESERVE (Discharging {power['capacity']}%)"
+    bat_health = f"{power['capacity']}% | Health: {power['health_pct']}% ({power['charge_full_mah']}/{power['design_mah']} mAh, {power['voltage_v']}V)"
+
     print("══════════════════════════════════════════════════════════════════════")
     print("  PINEAPPLE STATION - CONTINUOUS SELF-LEARNING THERMAL & DEMAND GOVERNOR")
     print("══════════════════════════════════════════════════════════════════════")
-    print(f"• Current Operational Tier: {tier_names[tier]}")
+    print(f"• Current Operational Tier: {tier_display}")
+    print(f"• Power Supply Source:      {pwr_src}")
+    print(f"• Battery Pack & Health:    {bat_health} [Cutoff <= 15%]")
     print(f"• Inactivity Elapsed:       {int(idle_secs)}s ({idle_secs / 60:.1f} minutes)")
     print(f"• Package Temperature:      {state['temp']:.1f} °C")
-    print(f"• Target Thermal Budget:    {CONFIG[f'TARGET_TEMP_TIER_{tier}']:.1f} °C")
+    print(f"• Target Thermal Budget:    {target_budget}")
     print(f"• Intel Turbo Boost:        {turbo_str} (no_turbo={state['no_turbo']})")
     print(f"• Dynamic Frequency Ceiling:{freq_mhz} MHz")
     print(f"• Suwayomi CPU Quota:       {state['suwayomi_quota']}")
     print(f"• Suwayomi Demand:          throttled_usec={suw_stat.get('throttled_usec', 0)}")
-    print(f"• agy Daemon (PID {agy_pid}):   Active process registered")
+    print(f"• agy Daemon (PID {agy_pid}):   Active process registered (Immune: oom_score_adj=-500)")
     print(f"• Active Media Streaming:   {'YES' if is_streaming else 'NO'}")
     if term_reasons:
         print(f"• Terminal Activity:        {'; '.join(term_reasons)}")

@@ -126,6 +126,25 @@ def test_terminfo_mosh():
         raise Exception("mosh-server missing or failed")
 run_test("Terminfo Matrix (Kitty, Foot, Alacritty, Ghostty) & Mosh", test_terminfo_mosh)
 
+# 10. Autonomous UPS & Battery Guard
+def test_battery_ups_guard():
+    assert os.path.exists("/sys/class/power_supply/ACAD/online"), "Missing ACAD sysfs"
+    assert os.path.exists("/sys/class/power_supply/BAT1/capacity"), "Missing BAT1 capacity sysfs"
+    with open("/sys/class/power_supply/ACAD/online") as f:
+        ac = f.read().strip()
+        assert ac in ["0", "1"]
+    with open("/sys/class/power_supply/BAT1/capacity") as f:
+        cap = int(f.read().strip())
+        assert 0 <= cap <= 100
+    req = urllib.request.Request("http://127.0.0.1:8085/api/reports/daily")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        data = json.loads(r.read().decode())
+        assert "battery" in data, "Daily report missing battery object"
+        bat = data["battery"]
+        assert bat["capacity"] == cap
+        assert bat["health_pct"] > 50.0
+run_test("Autonomous UPS & Battery Telemetry Guard", test_battery_ups_guard)
+
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
 print(f"  TEST RESULTS: {passed}/{len(tests)} TESTS PASSED")

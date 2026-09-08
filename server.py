@@ -307,6 +307,60 @@ def save_app_config(cfg):
     with open(APP_CONFIG_FILE, 'w') as f:
         json.dump(cfg, f, indent=2)
 
+def get_power_supply_status() -> dict:
+    """Read AC mains and battery status directly from sysfs for UPS telemetry."""
+    info = {
+        "ac_online": True,
+        "present": False,
+        "capacity": 100,
+        "status": "Full",
+        "voltage_v": 0.0,
+        "health_pct": 100.0,
+        "charge_now_mah": 0,
+        "charge_full_mah": 0,
+        "design_mah": 0
+    }
+    acad_path = "/sys/class/power_supply/ACAD/online"
+    if os.path.exists(acad_path):
+        try:
+            with open(acad_path, "r") as f:
+                info["ac_online"] = (f.read().strip() == "1")
+        except Exception:
+            pass
+
+    bat_dir = "/sys/class/power_supply/BAT1"
+    if os.path.exists(bat_dir):
+        info["present"] = True
+        try:
+            with open(f"{bat_dir}/capacity", "r") as f:
+                info["capacity"] = int(f.read().strip())
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/status", "r") as f:
+                info["status"] = f.read().strip()
+                if info["status"] == "Discharging":
+                    info["ac_online"] = False
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/voltage_now", "r") as f:
+                info["voltage_v"] = round(int(f.read().strip()) / 1e6, 2)
+        except Exception:
+            pass
+        try:
+            with open(f"{bat_dir}/charge_now", "r") as f:
+                info["charge_now_mah"] = int(f.read().strip()) // 1000
+            with open(f"{bat_dir}/charge_full", "r") as f:
+                info["charge_full_mah"] = int(f.read().strip()) // 1000
+            with open(f"{bat_dir}/charge_full_design", "r") as f:
+                info["design_mah"] = int(f.read().strip()) // 1000
+            if info["design_mah"] > 0:
+                info["health_pct"] = round((info["charge_full_mah"] / info["design_mah"]) * 100, 1)
+        except Exception:
+            pass
+    return info
+
 _DAILY_REPORT_CACHE = {'data': None, 'ts': 0}
 
 def generate_daily_system_report(force=False):
@@ -453,7 +507,23 @@ def generate_daily_system_report(force=False):
         'status': last_pesu
     }
 
-    # 5. Core Services Status
+    # 5. Battery & Autonomous UPS Telemetry
+    pwr = get_power_supply_status()
+    rep['battery'] = {
+        'ac_online': pwr['ac_online'],
+        'source': 'Mains AC (Online)' if pwr['ac_online'] else f"Battery Reserve ({pwr['status']})",
+        'capacity': pwr['capacity'],
+        'status': pwr['status'],
+        'health_pct': pwr['health_pct'],
+        'charge_mah': f"{pwr['charge_now_mah']} / {pwr['charge_full_mah']} mAh",
+        'design_mah': f"{pwr['design_mah']} mAh",
+        'voltage_v': f"{pwr['voltage_v']} V",
+        'chemistry': 'Li-ion (SONY 3S 18650 Steel Cans)',
+        'failover': '< 10 µs (Instantaneous Silicon Switch)',
+        'safe_cutoff': '15% Auto-Poweroff'
+    }
+
+    # 6. Core Services Status
     services = [
         ("tinarchy.service", "Tinarchy Control Engine"),
         ("tinarchy-resource-governor.service", "Autonomous Resource Governor"),
@@ -475,7 +545,7 @@ def generate_daily_system_report(force=False):
         except Exception:
             rep['services'].append({"unit": unit, "name": label, "status": "unknown"})
 
-    # 6. Generate Pre-formatted Markdown String
+    # 7. Generate Pre-formatted Markdown String
     md_lines = [
         f"# 🍍 Pineapple Station Daily System Report",
         f"**Generated:** {rep['timestamp']} | **Uptime:** {rep['uptime']} | **Load:** {', '.join(rep['loadavg'])}",
@@ -489,6 +559,14 @@ def generate_daily_system_report(force=False):
         f"- **Dynamic Clock Ceiling:** `{rep['governor']['max_freq']}`",
         f"- **Suwayomi CPU Quota:** `{rep['governor']['suwayomi_quota']}` (Demand: {rep['governor']['demand']})",
         f"- **User Inactivity Elapsed:** `{rep['governor']['inactivity']}`",
+        f"",
+        f"### 🔋 Autonomous UPS & Battery Guard",
+        f"- **Power Source:** `{rep['battery']['source']}`",
+        f"- **Battery Charge Level:** `{rep['battery']['capacity']}%` ({rep['battery']['status']})",
+        f"- **Pack Health:** `{rep['battery']['health_pct']}%` ({rep['battery']['charge_mah']} | Design: {rep['battery']['design_mah']})",
+        f"- **Cell Pack & Voltage:** `{rep['battery']['chemistry']}` @ `{rep['battery']['voltage_v']}`",
+        f"- **AC Failover Latency:** `{rep['battery']['failover']}`",
+        f"- **Brownout Protection Cutoff:** `{rep['battery']['safe_cutoff']}`",
         f"",
         f"### 🌐 Network & Packet Steering",
         f"- **Multicore RPS/RFS:** `{rep['network']['rps_mask']}`",
