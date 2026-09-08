@@ -1,0 +1,15 @@
+[Unit]
+Description=Tinarchy Universal Dynamic Network & Multicore Autotuner
+After=network.target tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /home/pineapple/Tinarchy/configs/scripts/tinarchy-net-autotune.py
+Restart=always
+RestartSec=15
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
