@@ -1,0 +1,14 @@
+[Unit]
+Description=X Virtual Framebuffer Service for Headless JCEF
+After=network.target
+
+[Service]
+Type=simple
+User=suwayomi
+Group=suwayomi
+ExecStart=/usr/bin/Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp -reset
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

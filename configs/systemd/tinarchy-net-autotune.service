@@ -6,7 +6,7 @@ Wants=tailscaled.service
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/python3 /home/pineapple/Tinarchy/configs/scripts/tinarchy-net-autotune.py
+ExecStart=/usr/bin/python3 /usr/local/bin/tinarchy-net-autotune
 Restart=always
 RestartSec=15
 Nice=10

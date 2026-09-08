@@ -610,9 +610,43 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
         cp "$REPO_ROOT/configs/scripts/suwayomi-trigger-sync" /usr/local/bin/
         chmod 755 /usr/local/bin/suwayomi-trigger-sync
     fi
+    mkdir -p /etc/systemd/system/suwayomi-server.service.d/
     if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server-sync-triggers.conf" ]; then
-        mkdir -p /etc/systemd/system/suwayomi-server.service.d/
         cp "$REPO_ROOT/configs/systemd/suwayomi-server-sync-triggers.conf" /etc/systemd/system/suwayomi-server.service.d/sync-triggers.conf
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server-cpu-throttle.conf" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-server-cpu-throttle.conf" /etc/systemd/system/suwayomi-server.service.d/cpu-throttle.conf
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server-display.conf" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-server-display.conf" /etc/systemd/system/suwayomi-server.service.d/display.conf
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server-java-library-path.conf" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-server-java-library-path.conf" /etc/systemd/system/suwayomi-server.service.d/java-library-path.conf
+    fi
+
+    # X Virtual Framebuffer (Xvfb) for Headless Chromium / JCEF Turnstile bypass
+    if ! command -v Xvfb >/dev/null 2>&1; then
+        echo -e "  ${CYAN}🖥️ Installing Xvfb for headless Suwayomi browser engine...${NC}"
+        case "$OS_FAMILY" in
+            arch)   pacman -S --needed --noconfirm xorg-server-xvfb || true ;;
+            debian) apt-get install -y xvfb || true ;;
+            fedora) dnf install -y xorg-x11-server-Xvfb || true ;;
+        esac
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/xvfb.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/xvfb.service" /etc/systemd/system/
+        systemctl daemon-reload 2>/dev/null || true
+        if command -v Xvfb >/dev/null 2>&1; then
+            systemctl enable --now xvfb.service 2>/dev/null || true
+        fi
+    fi
+
+    # FlareSolverr Docker Compose Setup (Optional Cloudflare Clearance)
+    if command -v docker >/dev/null 2>&1; then
+        if [ -f "$REPO_ROOT/configs/docker/docker-compose.flaresolverr.yml" ]; then
+            mkdir -p /opt/flaresolverr
+            cp "$REPO_ROOT/configs/docker/docker-compose.flaresolverr.yml" /opt/flaresolverr/docker-compose.yml
+        fi
     fi
 fi
 
@@ -789,7 +823,11 @@ if [ "$INSTALL_NGINX" = "true" ]; then
     chown -R http:http /var/cache/nginx/suwayomi 2>/dev/null || chown -R www-data:www-data /var/cache/nginx/suwayomi 2>/dev/null || chown -R nginx:nginx /var/cache/nginx/suwayomi 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
-        cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
+        if ! id -u pineapple >/dev/null 2>&1; then
+            sed "s/user pineapple pineapple;/user $TARGET_USER $TARGET_USER;/g" "$REPO_ROOT/configs/nginx/nginx.conf" > /etc/nginx/nginx.conf
+        else
+            cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
+        fi
         if nginx -t 2>/dev/null; then
             echo -e "${GREEN}✅ Nginx syntax verified successfully.${NC}"
         else
@@ -902,6 +940,24 @@ UDEV_EOF
     fi
 fi
 
+# 9. Autonomous Resource Governor & Dynamic Network Autotuner
+if [ -f "$REPO_ROOT/configs/scripts/tinarchy-resource-governor.py" ]; then
+    echo -e "${CYAN}🌡️ Installing Tinarchy Autonomous Resource & Thermal Governor...${NC}"
+    install -m 755 "$REPO_ROOT/configs/scripts/tinarchy-resource-governor.py" /usr/local/bin/tinarchy-resource-governor
+    mkdir -p /var/log/tinarchy /etc/default
+    if [ -f "$REPO_ROOT/configs/systemd/tinarchy-resource-governor.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/tinarchy-resource-governor.service" /etc/systemd/system/
+    fi
+fi
+
+if [ -f "$REPO_ROOT/configs/scripts/tinarchy-net-autotune.py" ]; then
+    echo -e "${CYAN}🌐 Installing Multicore Dynamic Network Autotuner...${NC}"
+    install -m 755 "$REPO_ROOT/configs/scripts/tinarchy-net-autotune.py" /usr/local/bin/tinarchy-net-autotune
+    if [ -f "$REPO_ROOT/configs/systemd/tinarchy-net-autotune.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/tinarchy-net-autotune.service" /etc/systemd/system/
+    fi
+fi
+
 # ─── PHASE 5: Reload and Manage Systemd Services ──────────────────────────────
 echo ""
 echo -e "${CYAN}⚡ Managing systemd services...${NC}"
@@ -937,10 +993,13 @@ manage_service "tailscaled.service" "Tailscale" "$INSTALL_TAILSCALE"
 manage_service "tor.service" "Tor Proxy" "$INSTALL_TOR"
 manage_service "nginx.service" "Nginx Reverse Proxy" "$INSTALL_NGINX"
 manage_service "syncthing@$TARGET_USER.service" "Syncthing Sync" "$INSTALL_SYNCTHING"
+manage_service "xvfb.service" "Xvfb Virtual Display (:99)" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
+manage_service "tinarchy-resource-governor.service" "Autonomous Resource Governor" "true"
+manage_service "tinarchy-net-autotune.service" "Dynamic Network Tuner" "true"
 manage_service "filebrowser-quantum.service" "FileBrowser Quantum" "$INSTALL_FILEBROWSER"
 manage_service "couchdb.service" "Obsidian LiveSync CouchDB" "$INSTALL_COUCHDB"
 manage_service "pinedash-drive-sync.service" "Drive Sync Boot" "$INSTALL_DRIVE_ENGINE"
@@ -971,6 +1030,7 @@ echo -e "  🔮 ${BOLD}CouchDB / LiveSync${NC}     : ${GREEN}Apache Software Fou
 echo -e "  ⚡ ${BOLD}tmux${NC}                   : ${GREEN}Nicholas Marriott & Contributors${NC} (https://github.com/tmux)"
 echo -e "  🐚 ${BOLD}Zsh${NC}                    : ${GREEN}Paul Falstad & Zsh Development Group${NC} (https://zsh.org)"
 echo -e "  ☁️  ${BOLD}Rclone${NC}                 : ${GREEN}Nick Craig-Wood & Contributors${NC} (https://rclone.org)"
+  echo -e "  🛡️  ${BOLD}FlareSolverr${NC}           : ${GREEN}The FlareSolverr Community${NC} (https://github.com/FlareSolverr/FlareSolverr)"
 echo -e "${CYAN} ═══════════════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${GREEN}${BOLD}🎉 Installation and configuration finished successfully!${NC}"

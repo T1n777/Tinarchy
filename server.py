@@ -406,9 +406,15 @@ def generate_daily_system_report(force=False):
 
     # Governor Telemetry
     gov_raw = ""
+    gov_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", "scripts", "tinarchy-resource-governor.py")
+    if not os.path.exists(gov_script):
+        for candidate in ["/usr/local/bin/tinarchy-resource-governor", "/home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py", "/home/tin/server-dashboard/configs/scripts/tinarchy-resource-governor.py"]:
+            if os.path.exists(candidate):
+                gov_script = candidate
+                break
     try:
         res = subprocess.run(
-            ["/usr/bin/python3", "/home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py", "--status"],
+            ["/usr/bin/python3", gov_script, "--status"],
             capture_output=True, text=True, timeout=2
         )
         gov_raw = res.stdout.strip()
@@ -524,14 +530,29 @@ def generate_daily_system_report(force=False):
     }
 
     # 6. Core Services Status
+    cfg_app = get_app_config()
+    current_user = cfg_app.get('ssh_user') or PRIMARY_USER
+    syncthing_unit = f"syncthing@{current_user}.service"
+    try:
+        st_chk = subprocess.run(["systemctl", "is-active", syncthing_unit], capture_output=True, text=True, timeout=1).stdout.strip()
+        if st_chk != "active":
+            for candidate_user in ["pineapple", "tin"]:
+                cand_unit = f"syncthing@{candidate_user}.service"
+                if subprocess.run(["systemctl", "is-active", cand_unit], capture_output=True, text=True, timeout=1).stdout.strip() == "active":
+                    syncthing_unit = cand_unit
+                    break
+    except Exception:
+        pass
+
     services = [
         ("tinarchy.service", "Tinarchy Control Engine"),
         ("tinarchy-resource-governor.service", "Autonomous Resource Governor"),
         ("tinarchy-net-autotune.service", "Dynamic Network Tuner"),
         ("pesu-wifi.service", "PESU WiFi Portal Daemon"),
         ("suwayomi-server.service", "Suwayomi Manga Server"),
+        ("xvfb.service", "Xvfb Headless Display (:99)"),
         ("jellyfin.service", "Jellyfin Media Server"),
-        ("syncthing@pineapple.service", "Syncthing Mesh Sync"),
+        (syncthing_unit, "Syncthing Mesh Sync"),
         ("tailscaled.service", "Tailscale VPN Engine"),
         ("nginx.service", "Nginx Web Proxy"),
         ("thermald.service", "Intel Thermal Daemon"),
@@ -546,8 +567,9 @@ def generate_daily_system_report(force=False):
             rep['services'].append({"unit": unit, "name": label, "status": "unknown"})
 
     # 7. Generate Pre-formatted Markdown String
+    host_display = cfg_app.get('display_name') or rep['hostname'].replace('-', ' ').title()
     md_lines = [
-        f"# 🍍 Pineapple Station Daily System Report",
+        f"# 🍍 {host_display} Daily System Report",
         f"**Generated:** {rep['timestamp']} | **Uptime:** {rep['uptime']} | **Load:** {', '.join(rep['loadavg'])}",
         f"",
         f"---",

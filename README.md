@@ -57,6 +57,20 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **Zero-JVM Nginx Fast-Path**: Serves cached manga covers directly at kernel `sendfile` speeds (< 1ms latency) via Nginx `proxy_cache`, bypassing Java threads for 99% of requests.
   - **Automated Background Pre-Cacher**: Proactively pre-downloads missing library covers in the background with gentle rate-limiting, eliminating UI spinner stalls when scrolling through large collections.
 
+- **🛡️ Headless JCEF Browser & Cloudflare Bypass (Xvfb + FlareSolverr)**:
+  - **Virtual X11 Framebuffer (`xvfb.service`)**: Runs a lightweight X Virtual Framebuffer (`:99`) allowing Suwayomi's embedded Chromium / CEF (`jcef_helper`) runtime to execute headlessly on Linux servers without Xorg desktop overhead or crashes.
+  - **Universal FlareSolverr Docker Engine (`:8191`)**: Automatically bypasses Cloudflare bot protection and Turnstile captchas for stubborn manga extensions (Comix, Vortex, etc.), maintaining reliable background scraping and library updates.
+  - **Automated Drop-In Isolation**: Systemd drop-in wiring binds `DISPLAY=:99` and JVM library paths directly into `suwayomi-server.service.d/` with graceful fallback if services are absent.
+
+- **🌡️ Autonomous Closed-Loop Thermal PID Governor & Dynamic Ladder**:
+  - **Real-Time Dynamic Throttling**: Monitors CPU package temperatures ($T(t)$), rate of temperature climb ($dT/dt$), and user inactivity.
+  - **4-Tier Operational Ladder**: Automatically scales between Tier 0 (Active / whisper-quiet at 76°C with Suwayomi CPU capped) and Tier 3 (Unconstrained Sprint at 84°C unlocking full Intel Turbo Boost 3.10GHz for background batch jobs).
+  - **Instant User Wakeup (< 3s)**: Snaps back to Tier 0 the instant a keystroke is registered in SSH or media streaming begins on Jellyfin.
+
+- **🌐 Dynamic Multicore Network Autotuner (RPS/RFS & BBR)**:
+  - **Universal Multicore Steering**: Distributes network packet processing across all CPU cores (`rps_cpus = f`) on active Wi-Fi, Ethernet, and Tailscale interfaces.
+  - **TCP Buffer & BBR Autotuning**: Dynamically sizes kernel TCP socket buffers up to 64MB and activates BBR congestion control for maximum throughput across high-latency remote links.
+
 - **⚡ Multi-Trigger `$HOME/drive/` Synchronization Engine**:
   - Unifies storage (wallpapers, manga, note vaults, and media) into a clean `$HOME/drive/` hierarchy with zero duplication.
   - Debounced automated triggers:
@@ -160,6 +174,10 @@ flowchart TD
 | **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
 | **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
 | **Suwayomi Manga Server** *(Optional)* | `4567` | `/manga/` & `:4567` | `suwayomi-server.service` | Manga reader with persistent SSD thumbnail cache & Nginx fast-path |
+| **X Virtual Framebuffer (Xvfb)** | — | Display `:99` | `xvfb.service` | Headless X11 display for Suwayomi JCEF/Chromium extension engine |
+| **FlareSolverr Proxy** *(Optional)* | `8191` | `:8191` | `docker-compose.flaresolverr.yml` | Cloudflare Turnstile & challenge bypass proxy for manga scrapers |
+| **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal budget & workload governor |
+| **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
@@ -541,6 +559,50 @@ If mobile sync feels slow to connect or background triggers fail to fire:
    - In Android **Settings** ➔ **Connections** ➔ **More connection settings** ➔ **VPN** ➔ **Tailscale** (Gear icon) ➔ Enable **"Always-on VPN"** (leave "Block connections without VPN" off). This eliminates WireGuard sleep/wake handshake delays when Komikku opens.
 3. **Large Library Delta Optimization**:
    - With large libraries (>50k chapters/items), building the protocol payload on mobile CPU takes significant time before network transmission begins. Ensure Komikku is updated to the latest build supporting SyncYomi protocol v2, or prune dropped manga categories from sync to maintain sub-second sync speeds.
+
+---
+
+### 13. Headless JCEF Browser Engine & Cloudflare Clearance (Xvfb + FlareSolverr)
+
+When running Suwayomi on a headless Linux server, manga extensions that rely on Chromium / CEF (such as Comix, Vortex, and other sources protected by Cloudflare Turnstile) can fail or crash due to the lack of an active X11 display server. The ecosystem solves this transparently:
+
+#### A. X Virtual Framebuffer (`xvfb.service`)
+- **Virtual Display `:99`**: `xvfb.service` launches a headless virtual X11 server on display `:99` (`/usr/bin/Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp -reset`).
+- **Drop-In Wiring**: A drop-in unit in `/etc/systemd/system/suwayomi-server.service.d/display.conf` injects `Environment="DISPLAY=:99"` and sets `Wants=xvfb.service` and `After=xvfb.service`.
+- **Java Native Interface / CEF Bindings**: `suwayomi-server.service.d/java-library-path.conf` exports standard JRE native library search paths so `libjawt.so` and JCEF binaries (`jcef_helper`) link flawlessly.
+
+#### B. FlareSolverr Cloudflare Clearance Proxy (`:8191`)
+For sources requiring full Cloudflare challenge solving:
+```bash
+# Launch FlareSolverr via Docker Compose
+docker compose -f configs/docker/docker-compose.flaresolverr.yml up -d
+```
+FlareSolverr listens on `http://127.0.0.1:8191` and provides a JSON proxy API to solve Cloudflare Turnstile, JavaScript challenges, and anti-bot verification headlessly.
+
+---
+
+### 14. Autonomous Closed-Loop Thermal PID Governor & Dynamic Network Tuner
+
+Home servers and repurposed laptops running heavy background workloads (like downloading hundreds of manga chapters, transcoding media on Jellyfin, or running multi-agent AI coding sessions) require proactive thermal and resource management:
+
+#### A. Closed-Loop PID Thermal Governor (`tinarchy-resource-governor.service`)
+- **Dynamic Sampling**: Samples CPU package temperature, thermal ascent velocity ($dT/dt$), and user inactivity every 4 seconds.
+- **Operational Tiers**:
+  - **Tier 0: Active / Interactive (<15m idle)**: Thermal target 76°C, Intel Turbo Boost disabled, Suwayomi CPU capped at 60-120% for whisper-quiet fans.
+  - **Tier 1: Short Idle (15-30m)**: Thermal target 79°C, CPU clock ceiling 2.2-2.5GHz, Suwayomi quota 140-220%.
+  - **Tier 2: Idle Acceleration (30-60m)**: Thermal target 82°C, Suwayomi quota 220-320%, background queues accelerated.
+  - **Tier 3: Unconstrained Sprint (>60m)**: Thermal target 84°C, Intel Turbo Boost unlocked, Suwayomi quota 400% (max hardware throughput).
+- **Instant Snap-Back (<3s)**: Snaps back to Tier 0 the instant any SSH keystroke or media stream is detected.
+
+#### B. Multicore Dynamic Network Autotuner (`tinarchy-net-autotune.service`)
+- **RPS/RFS Packet Steering**: Applies multicore receive packet steering (`rps_cpus = f`) across all available cores on `wlan0`, `tailscale0`, and Ethernet interfaces.
+- **TCP Autotuning**: Dynamically sizes kernel receive/send socket buffers up to 64MB and activates BBR congestion control.
+
+#### C. Daily System Report Web UI & Telemetry
+- Inspect live thermal budgets, packet steering status, and core services directly from the **Daily System Report** tab in `/settings` or query the JSON telemetry endpoint:
+```bash
+curl -s http://127.0.0.1:8085/api/reports/daily | jq .
+```
 
 ---
 

@@ -6,7 +6,7 @@ Wants=suwayomi-server.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py
+ExecStart=/usr/bin/python3 /usr/local/bin/tinarchy-resource-governor
 Restart=always
 RestartSec=5
 KillMode=mixed
