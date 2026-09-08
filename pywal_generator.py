@@ -100,8 +100,15 @@ def generate_pywal_palette(img_path):
         c7 = rgb_to_hex(*fg_rgb) # Foreground
         c8 = rgb_to_hex(*muted_rgb)
         
+        # Normalize wallpaper path for universal portability
+        stored_path = img_path
+        if isinstance(stored_path, str):
+            norm = stored_path.replace('\\', '/')
+            if '/public/Wallpapers/' in norm:
+                stored_path = 'public/Wallpapers/' + norm.split('/public/Wallpapers/')[-1]
+
         pywal_dict = {
-            "wallpaper": img_path,
+            "wallpaper": stored_path,
             "alpha": "100",
             "special": {
                 "background": c0,
@@ -130,8 +137,13 @@ def generate_pywal_palette(img_path):
         return pywal_dict
     except Exception as e:
         print(f"Error generating pywal: {e}", file=sys.stderr)
+        stored_path = img_path
+        if isinstance(stored_path, str):
+            norm = stored_path.replace('\\', '/')
+            if '/public/Wallpapers/' in norm:
+                stored_path = 'public/Wallpapers/' + norm.split('/public/Wallpapers/')[-1]
         return {
-            "wallpaper": img_path,
+            "wallpaper": stored_path,
             "alpha": "100",
             "special": {"background": "#0f1419", "foreground": "#f0f6fc", "cursor": "#f0f6fc"},
             "colors": {

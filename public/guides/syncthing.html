@@ -652,7 +652,7 @@
             <p>Paste this 56-character cryptographic Device ID on your desktop or mobile Syncthing client to establish a peer relationship with <strong class="syncthing-server-name">Tinarchy</strong>:</p>
             
             <div class="code-container">
-                <code id="deviceIdCode">OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU</code>
+                <code id="deviceIdCode">Retrieving Server Device ID...</code>
                 <button class="copy-btn" onclick="copyCode('deviceIdCode')">📋 Copy ID</button>
             </div>
             <div class="highlight-box">
@@ -727,8 +727,8 @@ brew install syncthing && brew services start syncthing</code>
                     <div class="step-content">
                         <strong>Configure Shared Folder:</strong>
                         <p>Click <strong>Add Folder</strong> in your client GUI:</p>
-                        <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared</code></p>
-                        <p>• <strong>Folder ID:</strong> <span class="pill">shared</span> (must match exactly!)</p>
+                        <p>• <strong>Folder Label:</strong> <code style="color:#fff;" class="syncthing-folder-label">Shared</code></p>
+                        <p>• <strong>Folder ID:</strong> <span class="pill syncthing-folder-id">shared</span> (must match exactly!)</p>
                         <p>• <strong>Folder Path:</strong> Choose your local folder (e.g. <code style="color:var(--primary);">/mnt/shared</code> or <code style="color:var(--primary);">~/drive</code> on Linux/Mac, or <code style="color:var(--primary);">C:\Users\&lt;user&gt;\shared</code> on Windows).</p>
                         <p>• <strong>Sharing Tab:</strong> Check the checkbox for <strong class="syncthing-server-name">Tinarchy</strong>.</p>
                         <p>• <strong>Advanced Tab:</strong> Set <strong>Compression</strong> to <span class="pill pill-success">All Data</span>.</p>
@@ -739,7 +739,7 @@ brew install syncthing && brew services start syncthing</code>
                     <div class="step-circle">3</div>
                     <div class="step-content">
                         <strong>Approve Pairing on Server:</strong>
-                        <p>Open the <a id="guiStepLink" href="/syncthing/" target="_blank" class="syncthing-gui-link" style="color:var(--primary); font-weight:600;">Server Syncthing GUI</a>. Accept the incoming device prompt. The server will immediately link the <code style="font-family:var(--font-mono); color:var(--primary);">shared</code> folder with full end-to-end LZ4 block compression!</p>
+                        <p>Open the <a id="guiStepLink" href="/syncthing/" target="_blank" class="syncthing-gui-link" style="color:var(--primary); font-weight:600;">Server Syncthing GUI</a>. Accept the incoming device prompt. The server will immediately link the <code style="font-family:var(--font-mono); color:var(--primary);" class="syncthing-folder-id">shared</code> folder with full end-to-end LZ4 block compression!</p>
                     </div>
                 </div>
             </div>
@@ -781,8 +781,8 @@ brew install syncthing && brew services start syncthing</code>
                         <div class="step-content">
                             <strong>Add Shared Folder:</strong>
                             <p>Tap <strong>Folders</strong> ➔ <strong>+</strong>:</p>
-                            <p>• <strong>Folder ID:</strong> <span class="pill">shared</span></p>
-                            <p>• <strong>Folder Label:</strong> <code style="color:#fff;">Shared</code></p>
+                            <p>• <strong>Folder ID:</strong> <span class="pill syncthing-folder-id">shared</span></p>
+                            <p>• <strong>Folder Label:</strong> <code style="color:#fff;" class="syncthing-folder-label">Shared</code></p>
                             <p>• <strong>Folder Directory:</strong> Select or create a folder on storage (e.g. <code style="color:var(--primary);">/storage/emulated/0/Documents/shared</code> or <code style="color:var(--primary);">/storage/emulated/0/Shared</code>).</p>
                             <p>• <strong>Share with Devices:</strong> Toggle <strong class="syncthing-server-name">Tinarchy</strong> to ON.</p>
                             <p>• <strong>Run Conditions (Optional):</strong> In app settings, enable "Sync only on Wi-Fi" or "Sync while charging" if you wish to strictly conserve battery.</p>
@@ -807,7 +807,7 @@ brew install syncthing && brew services start syncthing</code>
                         <div class="step-content">
                             <strong>Pair Device & Add Folder:</strong>
                             <p>• Tap <strong>Devices</strong> ➔ <strong>+</strong> ➔ Paste Server Device ID ➔ Set Compression to <span class="pill pill-success">All Data</span>.</p>
-                            <p>• Tap <strong>Folders</strong> ➔ <strong>+</strong> ➔ Set Folder ID to <span class="pill">shared</span>.</p>
+                            <p>• Tap <strong>Folders</strong> ➔ <strong>+</strong> ➔ Set Folder ID to <span class="pill syncthing-folder-id">shared</span>.</p>
                             <p>• Select storage path inside the app container or link to a folder in the Files app.</p>
                         </div>
                     </div>
@@ -905,10 +905,12 @@ brew install syncthing && brew services start syncthing</code>
 
         async function initSyncthingGuide() {
             let host = window.location.hostname || '127.0.0.1';
-            let serverName = 'Tinarchy';
-            let sshUser = 'tin';
-            let devId = 'OXBHGAQ-NIQX5TW-QJCQ7HU-FQ54BRW-4M4GJVF-5WMGSUD-3WAUMSV-2ODN7AU';
+            let serverName = 'Home Server';
+            let sshUser = 'user';
+            let devId = 'Device ID Unavailable';
             let syncthingPort = 8384;
+            let folderId = 'shared';
+            let folderLabel = 'Shared';
 
             try {
                 const res = await fetch('/api/system');
@@ -920,6 +922,8 @@ brew install syncthing && brew services start syncthing</code>
                     if (data.ssh_user) sshUser = data.ssh_user;
                     if (data.syncthing_device_id) devId = data.syncthing_device_id;
                     if (data.syncthing_port) syncthingPort = data.syncthing_port;
+                    if (data.syncthing_folder_id) folderId = data.syncthing_folder_id;
+                    if (data.syncthing_folder_label) folderLabel = data.syncthing_folder_label;
                 }
             } catch (e) {}
 
@@ -928,6 +932,17 @@ brew install syncthing && brew services start syncthing</code>
 
             document.querySelectorAll('.syncthing-server-name').forEach(el => {
                 el.textContent = serverName;
+            });
+
+            const folderIdEl = document.getElementById('sharedFolderIdVal');
+            if (folderIdEl) folderIdEl.textContent = folderId;
+
+            document.querySelectorAll('.syncthing-folder-id').forEach(el => {
+                el.textContent = folderId;
+            });
+
+            document.querySelectorAll('.syncthing-folder-label').forEach(el => {
+                el.textContent = folderLabel;
             });
 
             const folderPathEl = document.getElementById('serverFolderPathVal');

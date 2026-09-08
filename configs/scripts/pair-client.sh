@@ -1,18 +1,48 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Tinarchy / Pineapple Station — Client Auto-Pairing Script
-# Pairs any Linux client (PC/laptop) with Pineapple Station Syncthing drive.
+# Universal Syncthing Client Auto-Pairing Script
+# Pairs any Linux client (PC/laptop) with your server's Syncthing drive.
 # ==============================================================================
 set -e
 
-SERVER_ID="G3QEESN-DOKUNTM-EGHXTSL-PZMSVCJ-CX3KFL4-BURZM2F-3Y4V7LU-22F2OAV"
-SERVER_NAME="Pineapple Station"
-FOLDER_ID="shared"
-FOLDER_LABEL="Shared"
-TARGET_DIR="${HOME}/drive"
+# Parse CLI arguments
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        --server-id|-s) SERVER_ID="$2"; shift 2 ;;
+        --server-name|-n) SERVER_NAME="$2"; shift 2 ;;
+        --folder-id|-f) FOLDER_ID="$2"; shift 2 ;;
+        --folder-label|-l) FOLDER_LABEL="$2"; shift 2 ;;
+        --target-dir|-d) TARGET_DIR="$2"; shift 2 ;;
+        -h|--help)
+            echo "Usage: $0 [--server-id <ID>] [--server-name <NAME>] [--folder-id <ID>] [--folder-label <LABEL>] [--target-dir <PATH>]"
+            exit 0
+            ;;
+        *) shift ;;
+    esac
+done
+
+# Defaults / placeholders (can be overridden by flags, env vars, or server dynamic templating)
+SERVER_ID="${SERVER_ID:-}"
+SERVER_NAME="${SERVER_NAME:-Home Server}"
+FOLDER_ID="${FOLDER_ID:-shared}"
+FOLDER_LABEL="${FOLDER_LABEL:-Shared}"
+TARGET_DIR="${TARGET_DIR:-${HOME}/drive}"
+
+# If SERVER_ID is not provided, prompt interactively if running in a terminal
+if [ -z "$SERVER_ID" ]; then
+    if [ -t 0 ]; then
+        read -rp "Enter Server Syncthing Device ID: " SERVER_ID
+    fi
+fi
+
+if [ -z "$SERVER_ID" ]; then
+    echo "❌ Error: SERVER_ID is required to pair."
+    echo "   Usage: $0 --server-id <DEVICE_ID> [--server-name <NAME>]"
+    exit 1
+fi
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
-echo "║          🍍 Pineapple Station — Client Auto-Pairing                ║"
+printf "║  %-68s║\n" "🔗 ${SERVER_NAME} — Client Auto-Pairing"
 echo "╚══════════════════════════════════════════════════════════════════════╝"
 
 # 1. Check and install syncthing if not present

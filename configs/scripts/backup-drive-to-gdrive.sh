@@ -1,5 +1,5 @@
 #!/bin/bash
-# Backup /home/pineapple/drive to Google Drive remote (excluding cache and logs)
+# Backup unified drive storage to Google Drive remote (excluding cache and logs)
 REMOTE_NAME="gdrive"
 DEST_FOLDER="Server_Drive_Backup"
 
@@ -8,15 +8,17 @@ if ! rclone listremotes 2>/dev/null | grep -q "^${REMOTE_NAME}:"; then
     exit 0
 fi
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting rclone sync to ${REMOTE_NAME}:${DEST_FOLDER}..."
-rclone sync /home/pineapple/drive "${REMOTE_NAME}:${DEST_FOLDER}" \
+TARGET_DRIVE="${STORAGE_DIR:-$HOME/drive}"
+
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting rclone sync from ${TARGET_DRIVE} to ${REMOTE_NAME}:${DEST_FOLDER}..."
+rclone sync "${TARGET_DRIVE}" "${REMOTE_NAME}:${DEST_FOLDER}" \
     --exclude ".cache/**" \
     --exclude ".filebrowser.db-journal" \
     --exclude "Media/**" \
     --fast-list \
     --transfers 4 \
     --checkers 8 \
-    --log-file /home/pineapple/drive/.rclone-backup.log \
+    --log-file "${TARGET_DRIVE}/.rclone-backup.log" \
     --log-level INFO
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Sync completed successfully."

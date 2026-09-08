@@ -633,7 +633,7 @@ if [ "$INSTALL_FILEBROWSER" = "true" ]; then
     fi
     mkdir -p /etc/filebrowser
     if [ ! -f /etc/filebrowser/config.yaml ] && [ -f "$REPO_ROOT/configs/filebrowser/config.yaml" ]; then
-        cp "$REPO_ROOT/configs/filebrowser/config.yaml" /etc/filebrowser/config.yaml
+        sed "s|/home/pineapple|$USER_HOME|g" "$REPO_ROOT/configs/filebrowser/config.yaml" > /etc/filebrowser/config.yaml
     fi
     if [ -f "$REPO_ROOT/configs/systemd/filebrowser-quantum.service" ]; then
         sed "s/User=pineapple/User=$TARGET_USER/g; s/Group=pineapple/Group=$TARGET_USER/g; s|/home/pineapple|$USER_HOME|g" \
@@ -742,9 +742,15 @@ STIGNORE_EOF
         cp "$REPO_ROOT/configs/systemd/pinedash-drive-sync.service" /etc/systemd/system/
     fi
 
+    if [ -f "$REPO_ROOT/configs/scripts/backup-drive-to-gdrive.sh" ]; then
+        cp "$REPO_ROOT/configs/scripts/backup-drive-to-gdrive.sh" /usr/local/bin/backup-drive-to-gdrive
+        chmod +x /usr/local/bin/backup-drive-to-gdrive
+    fi
+
     if [ -f "$REPO_ROOT/configs/systemd/rclone-drive-backup.timer" ]; then
         cp "$REPO_ROOT/configs/systemd/rclone-drive-backup.timer" /etc/systemd/system/
-        cp "$REPO_ROOT/configs/systemd/rclone-drive-backup.service" /etc/systemd/system/
+        sed "s/User=pineapple/User=$TARGET_USER/g; s/Group=pineapple/Group=$TARGET_USER/g; s|/home/pineapple|$USER_HOME|g" \
+            "$REPO_ROOT/configs/systemd/rclone-drive-backup.service" > /etc/systemd/system/rclone-drive-backup.service
     fi
 
     chown -R "$TARGET_USER:$TARGET_USER" "$DRIVE_ROOT" "$WALL_DIR" 2>/dev/null || true
@@ -788,15 +794,22 @@ if [ "$INSTALL_SYNCTHING" = "true" ]; then
         DEV_ID=$(sudo -u "$TARGET_USER" syncthing device-id 2>/dev/null || syncthing device-id 2>/dev/null || echo "")
         if [ -n "$DEV_ID" ]; then
             sudo -u "$TARGET_USER" syncthing cli config devices "$DEV_ID" compression set always 2>/dev/null || true
-            if ! sudo -u "$TARGET_USER" syncthing cli config folders list 2>/dev/null | grep -q "^shared$"; then
+            SHARED_FID="${SYNCTHING_SHARED_FOLDER_ID:-shared}"
+            SHARED_FLABEL="${SYNCTHING_SHARED_FOLDER_LABEL:-Shared}"
+            EXISTING_FOLDERS=$(sudo -u "$TARGET_USER" syncthing cli config folders list 2>/dev/null || echo "")
+            if echo "$EXISTING_FOLDERS" | grep -q "^${SHARED_FID}$"; then
+                echo -e "${GREEN}✅ Folder '${SHARED_FID}' already exists in Syncthing.${NC}"
+            elif [ -n "$EXISTING_FOLDERS" ] && [ "$SHARED_FID" = "shared" ] && echo "$EXISTING_FOLDERS" | grep -q -E "obsidian-vault|antigravity-share|default"; then
+                echo -e "${YELLOW}ℹ️  Existing Syncthing folders detected (${EXISTING_FOLDERS//$'\n'/, }). Preserving current setup without forcing folder '${SHARED_FID}'.${NC}"
+            else
                 sudo -u "$TARGET_USER" syncthing cli config folders add \
-                    --id shared \
-                    --label "Shared" \
+                    --id "$SHARED_FID" \
+                    --label "$SHARED_FLABEL" \
                     --path "$DRIVE_ROOT" \
                     --type sendreceive 2>/dev/null || true
+                echo -e "${GREEN}✅ Folder '${SHARED_FID}' mapped to $DRIVE_ROOT with compression='always'.${NC}"
             fi
             echo -e "${GREEN}✅ Syncthing device ID configured:${NC} ${BOLD}$DEV_ID${NC}"
-            echo -e "${GREEN}✅ Folder 'shared' mapped to $DRIVE_ROOT with compression='always'.${NC}"
         fi
     fi
 fi

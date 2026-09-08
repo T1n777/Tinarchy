@@ -250,6 +250,8 @@ Key configuration variables:
   - `ENABLE_TOR`: Enable/disable Tor SOCKS5 proxy (`true`/`false`, default: `true`).
   - `ENABLE_TAILSCALE_SSH`: Enable/disable Tailscale SSH integration (`true`/`false`, default: `true`).
   - `ENABLE_SYNCTHING`: Enable/disable Syncthing continuous folder sync (`true`/`false`, default: `true`).
+  - `SYNCTHING_SHARED_FOLDER_ID`: Default shared folder ID (default: `shared`).
+  - `SYNCTHING_AUTO_SHARE_FOLDERS`: Comma-separated list of folder IDs to automatically share with trusted paired devices via `/pair.sh` (default: `shared,shared-drive`; leave blank to disable automatic folder sharing).
 - **Optional Service Toggles**:
   - `ENABLE_FILEBROWSER`: Toggle FileBrowser Quantum (`true`/`false`, default: `false`).
   - `ENABLE_COUCHDB`: Toggle CouchDB / Obsidian LiveSync (`true`/`false`, default: `false`).

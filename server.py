@@ -1056,9 +1056,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 server_id = get_syncthing_device_id()
                 app_cfg = get_app_config()
                 srv_name = app_cfg.get('display_name') or app_cfg.get('server_name') or 'Tinarchy'
+                srv_folder_id = os.environ.get('SYNCTHING_SHARED_FOLDER_ID', 'shared')
+                srv_folder_label = os.environ.get('SYNCTHING_SHARED_FOLDER_LABEL', 'Shared')
                 if server_id:
+                    content = re.sub(r'SERVER_ID="\$\{SERVER_ID:-[^}]*\}"', f'SERVER_ID="${{SERVER_ID:-{server_id}}}"', content)
                     content = re.sub(r'SERVER_ID="[^"]*"', f'SERVER_ID="{server_id}"', content)
+                content = re.sub(r'SERVER_NAME="\$\{SERVER_NAME:-[^}]*\}"', f'SERVER_NAME="${{SERVER_NAME:-{srv_name}}}"', content)
                 content = re.sub(r'SERVER_NAME="[^"]*"', f'SERVER_NAME="{srv_name}"', content)
+                content = re.sub(r'FOLDER_ID="\$\{FOLDER_ID:-[^}]*\}"', f'FOLDER_ID="${{FOLDER_ID:-{srv_folder_id}}}"', content)
+                content = re.sub(r'FOLDER_ID="[^"]*"', f'FOLDER_ID="{srv_folder_id}"', content)
+                content = re.sub(r'FOLDER_LABEL="\$\{FOLDER_LABEL:-[^}]*\}"', f'FOLDER_LABEL="${{FOLDER_LABEL:-{srv_folder_label}}}"', content)
+                content = re.sub(r'FOLDER_LABEL="[^"]*"', f'FOLDER_LABEL="{srv_folder_label}"', content)
                 content = content.replace('Pineapple Station', srv_name)
                 encoded = content.encode('utf-8')
                 self.send_response(200)
@@ -1348,6 +1356,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             stats['syncthing_device_id'] = get_syncthing_device_id()
             stats['syncthing_port'] = int(os.environ.get('SYNCTHING_PORT', 8384))
+            stats['syncthing_folder_id'] = os.environ.get('SYNCTHING_SHARED_FOLDER_ID', 'shared')
+            stats['syncthing_folder_label'] = os.environ.get('SYNCTHING_SHARED_FOLDER_LABEL', 'Shared')
 
             self.send_compressed(json.dumps(stats).encode(), "application/json")
             
@@ -1670,6 +1680,8 @@ def start_syncthing_auto_pair_thread():
     def _worker():
         time.sleep(3)
         cli_cmd = get_syncthing_cli_cmd()
+        auto_share_env = os.environ.get('SYNCTHING_AUTO_SHARE_FOLDERS', 'shared,shared-drive')
+        auto_share_folders = [f.strip() for f in auto_share_env.split(',') if f.strip()]
         while True:
             try:
                 # 1. Check pending devices
@@ -1680,7 +1692,7 @@ def start_syncthing_auto_pair_thread():
                         name = dev_info.get('name') or 'Client Device'
                         subprocess.run(cli_cmd + ['config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
                         subprocess.run(cli_cmd + ['config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
-                        for fid in ('shared', 'shared-drive'):
+                        for fid in auto_share_folders:
                             if subprocess.run(cli_cmd + ['config', 'folders', fid, 'dump-json'], capture_output=True).returncode == 0:
                                 subprocess.run(cli_cmd + ['config', 'folders', fid, 'devices', 'add', '--device-id', dev_id], capture_output=True)
 
@@ -1689,7 +1701,7 @@ def start_syncthing_auto_pair_thread():
                 if res_f.returncode == 0 and res_f.stdout:
                     pending_f = json.loads(res_f.stdout)
                     for folder_id, f_info in pending_f.items():
-                        if folder_id in ('shared', 'shared-drive'):
+                        if folder_id in auto_share_folders:
                             dev_id = f_info.get('deviceID')
                             if dev_id:
                                 subprocess.run(cli_cmd + ['config', 'folders', folder_id, 'devices', 'add', '--device-id', dev_id], capture_output=True)
