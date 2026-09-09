@@ -5,7 +5,7 @@ After=multi-user.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c 'for tty in /dev/tty[1-6]; do [ -c "$tty" ] && /usr/bin/setterm --term linux --blank 1 --powersave powerdown --powerdown 1 < "$tty" > "$tty" 2>/dev/null || true; done; if grep -q "closed" /proc/acpi/button/lid/*/state 2>/dev/null; then for bl in /sys/class/backlight/*; do [ -f "$bl/bl_power" ] && echo 4 > "$bl/bl_power" 2>/dev/null || true; done; fi'
+ExecStart=/bin/bash -c 'for tty in /dev/tty[1-6]; do [ -c "$tty" ] && /usr/bin/setterm --term linux --blank 1 --powersave powerdown --powerdown 1 < "$tty" > "$tty" 2>/dev/null || true; done; if grep -q "closed" /proc/acpi/button/lid/*/state 2>/dev/null; then for bl in /sys/class/backlight/*; do [ -f "$bl/brightness" ] && echo 0 > "$bl/brightness" 2>/dev/null || true; [ -f "$bl/bl_power" ] && echo 4 > "$bl/bl_power" 2>/dev/null || true; done; fi'
 StandardOutput=null
 StandardError=null
 

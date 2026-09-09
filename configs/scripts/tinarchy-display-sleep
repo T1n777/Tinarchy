@@ -2,11 +2,12 @@
 """
 Tinarchy Headless Server Display Sleep & Inactivity Daemon
 - Monitors physical keyboard/touchpad/mouse input via /dev/input/event*
-# Automatically powers down display backlight (bl_power=4) after inactivity timeout (default: 60s)
-# Instantly wakes display (bl_power=0) on any physical keypress, mouse click, or touchpad touch
-# Handles laptop lid closed state (keeps backlight off while closed)
-# Supports 'off', 'on', 'toggle', 'status' CLI arguments
-# Consumes 0.0% CPU (blocked in kernel epoll) and < 5MB RAM
+- Powers down display backlight (brightness=0 and bl_power=4) after inactivity timeout (default: 60s)
+- Instantly wakes display (restores saved brightness and bl_power=0) on any physical keypress, mouse click, or touchpad touch
+- Filters out non-interactive event devices (audio jack sensors, lid switches, pc speaker) to prevent false wakeups
+- Handles laptop lid closed state (keeps backlight off while closed)
+- Supports 'off', 'on', 'toggle', 'status' CLI arguments (symlinked as screen-off, screen-on, screen-toggle)
+- Consumes 0.0% CPU (blocked in kernel epoll) and < 5MB RAM
 """
 
 import os
@@ -14,14 +15,24 @@ import sys
 import glob
 import time
 import signal
+import struct
 import selectors
 
+STATE_DIR = "/run/tinarchy"
+SAVED_BRIGHTNESS_FILE = "/run/tinarchy/saved_brightness"
+PID_FILE = "/run/tinarchy/tinarchy-display-sleep.pid"
 TIMEOUT_SECONDS = int(os.environ.get('DISPLAY_SLEEP_TIMEOUT', '60'))
 
-def find_backlight_files():
-    return glob.glob('/sys/class/backlight/*/bl_power')
+def get_max_brightness() -> int:
+    for f in glob.glob('/sys/class/backlight/*/max_brightness'):
+        try:
+            with open(f, 'r') as fp:
+                return int(fp.read().strip())
+        except Exception:
+            pass
+    return 976
 
-def is_lid_closed():
+def is_lid_closed() -> bool:
     for f in glob.glob('/proc/acpi/button/lid/*/state'):
         try:
             with open(f, 'r') as fp:
@@ -31,38 +42,143 @@ def is_lid_closed():
             pass
     return False
 
-def get_screen_state():
-    """Returns True if screen is ON (bl_power == 0), False if OFF (bl_power != 0)"""
-    for f in find_backlight_files():
+def get_screen_state() -> bool:
+    """Returns True if screen is ON (brightness > 0), False if OFF (brightness == 0)."""
+    for f in glob.glob('/sys/class/backlight/*/brightness'):
+        try:
+            with open(f, 'r') as fp:
+                val = int(fp.read().strip())
+                if val > 0:
+                    return True
+        except Exception:
+            pass
+    for f in glob.glob('/sys/class/backlight/*/bl_power'):
         try:
             with open(f, 'r') as fp:
                 val = fp.read().strip()
                 return (val == '0')
         except Exception:
             pass
-    return True
+    return False
 
 def set_screen_power(power_on: bool):
-    target_val = '0' if power_on else '4'
-    for f in find_backlight_files():
-        try:
-            with open(f, 'w') as fp:
-                fp.write(target_val + '\n')
-        except Exception:
-            pass
+    os.makedirs(STATE_DIR, exist_ok=True)
+    if power_on:
+        # 1. Restore brightness
+        saved = None
+        if os.path.exists(SAVED_BRIGHTNESS_FILE):
+            try:
+                with open(SAVED_BRIGHTNESS_FILE, 'r') as fp:
+                    saved = int(fp.read().strip())
+            except Exception:
+                pass
+        if not saved or saved <= 0:
+            saved = get_max_brightness()
 
-    # Blank/poke virtual consoles for clean terminal state (if accessible)
-    flag = '--blank poke' if power_on else '--blank force'
-    for tty in glob.glob('/dev/tty[1-6]'):
-        try:
-            if os.access(tty, os.R_OK | os.W_OK):
-                os.system(f'/usr/bin/setterm --term linux {flag} < {tty} > {tty} 2>/dev/null')
-        except Exception:
-            pass
+        for b in glob.glob('/sys/class/backlight/*/brightness'):
+            try:
+                with open(b, 'w') as fp:
+                    fp.write(str(saved) + '\n')
+            except Exception:
+                pass
+
+        # 2. Set bl_power to 0
+        for p in glob.glob('/sys/class/backlight/*/bl_power'):
+            try:
+                with open(p, 'w') as fp:
+                    fp.write('0\n')
+            except Exception:
+                pass
+
+        # 3. Wake virtual consoles
+        for tty in glob.glob('/dev/tty[1-6]'):
+            try:
+                if os.access(tty, os.R_OK | os.W_OK):
+                    os.system(f'/usr/bin/setterm --term linux --blank poke < {tty} > {tty} 2>/dev/null')
+            except Exception:
+                pass
+    else:
+        # 1. Save current non-zero brightness before turning off
+        current = None
+        for b in glob.glob('/sys/class/backlight/*/brightness'):
+            try:
+                with open(b, 'r') as fp:
+                    val = int(fp.read().strip())
+                    if val > 0:
+                        current = val
+                        break
+            except Exception:
+                pass
+        if current and current > 0:
+            try:
+                with open(SAVED_BRIGHTNESS_FILE, 'w') as fp:
+                    fp.write(str(current) + '\n')
+            except Exception:
+                pass
+
+        # 2. Set brightness to 0 (completely shuts down hardware backlight LED/inverter)
+        for b in glob.glob('/sys/class/backlight/*/brightness'):
+            try:
+                with open(b, 'w') as fp:
+                    fp.write('0\n')
+            except Exception:
+                pass
+
+        # 3. Set bl_power to 4 (powerdown)
+        for p in glob.glob('/sys/class/backlight/*/bl_power'):
+            try:
+                with open(p, 'w') as fp:
+                    fp.write('4\n')
+            except Exception:
+                pass
+
+        # 4. Blank virtual consoles
+        for tty in glob.glob('/dev/tty[1-6]'):
+            try:
+                if os.access(tty, os.R_OK | os.W_OK):
+                    os.system(f'/usr/bin/setterm --term linux --blank force < {tty} > {tty} 2>/dev/null')
+            except Exception:
+                pass
 
 def toggle_screen():
     current_on = get_screen_state()
     set_screen_power(not current_on)
+
+def notify_daemon(sig):
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, 'r') as fp:
+                pid = int(fp.read().strip())
+            os.kill(pid, sig)
+        except Exception:
+            pass
+
+def is_ignored_device(dev_path: str) -> bool:
+    """Filter out non-interactive devices like audio jack sensors, lid switches, etc."""
+    base = os.path.basename(dev_path)
+    name_path = f"/sys/class/input/{base}/device/name"
+    if os.path.exists(name_path):
+        try:
+            with open(name_path, 'r') as fp:
+                name = fp.read().strip().lower()
+                for ign in ['hda intel', 'jack', 'mic', 'headphone', 'lid switch', 'pc speaker']:
+                    if ign in name:
+                        return True
+        except Exception:
+            pass
+    return False
+
+def parse_has_interaction(data: bytes) -> bool:
+    """Returns True if input data contains KEY, REL, or ABS events (ignores SYN, SW, etc.)."""
+    pos = 0
+    # struct input_event is 24 bytes on 64-bit Linux
+    while pos + 24 <= len(data):
+        ev_type = struct.unpack_from('H', data, pos + 16)[0]
+        # EV_KEY = 1, EV_REL = 2, EV_ABS = 3
+        if ev_type in (1, 2, 3):
+            return True
+        pos += 24
+    return False
 
 def main():
     prog_name = os.path.basename(sys.argv[0])
@@ -70,22 +186,31 @@ def main():
 
     if prog_name == 'screen-off' or arg == 'off':
         set_screen_power(False)
+        notify_daemon(signal.SIGUSR2)
         sys.exit(0)
     elif prog_name == 'screen-on' or arg == 'on':
         set_screen_power(True)
+        notify_daemon(signal.SIGUSR1)
         sys.exit(0)
     elif prog_name == 'screen-toggle' or arg == 'toggle':
         toggle_screen()
+        notify_daemon(signal.SIGUSR1)
         sys.exit(0)
     elif arg == 'status':
         print("ON" if get_screen_state() else "OFF")
         sys.exit(0)
 
     # ─── Daemon Mode ──────────────────────────────────────────────────────────
+    os.makedirs(STATE_DIR, exist_ok=True)
+    with open(PID_FILE, 'w') as fp:
+        fp.write(str(os.getpid()) + '\n')
+
     sel = selectors.DefaultSelector()
     registered = 0
 
     for dev in sorted(glob.glob('/dev/input/event*')):
+        if is_ignored_device(dev):
+            continue
         try:
             fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
             sel.register(fd, selectors.EVENT_READ, dev)
@@ -98,12 +223,17 @@ def main():
 
     def handle_sigusr1(signum, frame):
         nonlocal last_input_time, screen_is_on
-        toggle_screen()
-        screen_is_on = get_screen_state()
-        if screen_is_on:
-            last_input_time = time.time()
+        set_screen_power(True)
+        screen_is_on = True
+        last_input_time = time.time()
+
+    def handle_sigusr2(signum, frame):
+        nonlocal last_input_time, screen_is_on
+        set_screen_power(False)
+        screen_is_on = False
 
     signal.signal(signal.SIGUSR1, handle_sigusr1)
+    signal.signal(signal.SIGUSR2, handle_sigusr2)
 
     while True:
         try:
@@ -111,18 +241,21 @@ def main():
             events = sel.select(timeout=2.0)
 
             if events:
+                user_interacted = False
                 for key, _ in events:
                     try:
-                        os.read(key.fd, 4096)
+                        data = os.read(key.fd, 4096)
+                        if parse_has_interaction(data):
+                            user_interacted = True
                     except Exception:
                         pass
 
-                last_input_time = now
-
-                # If screen was off and lid is not closed, wake it up immediately
-                if not screen_is_on and not is_lid_closed():
-                    set_screen_power(True)
-                    screen_is_on = True
+                if user_interacted:
+                    last_input_time = now
+                    # If screen was off and lid is not closed, wake it up immediately
+                    if not screen_is_on and not is_lid_closed():
+                        set_screen_power(True)
+                        screen_is_on = True
             else:
                 # Inactivity check
                 if screen_is_on and (now - last_input_time >= TIMEOUT_SECONDS):
@@ -139,7 +272,11 @@ def main():
         except Exception:
             time.sleep(2)
 
-    set_screen_power(True)
+    if os.path.exists(PID_FILE):
+        try:
+            os.remove(PID_FILE)
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()
