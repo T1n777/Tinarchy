@@ -633,9 +633,9 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
     if ! command -v Xvfb >/dev/null 2>&1 || ! ldconfig -p 2>/dev/null | grep -q libXtst; then
         echo -e "  ${CYAN}🖥️ Installing Xvfb & X11 AWT libraries for headless Suwayomi browser engine...${NC}"
         case "$OS_FAMILY" in
-            arch)   pacman -S --needed --noconfirm xorg-server-xvfb libxtst libxi || true ;;
-            debian) apt-get install -y xvfb libxtst6 libxi6 || true ;;
-            fedora) dnf install -y xorg-x11-server-Xvfb libXtst libXi || true ;;
+            arch)   pacman -S --needed --noconfirm xorg-server-xvfb libxtst libxi at-spi2-core libcups libxcomposite libxdamage libxkbcommon || true ;;
+            debian) apt-get install -y xvfb libxtst6 libxi6 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxkbcommon0 || true ;;
+            fedora) dnf install -y xorg-x11-server-Xvfb libXtst libXi at-spi2-core cups-libs libXcomposite libXdamage libxkbcommon || true ;;
         esac
     fi
     if [ -f "$REPO_ROOT/configs/systemd/xvfb.service" ]; then
