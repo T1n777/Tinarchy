@@ -1,0 +1,9 @@
+[Unit]
+Description=Suwayomi Thumbnail Background Pre-Cacher
+After=suwayomi-server.service nginx.service network.target
+
+[Service]
+Type=oneshot
+User=tin
+ExecStart=/usr/local/bin/suwayomi-precache-thumbnails
+TimeoutStartSec=1800

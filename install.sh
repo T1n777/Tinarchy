@@ -963,6 +963,18 @@ if [ -f "$REPO_ROOT/configs/scripts/tinarchy-net-autotune.py" ]; then
     fi
 fi
 
+if [ -f "$REPO_ROOT/configs/scripts/suwayomi-precache-thumbnails" ]; then
+    echo -e "${CYAN}📚 Installing Suwayomi Dual-Tier Thumbnail Pre-Cacher...${NC}"
+    install -m 755 "$REPO_ROOT/configs/scripts/suwayomi-precache-thumbnails" /usr/local/bin/suwayomi-precache-thumbnails
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-precache.service" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-precache.service" /etc/systemd/system/
+        sed -i "s/User=tin/User=$TARGET_USER/g" /etc/systemd/system/suwayomi-precache.service
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/suwayomi-precache.timer" ]; then
+        cp "$REPO_ROOT/configs/systemd/suwayomi-precache.timer" /etc/systemd/system/
+    fi
+fi
+
 # 10. High-Performance Virtual Memory & Network Sysctl Tuning (Adaptive Hardware Profiling)
 if [ -f "$REPO_ROOT/configs/sysctl/99-server-optimization.conf" ]; then
     echo -e "${CYAN}🚀 Configuring kernel virtual memory & BBR network sysctl optimizations...${NC}"
@@ -1045,6 +1057,7 @@ manage_service "nginx.service" "Nginx Reverse Proxy" "$INSTALL_NGINX"
 manage_service "syncthing@$TARGET_USER.service" "Syncthing Sync" "$INSTALL_SYNCTHING"
 manage_service "xvfb.service" "Xvfb Virtual Display (:99)" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
+manage_service "suwayomi-precache.timer" "Suwayomi Thumbnail Pre-Cacher Timer" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
