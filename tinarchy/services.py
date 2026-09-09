@@ -121,13 +121,15 @@ def get_services_status(allowed_services=None):
             pass
 
         tor_proxy_enabled = False
-        suwayomi_conf = '/var/lib/suwayomi/.local/share/Tachidesk/server.conf'
-        try:
-            if os.path.isfile(suwayomi_conf):
-                with open(suwayomi_conf, 'r') as sf:
-                    tor_proxy_enabled = ('server.socksProxyEnabled = true' in sf.read())
-        except Exception:
-            pass
+        for sc in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
+            if os.path.isfile(sc):
+                try:
+                    with open(sc, 'r') as sf:
+                        if 'server.socksProxyEnabled = true' in sf.read():
+                            tor_proxy_enabled = True
+                            break
+                except Exception:
+                    pass
 
         base_results = []
         ts_ssh_on = is_tailscale_ssh_active()
@@ -181,10 +183,12 @@ def toggle_service(service_id: str, action: str):
     _SERVICES_STATUS_CACHE['ts'] = 0
 
 def set_suwayomi_tor(enable: bool):
-    search = 'server.socksProxyEnabled = false' if enable else 'server.socksProxyEnabled = true'
-    replace = 'server.socksProxyEnabled = true' if enable else 'server.socksProxyEnabled = false'
-    cmd = f"sudo sed -i 's/{search}/{replace}/' /var/lib/suwayomi/.local/share/Tachidesk/server.conf && sudo systemctl restart suwayomi-server"
-    subprocess.run(cmd, shell=True, check=True)
+    val = 'true' if enable else 'false'
+    for path in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
+        if os.path.exists(path):
+            cmd = f"sudo sed -i --follow-symlinks -E 's/^(server\\.socksProxyEnabled\\s*=\\s*)(true|false)/\\1{val}/' {path}"
+            subprocess.run(cmd, shell=True, check=False)
+    subprocess.run(['sudo', 'systemctl', 'restart', 'suwayomi-server'], check=True)
 
 def set_tor_exit(enable: bool):
     action = 'start' if enable else 'stop'
