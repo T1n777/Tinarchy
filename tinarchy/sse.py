@@ -60,7 +60,8 @@ class SSEBroker:
             self._running = False
 
     def _broadcast_loop(self):
-        from tinarchy.telemetry import collect_full_system_snapshot
+        from tinarchy.telemetry import collect_full_system_snapshot, collect_dynamic_telemetry
+        tick = 0
         while self._running:
             try:
                 # If no active clients are connected, sleep to consume 0 CPU
@@ -68,9 +69,16 @@ class SSEBroker:
                     time.sleep(2.0)
                     continue
 
-                snapshot = collect_full_system_snapshot(self._syncthing_module)
-                self.broadcast("telemetry", snapshot)
-            except Exception as e:
+                tick += 1
+                # Periodically (every 15 ticks ~ 30s) broadcast a full snapshot to refresh disk usage & metadata
+                if tick % 15 == 0:
+                    snapshot = collect_full_system_snapshot(self._syncthing_module)
+                    self.broadcast("telemetry", snapshot)
+                    self.broadcast("telemetry_full", snapshot)
+                else:
+                    delta = collect_dynamic_telemetry()
+                    self.broadcast("telemetry", delta)
+            except Exception:
                 pass
             time.sleep(self.interval)
 

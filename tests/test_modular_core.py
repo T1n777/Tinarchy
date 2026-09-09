@@ -31,6 +31,13 @@ class TestModularCore(unittest.TestCase):
         self.assertIn('net_rx_speed', snapshot)
         self.assertIn('uptime', snapshot)
 
+        dyn = telemetry.collect_dynamic_telemetry()
+        self.assertIn('ram_used_mb', dyn)
+        self.assertIn('cpu_percent', dyn)
+        self.assertIn('uptime', dyn)
+        self.assertIn('loadavg', dyn)
+        self.assertIn('cpu_temp', dyn)
+
     def test_auth(self):
         roles_cfg = auth.get_roles_config()
         self.assertIn('roles', roles_cfg)

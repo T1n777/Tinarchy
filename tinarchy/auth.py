@@ -1,12 +1,47 @@
 import os
 import json
 import time
+import socket
+import http.client
 import subprocess
 from tinarchy.config import ROLES_CONFIG_FILE, get_system_hostname
 from tinarchy.services import get_all_service_ids
 
 WHOIS_CACHE = {}
 _HOST_OWNER_CACHE = {'data': None, 'ts': 0}
+
+class UnixSocketHTTPConnection(http.client.HTTPConnection):
+    """Low-overhead HTTP client over Tailscaled's local UNIX domain socket."""
+    def __init__(self, socket_path="/run/tailscale/tailscaled.sock", timeout=1.5):
+        super().__init__("localhost", timeout=timeout)
+        self.socket_path = socket_path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect(self.socket_path)
+
+def query_tailscaled_localapi(endpoint_path: str, timeout: float = 1.5):
+    """Direct query to Tailscaled local API via UNIX domain socket (< 2ms)."""
+    sock_path = "/run/tailscale/tailscaled.sock"
+    if not os.path.exists(sock_path):
+        return None
+    conn = None
+    try:
+        conn = UnixSocketHTTPConnection(sock_path, timeout=timeout)
+        conn.request("GET", endpoint_path, headers={"Host": "local-tailscaled.sock"})
+        resp = conn.getresponse()
+        if resp.status == 200:
+            return json.loads(resp.read().decode('utf-8'))
+    except Exception:
+        return None
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return None
 
 def get_tailscale_host_owner():
     global _HOST_OWNER_CACHE
@@ -15,9 +50,12 @@ def get_tailscale_host_owner():
         return _HOST_OWNER_CACHE['data']
 
     try:
-        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout:
-            st = json.loads(res.stdout)
+        st = query_tailscaled_localapi("/localapi/v0/status")
+        if not st:
+            res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
+            if res.returncode == 0 and res.stdout:
+                st = json.loads(res.stdout)
+        if st:
             self_user_id = st.get('Self', {}).get('UserID')
             if self_user_id:
                 user_info = st.get('User', {}).get(str(self_user_id), {})
@@ -123,9 +161,12 @@ def resolve_tailscale_client(ip):
         return WHOIS_CACHE[ip]['data']
 
     try:
-        res = subprocess.run(['tailscale', 'whois', '--json', ip], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout:
-            raw = json.loads(res.stdout)
+        raw = query_tailscaled_localapi(f"/localapi/v0/whois?addr={ip}")
+        if not raw:
+            res = subprocess.run(['tailscale', 'whois', '--json', ip], capture_output=True, text=True, timeout=2)
+            if res.returncode == 0 and res.stdout:
+                raw = json.loads(res.stdout)
+        if raw:
             u = raw.get('UserProfile', {})
             node = raw.get('Node', {})
             user_id = u.get('ID')
@@ -169,10 +210,12 @@ def resolve_tailscale_client(ip):
 
 def get_tailscale_users():
     try:
-        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode != 0 or not res.stdout:
-            return []
-        data = json.loads(res.stdout)
+        data = query_tailscaled_localapi("/localapi/v0/status")
+        if not data:
+            res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
+            if res.returncode != 0 or not res.stdout:
+                return []
+            data = json.loads(res.stdout)
         users_map = data.get('User', {})
         peers = data.get('Peer', {})
         self_node = data.get('Self', {})
@@ -190,8 +233,10 @@ def get_tailscale_users():
 
             if primary_ip and (not uid or str(uid) not in users_map):
                 try:
-                    wout = subprocess.check_output(['tailscale', 'whois', '--json', primary_ip], timeout=2)
-                    wdata = json.loads(wout)
+                    wdata = query_tailscaled_localapi(f"/localapi/v0/whois?addr={primary_ip}")
+                    if not wdata:
+                        wout = subprocess.check_output(['tailscale', 'whois', '--json', primary_ip], timeout=2)
+                        wdata = json.loads(wout)
                     uprof = wdata.get('UserProfile', {})
                     wnode = wdata.get('Node', {})
                     if uprof and uprof.get('ID'):

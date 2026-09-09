@@ -44,6 +44,15 @@ from tinarchy.reports import generate_daily_system_report
 
 sse_broker.set_syncthing_module(syncthing)
 
+# ─── Low-Churn API Micro-Caches (Sub-Millisecond Response) ───
+_REPORTS_CACHE = {'data': None, 'ts': 0, 'lock': threading.Lock()}
+_SERVICES_CACHE = {}
+_SERVICES_CACHE_LOCK = threading.Lock()
+
+def invalidate_services_cache():
+    with _SERVICES_CACHE_LOCK:
+        _SERVICES_CACHE.clear()
+
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def send_compressed(self, data_bytes, content_type='application/json', code=200):
@@ -67,12 +76,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(data_bytes)
 
     def end_headers(self):
-        if hasattr(self, 'path') and (
-            self.path.startswith('/Wallpapers/') or
-            self.path.startswith('/thumbnails/') or
-            self.path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.svg', '.woff2', '.ico'))
-        ):
-            self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
+        if hasattr(self, 'path'):
+            if self.path == '/sw.js':
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.send_header('Service-Worker-Allowed', '/')
+            elif (
+                self.path.startswith('/Wallpapers/') or
+                self.path.startswith('/thumbnails/') or
+                self.path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.svg', '.woff2', '.ico'))
+            ):
+                self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
         super().end_headers()
 
     def __init__(self, *args, **kwargs):
@@ -426,8 +439,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
             allowed_services = auth.get_user_allowed_services(login_name, role)
-            filtered = services.get_services_status(allowed_services)
-            self.send_compressed(json.dumps(filtered).encode(), "application/json")
+            cache_key = tuple(sorted(allowed_services))
+            now_t = time.time()
+            cached_bytes = None
+            with _SERVICES_CACHE_LOCK:
+                if cache_key in _SERVICES_CACHE and (now_t - _SERVICES_CACHE[cache_key]['ts']) < 2.5:
+                    cached_bytes = _SERVICES_CACHE[cache_key]['data']
+            if cached_bytes is None:
+                filtered = services.get_services_status(allowed_services)
+                cached_bytes = json.dumps(filtered).encode()
+                with _SERVICES_CACHE_LOCK:
+                    _SERVICES_CACHE[cache_key] = {'data': cached_bytes, 'ts': now_t}
+            self.send_compressed(cached_bytes, "application/json")
 
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
@@ -526,9 +549,21 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 active = False
             self.send_compressed(json.dumps({"active": active, "enabled": active}).encode(), "application/json")
 
-        elif self.path in ['/api/reports/daily', '/api/system/daily-report']:
-            report_data = reports.generate_daily_system_report()
-            self.send_compressed(json.dumps(report_data).encode(), "application/json")
+        elif self.path.startswith(('/api/reports/daily', '/api/system/daily-report')):
+            force_fresh = 'force=true' in self.path or 'fresh=true' in self.path
+            now_t = time.time()
+            report_bytes = None
+            if not force_fresh:
+                with _REPORTS_CACHE['lock']:
+                    if _REPORTS_CACHE['data'] and (now_t - _REPORTS_CACHE['ts']) < 5.0:
+                        report_bytes = _REPORTS_CACHE['data']
+            if report_bytes is None:
+                report_data = reports.generate_daily_system_report()
+                report_bytes = json.dumps(report_data).encode()
+                with _REPORTS_CACHE['lock']:
+                    _REPORTS_CACHE['data'] = report_bytes
+                    _REPORTS_CACHE['ts'] = now_t
+            self.send_compressed(report_bytes, "application/json")
 
         else:
             super().do_GET()
@@ -676,6 +711,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             action = data.get('action')
             try:
                 services.toggle_service(service_id, action)
+                invalidate_services_cache()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()

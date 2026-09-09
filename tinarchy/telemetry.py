@@ -402,3 +402,19 @@ def collect_full_system_snapshot(syncthing_module=None):
     stats['syncthing_folder_label'] = os.environ.get('SYNCTHING_SHARED_FOLDER_LABEL', 'Shared')
 
     return stats
+
+def collect_dynamic_telemetry():
+    """Gathers frequently updating dynamic telemetry metrics (~360 bytes JSON).
+    Avoids expensive disk statvfs syscalls, config JSON re-reads, and XML parsing.
+    """
+    stats = {}
+    stats.update(get_ram_stats())
+    stats['cpu_percent'] = get_cpu_percent()
+    up_load = get_uptime_and_load()
+    stats['uptime'] = up_load['uptime']
+    stats['loadavg'] = up_load['loadavg']
+    stats.update(get_network_stats())
+    celsius_str, celsius_val = get_cpu_temp()
+    stats['cpu_temp'] = celsius_str
+    stats['cpu_temp_val'] = celsius_val
+    return stats

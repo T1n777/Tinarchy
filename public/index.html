@@ -11,6 +11,16 @@
     <link rel="alternate icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
     <title>Dashboard</title>
 
     <script>
@@ -233,8 +243,6 @@
     </script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
         /* Solid Dark Theme Override */
         :root[data-theme="solid"],
         body[data-theme="solid"] {
@@ -1293,81 +1301,92 @@
         let LAST_SYS_STATS = {};
         function applySystemStatsToUI(stats) {
             if (!stats) return;
+            // Accumulate incoming delta into LAST_SYS_STATS state
+            Object.assign(LAST_SYS_STATS, stats);
+            const current = LAST_SYS_STATS;
+
             // Dynamic Name & Branding
-            const serverName = stats.display_name || stats.server_name || 'Server';
-            if (LAST_SYS_STATS.serverName !== serverName) {
+            const serverName = current.display_name || current.server_name || 'Server';
+            if (current._lastRenderedServerName !== serverName) {
                 const hostEl = document.getElementById('sys-hostname');
                 if (hostEl) hostEl.textContent = serverName;
-                const projectName = stats.project_name || 'Tinarchy';
+                const projectName = current.project_name || 'Tinarchy';
                 document.title = `${serverName} - ${projectName}`;
-                LAST_SYS_STATS.serverName = serverName;
+                current._lastRenderedServerName = serverName;
             }
-            if (stats.app_icon) {
+            if (current.app_icon && current._lastRenderedAppIcon !== current.app_icon) {
                 const iconEl = document.getElementById('brand-icon');
-                if (iconEl && iconEl.textContent !== stats.app_icon) iconEl.textContent = stats.app_icon;
+                if (iconEl) iconEl.textContent = current.app_icon;
+                current._lastRenderedAppIcon = current.app_icon;
             }
 
-            if (LAST_SYS_STATS.tailscale_ip !== stats.tailscale_ip) {
+            if (current.tailscale_ip && current._lastRenderedTailscaleIp !== current.tailscale_ip) {
                 const tsEl = document.getElementById('sys-tailscale');
-                if (tsEl) tsEl.textContent = `IP: ${stats.tailscale_ip}`;
-                LAST_SYS_STATS.tailscale_ip = stats.tailscale_ip;
+                if (tsEl) tsEl.textContent = `IP: ${current.tailscale_ip}`;
+                current._lastRenderedTailscaleIp = current.tailscale_ip;
             }
-            if (LAST_SYS_STATS.uptime !== stats.uptime) {
+            if (current.uptime && current._lastRenderedUptime !== current.uptime) {
                 const upEl = document.getElementById('sys-uptime');
-                if (upEl) upEl.textContent = `Up: ${stats.uptime}`;
-                LAST_SYS_STATS.uptime = stats.uptime;
+                if (upEl) upEl.textContent = `Up: ${current.uptime}`;
+                current._lastRenderedUptime = current.uptime;
             }
 
             // RAM
-            const ramTxt = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
-            if (LAST_SYS_STATS.ramTxt !== ramTxt) {
-                const ramEl = document.getElementById('ram-text');
-                if (ramEl) ramEl.textContent = ramTxt;
-                LAST_SYS_STATS.ramTxt = ramTxt;
-            }
-            const ramPercentStr = `${stats.ram_percent}%`;
-            const ramBar = document.getElementById('ram-bar');
-            if (ramBar && ramBar.style.width !== ramPercentStr) {
-                ramBar.style.width = ramPercentStr;
-                ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+            if (current.ram_used_mb !== undefined && current.ram_total_mb !== undefined) {
+                const ramTxt = `${current.ram_used_mb}MB / ${current.ram_total_mb}MB`;
+                if (current._lastRenderedRamTxt !== ramTxt) {
+                    const ramEl = document.getElementById('ram-text');
+                    if (ramEl) ramEl.textContent = ramTxt;
+                    current._lastRenderedRamTxt = ramTxt;
+                }
+                const ramPercentStr = `${current.ram_percent}%`;
+                const ramBar = document.getElementById('ram-bar');
+                if (ramBar && ramBar.style.width !== ramPercentStr) {
+                    ramBar.style.width = ramPercentStr;
+                    ramBar.style.backgroundColor = current.ram_percent > 85 ? '#ffb4ab' : (current.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+                }
             }
 
             // Disk
-            const diskTxt = `${stats.disk_used} / ${stats.disk_total}`;
-            if (LAST_SYS_STATS.diskTxt !== diskTxt) {
-                const diskEl = document.getElementById('disk-text');
-                if (diskEl) diskEl.textContent = diskTxt;
-                LAST_SYS_STATS.diskTxt = diskTxt;
-            }
-            const diskPercentStr = `${stats.disk_percent}%`;
-            const diskBar = document.getElementById('disk-bar');
-            if (diskBar && diskBar.style.width !== diskPercentStr) {
-                diskBar.style.width = diskPercentStr;
+            if (current.disk_used && current.disk_total) {
+                const diskTxt = `${current.disk_used} / ${current.disk_total}`;
+                if (current._lastRenderedDiskTxt !== diskTxt) {
+                    const diskEl = document.getElementById('disk-text');
+                    if (diskEl) diskEl.textContent = diskTxt;
+                    current._lastRenderedDiskTxt = diskTxt;
+                }
+                const diskPercentStr = `${current.disk_percent}%`;
+                const diskBar = document.getElementById('disk-bar');
+                if (diskBar && diskBar.style.width !== diskPercentStr) {
+                    diskBar.style.width = diskPercentStr;
+                }
             }
 
             // CPU Load
-            const cpuTxt = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
-            if (LAST_SYS_STATS.cpuTxt !== cpuTxt) {
-                const cpuEl = document.getElementById('cpu-text');
-                if (cpuEl) cpuEl.textContent = cpuTxt;
-                LAST_SYS_STATS.cpuTxt = cpuTxt;
-            }
-            const cpuPercentStr = `${stats.cpu_percent}%`;
-            const cpuBar = document.getElementById('cpu-bar');
-            if (cpuBar && cpuBar.style.width !== cpuPercentStr) {
-                cpuBar.style.width = cpuPercentStr;
+            if (current.cpu_percent !== undefined) {
+                const cpuTxt = `${current.cpu_percent}% (${current.loadavg ? current.loadavg[0] : '0.00'})`;
+                if (current._lastRenderedCpuTxt !== cpuTxt) {
+                    const cpuEl = document.getElementById('cpu-text');
+                    if (cpuEl) cpuEl.textContent = cpuTxt;
+                    current._lastRenderedCpuTxt = cpuTxt;
+                }
+                const cpuPercentStr = `${current.cpu_percent}%`;
+                const cpuBar = document.getElementById('cpu-bar');
+                if (cpuBar && cpuBar.style.width !== cpuPercentStr) {
+                    cpuBar.style.width = cpuPercentStr;
+                }
             }
 
             // CPU Temp
-            if (stats.cpu_temp) {
-                if (LAST_SYS_STATS.cpu_temp !== stats.cpu_temp) {
+            if (current.cpu_temp) {
+                if (current._lastRenderedCpuTemp !== current.cpu_temp) {
                     const tempEl = document.getElementById('temp-text');
-                    if (tempEl) tempEl.textContent = stats.cpu_temp;
-                    LAST_SYS_STATS.cpu_temp = stats.cpu_temp;
+                    if (tempEl) tempEl.textContent = current.cpu_temp;
+                    current._lastRenderedCpuTemp = current.cpu_temp;
                 }
                 const tempBar = document.getElementById('temp-bar');
                 if (tempBar) {
-                    const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
+                    const tempVal = current.cpu_temp_val || parseInt(current.cpu_temp, 10) || 45;
                     const tempPercentStr = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
                     if (tempBar.style.width !== tempPercentStr) {
                         tempBar.style.width = tempPercentStr;
@@ -1398,13 +1417,15 @@
             try {
                 if (sseSource) sseSource.close();
                 sseSource = new EventSource('/api/events/telemetry');
-                sseSource.addEventListener('telemetry', (e) => {
+                const onTelemetryMsg = (e) => {
                     sseActive = true;
                     try {
                         const stats = JSON.parse(e.data);
                         applySystemStatsToUI(stats);
                     } catch (err) {}
-                });
+                };
+                sseSource.addEventListener('telemetry', onTelemetryMsg);
+                sseSource.addEventListener('telemetry_full', onTelemetryMsg);
                 sseSource.onerror = () => {
                     sseActive = false;
                 };
