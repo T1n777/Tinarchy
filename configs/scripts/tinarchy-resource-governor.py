@@ -10,15 +10,15 @@ Features & Researched Methodologies:
    - Dynamically searches for and maintains the maximum possible stable frequency
      and workload quota under a configurable target thermal budget.
 2. Multi-Tier Activity & Demand Ladder:
-   - Tier 0: ACTIVE INTERACTIVE (< 15 mins since user keystrokes / streaming)
-     * Target: 76.0°C | Base Clock: 1.8-2.2 GHz | Turbo: OFF | Suwayomi: 60-120%
-     * Maximum interactive responsiveness, cool lap/desk, whisper-quiet fan.
-   - Tier 1: SHORT IDLE (15m - 30m inactivity)
-     * Target: 79.0°C | Base Clock: 2.2-2.5 GHz | Turbo: OFF | Suwayomi: 140-220%
-     * Smooth ramp up for background queues as user steps away.
-   - Tier 2: IDLE ACCELERATION (30m - 60m / 0.5 - 1.0 hr inactivity)
-     * Target: 82.0°C | Freq: 2.5-2.8 GHz | Turbo: Conditional | Suwayomi: 220-320%
-     * Significant batch acceleration for download queues and background agy tasks.
+    - Tier 0: ACTIVE INTERACTIVE (< 15 mins since user keystrokes / streaming)
+      * Target: 76.0°C | Base Clock: 1.8-2.2 GHz | Turbo: OFF | Suwayomi: 180-250%
+      * Maximum interactive responsiveness, cool lap/desk, whisper-quiet fan.
+    - Tier 1: SHORT IDLE (15m - 30m inactivity)
+      * Target: 79.0°C | Base Clock: 2.2-2.5 GHz | Turbo: OFF | Suwayomi: 200-280%
+      * Smooth ramp up for background queues as user steps away.
+    - Tier 2: IDLE ACCELERATION (30m - 60m / 0.5 - 1.0 hr inactivity)
+      * Target: 82.0°C | Freq: 2.5-2.8 GHz | Turbo: Conditional | Suwayomi: 260-350%
+      * Significant batch acceleration for download queues and background agy tasks.
    - Tier 3: UNCONSTRAINED SPRINT (> 60m / 1.0+ hr deep idle)
      * Target: 84.0°C | Freq: 3.10 GHz max hardware | Turbo: FULLY UNLOCKED | Suwayomi: 400% (max)
      * Maximum unconstrained hardware throughput to drain queues and finish heavy batch jobs.
@@ -518,7 +518,7 @@ class AdaptiveGovernor:
 
         # Actuator working state
         self.current_freq_khz = 2000000
-        self.current_quota_pct = 80
+        self.current_quota_pct = 200
         self.turbo_enabled = False
 
         # Workload demand tracking
@@ -677,13 +677,13 @@ class AdaptiveGovernor:
             # Modulate frequency within 1.8 GHz - 2.2 GHz base
             if emergency_brake or u < -2.0:
                 target_freq = max(1600000, self.current_freq_khz - 100000)
-                target_quota = max(60, self.current_quota_pct - 10)
+                target_quota = max(100, self.current_quota_pct - 20)
             elif u > 2.0 and not emergency_brake:
                 target_freq = min(2200000, self.current_freq_khz + 100000)
-                target_quota = min(120, self.current_quota_pct + 10)
+                target_quota = min(250, self.current_quota_pct + 20)
             else:
                 target_freq = max(1800000, min(2200000, self.current_freq_khz))
-                target_quota = max(70, min(100, self.current_quota_pct))
+                target_quota = max(180, min(240, self.current_quota_pct))
 
         elif self.current_tier == 1:
             # Short Idle (15m - 30m)
@@ -691,13 +691,13 @@ class AdaptiveGovernor:
             # Modulate frequency within 2.2 GHz - 2.5 GHz base
             if emergency_brake or u < -2.0:
                 target_freq = max(2000000, self.current_freq_khz - 100000)
-                target_quota = max(120, self.current_quota_pct - 15)
+                target_quota = max(150, self.current_quota_pct - 20)
             elif u > 1.5:
                 target_freq = min(2500000, self.current_freq_khz + 100000)
-                target_quota = min(220, self.current_quota_pct + 15)
+                target_quota = min(280, self.current_quota_pct + 20)
             else:
                 target_freq = max(2200000, min(2500000, self.current_freq_khz))
-                target_quota = max(140, min(200, self.current_quota_pct))
+                target_quota = max(200, min(260, self.current_quota_pct))
 
         elif self.current_tier == 2:
             # Idle Acceleration (30m - 60m / 0.5 - 1.0 hr)
@@ -709,7 +709,7 @@ class AdaptiveGovernor:
                 # Conditional Turbo if cool & stable
                 target_turbo = (current_temp < 80.0 and slew_rate < 0.4)
                 target_freq = min(2800000, self.current_freq_khz + 100000) if u > 1.0 else self.current_freq_khz
-                target_quota = min(320, self.current_quota_pct + 20)
+                target_quota = min(350, self.current_quota_pct + 25)
 
         elif self.current_tier == 3:
             # Unconstrained Sprint (> 60m / 1.0+ hr deep idle)
@@ -816,7 +816,7 @@ def main():
         log_event("Governor stopping. Restoring safe active cooling mode.")
         set_intel_turbo(False)
         set_cpu_max_freq(2000000)
-        set_suwayomi_cgroup_quota(80)
+        set_suwayomi_cgroup_quota(200)
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, handle_sigterm)
@@ -844,7 +844,7 @@ def main():
     # On exit
     set_intel_turbo(False)
     set_cpu_max_freq(2000000)
-    set_suwayomi_cgroup_quota(80)
+    set_suwayomi_cgroup_quota(200)
 
 if __name__ == "__main__":
     main()
