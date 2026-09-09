@@ -151,6 +151,23 @@
             }
         })();
 
+        (function() {
+            const raw = localStorage.getItem('dashboard-ui-scale') || '100';
+            const factor = (parseInt(raw, 10) || 100) / 100;
+            document.documentElement.style.setProperty('--ui-scale', factor);
+        })();
+
+        function applyUiScale(scaleVal) {
+            const raw = scaleVal !== undefined ? scaleVal : (localStorage.getItem('dashboard-ui-scale') || '100');
+            const val = parseInt(raw, 10);
+            const factor = (isNaN(val) ? 100 : val) / 100;
+            [document.documentElement, document.body].forEach(el => {
+                if (el) el.style.setProperty('--ui-scale', factor);
+            });
+            const container = document.querySelector('.container');
+            if (container) container.style.zoom = factor;
+        }
+
         function applyGlassAndBlur(blurVal, transVal) {
             const blur = blurVal !== undefined ? blurVal : (localStorage.getItem('dashboard-blur') || '16');
             const transRaw = transVal !== undefined ? transVal : (localStorage.getItem('dashboard-glass-translucency') || '60');
@@ -179,6 +196,7 @@
             document.documentElement.setAttribute('data-theme', theme);
             if (document.body) document.body.setAttribute('data-theme', theme);
             applyGlassAndBlur();
+            applyUiScale();
             try {
                 const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
                 applyThemeAndColors(document.documentElement, pywal);
@@ -194,6 +212,8 @@
                 applyGlassAndBlur(e.newValue, undefined);
             } else if (e.key === 'dashboard-glass-translucency') {
                 applyGlassAndBlur(undefined, e.newValue);
+            } else if (e.key === 'dashboard-ui-scale') {
+                applyUiScale(e.newValue);
             } else if (e.key === 'dashboard-primary-color' || e.key === 'dashboard-pywal') {
                 try {
                     const pywal = JSON.parse(localStorage.getItem('dashboard-pywal') || '{}');
@@ -208,6 +228,7 @@
         });
         document.addEventListener('DOMContentLoaded', () => {
             applyGlassAndBlur();
+            applyUiScale();
         });
     </script>
 
@@ -286,6 +307,7 @@
             --ui-translucency: 0.6;
             --ui-blur: 24px;
             --ui-saturate: 180%;
+            --ui-scale: 1;
             --glass: rgba(var(--glass-rgb), var(--glass-alpha));
             --glass-hover: rgba(22, 28, 44, 0.85);
             --glass-border: rgba(105, 180, 195, 0.25);
@@ -400,6 +422,7 @@
             max-width: 1240px;
             margin: 0 auto;
             padding: 10px 20px 24px;
+            zoom: var(--ui-scale, 1);
         }
 
         /* Universal Text Selection (Pywal Accented) */
@@ -1268,98 +1291,126 @@
         }
 
         let LAST_SYS_STATS = {};
+        function applySystemStatsToUI(stats) {
+            if (!stats) return;
+            // Dynamic Name & Branding
+            const serverName = stats.display_name || stats.server_name || 'Server';
+            if (LAST_SYS_STATS.serverName !== serverName) {
+                const hostEl = document.getElementById('sys-hostname');
+                if (hostEl) hostEl.textContent = serverName;
+                const projectName = stats.project_name || 'Tinarchy';
+                document.title = `${serverName} - ${projectName}`;
+                LAST_SYS_STATS.serverName = serverName;
+            }
+            if (stats.app_icon) {
+                const iconEl = document.getElementById('brand-icon');
+                if (iconEl && iconEl.textContent !== stats.app_icon) iconEl.textContent = stats.app_icon;
+            }
+
+            if (LAST_SYS_STATS.tailscale_ip !== stats.tailscale_ip) {
+                const tsEl = document.getElementById('sys-tailscale');
+                if (tsEl) tsEl.textContent = `IP: ${stats.tailscale_ip}`;
+                LAST_SYS_STATS.tailscale_ip = stats.tailscale_ip;
+            }
+            if (LAST_SYS_STATS.uptime !== stats.uptime) {
+                const upEl = document.getElementById('sys-uptime');
+                if (upEl) upEl.textContent = `Up: ${stats.uptime}`;
+                LAST_SYS_STATS.uptime = stats.uptime;
+            }
+
+            // RAM
+            const ramTxt = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
+            if (LAST_SYS_STATS.ramTxt !== ramTxt) {
+                const ramEl = document.getElementById('ram-text');
+                if (ramEl) ramEl.textContent = ramTxt;
+                LAST_SYS_STATS.ramTxt = ramTxt;
+            }
+            const ramPercentStr = `${stats.ram_percent}%`;
+            const ramBar = document.getElementById('ram-bar');
+            if (ramBar && ramBar.style.width !== ramPercentStr) {
+                ramBar.style.width = ramPercentStr;
+                ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
+            }
+
+            // Disk
+            const diskTxt = `${stats.disk_used} / ${stats.disk_total}`;
+            if (LAST_SYS_STATS.diskTxt !== diskTxt) {
+                const diskEl = document.getElementById('disk-text');
+                if (diskEl) diskEl.textContent = diskTxt;
+                LAST_SYS_STATS.diskTxt = diskTxt;
+            }
+            const diskPercentStr = `${stats.disk_percent}%`;
+            const diskBar = document.getElementById('disk-bar');
+            if (diskBar && diskBar.style.width !== diskPercentStr) {
+                diskBar.style.width = diskPercentStr;
+            }
+
+            // CPU Load
+            const cpuTxt = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
+            if (LAST_SYS_STATS.cpuTxt !== cpuTxt) {
+                const cpuEl = document.getElementById('cpu-text');
+                if (cpuEl) cpuEl.textContent = cpuTxt;
+                LAST_SYS_STATS.cpuTxt = cpuTxt;
+            }
+            const cpuPercentStr = `${stats.cpu_percent}%`;
+            const cpuBar = document.getElementById('cpu-bar');
+            if (cpuBar && cpuBar.style.width !== cpuPercentStr) {
+                cpuBar.style.width = cpuPercentStr;
+            }
+
+            // CPU Temp
+            if (stats.cpu_temp) {
+                if (LAST_SYS_STATS.cpu_temp !== stats.cpu_temp) {
+                    const tempEl = document.getElementById('temp-text');
+                    if (tempEl) tempEl.textContent = stats.cpu_temp;
+                    LAST_SYS_STATS.cpu_temp = stats.cpu_temp;
+                }
+                const tempBar = document.getElementById('temp-bar');
+                if (tempBar) {
+                    const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
+                    const tempPercentStr = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
+                    if (tempBar.style.width !== tempPercentStr) {
+                        tempBar.style.width = tempPercentStr;
+                        tempBar.style.backgroundColor = tempVal > 78 ? '#ffb4ab' : (tempVal > 65 ? '#fcc419' : 'var(--primary)');
+                    }
+                }
+            }
+        }
+
         async function fetchSystemStats(manual = false) {
             if (document.hidden && !manual) return;
             try {
                 const res = await fetch('/api/system');
                 if(!res.ok) return;
                 const stats = await res.json();
-
-                // Dynamic Name & Branding
-                const serverName = stats.display_name || stats.server_name || 'Server';
-                if (LAST_SYS_STATS.serverName !== serverName) {
-                    const hostEl = document.getElementById('sys-hostname');
-                    if (hostEl) hostEl.textContent = serverName;
-                    const projectName = stats.project_name || 'Tinarchy';
-                    document.title = `${serverName} - ${projectName}`;
-                    LAST_SYS_STATS.serverName = serverName;
-                }
-                if (stats.app_icon) {
-                    const iconEl = document.getElementById('brand-icon');
-                    if (iconEl && iconEl.textContent !== stats.app_icon) iconEl.textContent = stats.app_icon;
-                }
-
-                if (LAST_SYS_STATS.tailscale_ip !== stats.tailscale_ip) {
-                    const tsEl = document.getElementById('sys-tailscale');
-                    if (tsEl) tsEl.textContent = `IP: ${stats.tailscale_ip}`;
-                    LAST_SYS_STATS.tailscale_ip = stats.tailscale_ip;
-                }
-                if (LAST_SYS_STATS.uptime !== stats.uptime) {
-                    const upEl = document.getElementById('sys-uptime');
-                    if (upEl) upEl.textContent = `Up: ${stats.uptime}`;
-                    LAST_SYS_STATS.uptime = stats.uptime;
-                }
-
-                // RAM
-                const ramTxt = `${stats.ram_used_mb}MB / ${stats.ram_total_mb}MB`;
-                if (LAST_SYS_STATS.ramTxt !== ramTxt) {
-                    const ramEl = document.getElementById('ram-text');
-                    if (ramEl) ramEl.textContent = ramTxt;
-                    LAST_SYS_STATS.ramTxt = ramTxt;
-                }
-                const ramPercentStr = `${stats.ram_percent}%`;
-                const ramBar = document.getElementById('ram-bar');
-                if (ramBar && ramBar.style.width !== ramPercentStr) {
-                    ramBar.style.width = ramPercentStr;
-                    ramBar.style.backgroundColor = stats.ram_percent > 85 ? '#ffb4ab' : (stats.ram_percent > 70 ? '#fcc419' : 'var(--primary)');
-                }
-
-                // Disk
-                const diskTxt = `${stats.disk_used} / ${stats.disk_total}`;
-                if (LAST_SYS_STATS.diskTxt !== diskTxt) {
-                    const diskEl = document.getElementById('disk-text');
-                    if (diskEl) diskEl.textContent = diskTxt;
-                    LAST_SYS_STATS.diskTxt = diskTxt;
-                }
-                const diskPercentStr = `${stats.disk_percent}%`;
-                const diskBar = document.getElementById('disk-bar');
-                if (diskBar && diskBar.style.width !== diskPercentStr) {
-                    diskBar.style.width = diskPercentStr;
-                }
-
-                // CPU Load
-                const cpuTxt = `${stats.cpu_percent}% (${stats.loadavg ? stats.loadavg[0] : '0.00'})`;
-                if (LAST_SYS_STATS.cpuTxt !== cpuTxt) {
-                    const cpuEl = document.getElementById('cpu-text');
-                    if (cpuEl) cpuEl.textContent = cpuTxt;
-                    LAST_SYS_STATS.cpuTxt = cpuTxt;
-                }
-                const cpuPercentStr = `${stats.cpu_percent}%`;
-                const cpuBar = document.getElementById('cpu-bar');
-                if (cpuBar && cpuBar.style.width !== cpuPercentStr) {
-                    cpuBar.style.width = cpuPercentStr;
-                }
-
-                // CPU Temp
-                if (stats.cpu_temp) {
-                    if (LAST_SYS_STATS.cpu_temp !== stats.cpu_temp) {
-                        const tempEl = document.getElementById('temp-text');
-                        if (tempEl) tempEl.textContent = stats.cpu_temp;
-                        LAST_SYS_STATS.cpu_temp = stats.cpu_temp;
-                    }
-                    const tempBar = document.getElementById('temp-bar');
-                    if (tempBar) {
-                        const tempVal = stats.cpu_temp_val || parseInt(stats.cpu_temp, 10) || 45;
-                        const tempPercentStr = `${Math.min(100, Math.max(0, (tempVal / 90) * 100))}%`;
-                        if (tempBar.style.width !== tempPercentStr) {
-                            tempBar.style.width = tempPercentStr;
-                            tempBar.style.backgroundColor = tempVal > 78 ? '#ffb4ab' : (tempVal > 65 ? '#fcc419' : 'var(--primary)');
-                        }
-                    }
-                }
-
+                applySystemStatsToUI(stats);
                 if (manual) showToast('Telemetry synchronized', 'success');
             } catch (err) {}
+        }
+
+        let sseSource = null;
+        let sseActive = false;
+        function initTelemetryStream() {
+            if (!window.EventSource) {
+                sseActive = false;
+                return;
+            }
+            try {
+                if (sseSource) sseSource.close();
+                sseSource = new EventSource('/api/events/telemetry');
+                sseSource.addEventListener('telemetry', (e) => {
+                    sseActive = true;
+                    try {
+                        const stats = JSON.parse(e.data);
+                        applySystemStatsToUI(stats);
+                    } catch (err) {}
+                });
+                sseSource.onerror = () => {
+                    sseActive = false;
+                };
+            } catch (e) {
+                sseActive = false;
+            }
         }
 
         async function fetchServices() {
@@ -1661,9 +1712,20 @@
             if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
                 fetchTorExitStatus();
             }
-            setInterval(fetchSystemStats, 4000);
+            initTelemetryStream();
+            // Fallback polling if SSE is disconnected or unsupported
+            setInterval(() => {
+                if (!sseActive && !document.hidden) {
+                    fetchSystemStats();
+                }
+            }, 5000);
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) fetchSystemStats();
+                if (!document.hidden) {
+                    if (sseSource && sseSource.readyState === EventSource.CLOSED) {
+                        initTelemetryStream();
+                    }
+                    if (!sseActive) fetchSystemStats();
+                }
             });
         });
     </script>

@@ -1,1081 +1,48 @@
-import socket
-import platform
-import gzip
-import pywal_generator
-import http.server
-import socketserver
-import json
+#!/usr/bin/env python3
 import os
-import glob
-import subprocess
 import re
-import uuid
-import time
-import http.cookies
-import ssl
-import threading
+import json
+import gzip
 import html
-from datetime import datetime
-
-# --- Load Environment Variables ---
-def load_env():
-    env_paths = [
-        os.environ.get('TINARCHY_ENV_FILE', ''),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'),
-        '/etc/tinarchy/tinarchy.env'
-    ]
-    for env_path in env_paths:
-        if env_path and os.path.exists(env_path):
-            try:
-                with open(env_path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if '=' in line and not line.startswith('#'):
-                            k, v = line.split('=', 1)
-                            k = k.strip()
-                            v = v.strip().strip('"\'')
-                            if k and k not in os.environ:
-                                os.environ[k] = v
-            except Exception:
-                pass
-
-load_env()
-
-_TAILSCALE_DNS_CACHE = {'domain': None, 'ts': 0}
-
-def get_tailscale_domain():
-    env_dom = os.environ.get('TAILSCALE_DOMAIN')
-    if env_dom:
-        return env_dom
-    global _TAILSCALE_DNS_CACHE
-    now_t = time.time()
-    if _TAILSCALE_DNS_CACHE['domain'] and (now_t - _TAILSCALE_DNS_CACHE['ts']) < 120:
-        return _TAILSCALE_DNS_CACHE['domain']
-    try:
-        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0:
-            d = json.loads(res.stdout)
-            dns = d.get('Self', {}).get('DNSName', '').rstrip('.')
-            if dns:
-                _TAILSCALE_DNS_CACHE = {'domain': dns, 'ts': now_t}
-                return dns
-    except Exception:
-        pass
-    fallback = os.environ.get('SERVER_NAME') or socket.gethostname()
-    return _TAILSCALE_DNS_CACHE.get('domain') or fallback
-
-
-PREV_NET = {'time': time.time(), 'rx': 0, 'tx': 0, 'rx_spd': 0, 'tx_spd': 0, 'rx_tot': 0, 'tx_tot': 0}
-_NET_LOCK = threading.Lock()
-
-_CPU_LOCK = threading.Lock()
-_LAST_CPU_PERCENT = 0.0
-_TAILSCALE_IP_CACHE = {'ip': None, 'ts': 0}
-_SERVICES_STATUS_CACHE = {'data': None, 'ts': 0}
-
-def _read_cpu_times():
-    try:
-        with open('/proc/stat', 'r') as f:
-            line = f.readline()
-        fields = [float(x) for x in line.strip().split()[1:]]
-        # Linux standard: [0] user, [1] nice, [2] system, [3] idle, [4] iowait, [5] irq, [6] softirq, [7] steal
-        idle = fields[3] + (fields[4] if len(fields) > 4 else 0.0)
-        non_idle = fields[0] + fields[1] + fields[2] + (sum(fields[5:8]) if len(fields) >= 8 else 0.0)
-        total = idle + non_idle
-        return time.time(), total, idle
-    except Exception:
-        return time.time(), 0.0, 0.0
-
-_t_init, _tot_init, _idle_init = _read_cpu_times()
-PREV_CPU = {'time': _t_init, 'total': _tot_init, 'idle': _idle_init}
-
-def get_cpu_percent():
-    global PREV_CPU, _LAST_CPU_PERCENT
-    with _CPU_LOCK:
-        now_t, total, idle = _read_cpu_times()
-        if total == 0.0:
-            return _LAST_CPU_PERCENT
-
-        dt = now_t - PREV_CPU['time']
-        diff_total = total - PREV_CPU['total']
-        diff_idle = idle - PREV_CPU['idle']
-
-        # Prevent false 0% spikes from rapid concurrent requests (< 0.5s)
-        if dt < 0.5 or diff_total <= 0:
-            return _LAST_CPU_PERCENT
-
-        usage = max(0.0, min(100.0, (1.0 - (diff_idle / diff_total)) * 100.0))
-        _LAST_CPU_PERCENT = round(usage, 1)
-        PREV_CPU = {'time': now_t, 'total': total, 'idle': idle}
-        return _LAST_CPU_PERCENT
-
-def get_ram_stats():
-    """Hardware-adaptive RAM usage calculation.
-    Uses MemAvailable on modern Linux kernels (3.14+) with legacy fallbacks
-    for older machines and kernels.
-    """
-    try:
-        meminfo = {}
-        with open('/proc/meminfo', 'r') as f:
-            for line in f:
-                parts = line.split(':')
-                if len(parts) == 2:
-                    meminfo[parts[0].strip()] = int(parts[1].strip().split()[0])
-
-        total_kb = meminfo.get('MemTotal', 0)
-        if total_kb <= 0:
-            return {'ram_used_mb': 0, 'ram_total_mb': 0, 'ram_percent': 0.0}
-
-        # Modern Linux: MemAvailable is the kernel's official freeable memory estimate
-        if 'MemAvailable' in meminfo:
-            avail_kb = meminfo['MemAvailable']
-            used_kb = max(0, total_kb - avail_kb)
-        else:
-            # Fallback for older kernels: total - free - buffers - cached
-            free_kb = meminfo.get('MemFree', 0)
-            buffers_kb = meminfo.get('Buffers', 0)
-            cached_kb = meminfo.get('Cached', 0)
-            sreclaim_kb = meminfo.get('SReclaimable', 0)
-            shmem_kb = meminfo.get('Shmem', 0)
-            used_kb = max(0, total_kb - free_kb - buffers_kb - cached_kb - sreclaim_kb + shmem_kb)
-
-        used_mb = int(used_kb / 1024)
-        total_mb = int(total_kb / 1024)
-        percent = round((used_kb / total_kb) * 100.0, 1)
-
-        return {
-            'ram_used_mb': used_mb,
-            'ram_total_mb': total_mb,
-            'ram_percent': percent
-        }
-    except Exception:
-        return {'ram_used_mb': 0, 'ram_total_mb': 0, 'ram_percent': 0.0}
-
-def format_speed(bytes_per_sec):
-    if bytes_per_sec < 1024:
-        return f"{int(bytes_per_sec)} B/s"
-    elif bytes_per_sec < 1024 * 1024:
-        return f"{bytes_per_sec / 1024:.1f} KB/s"
-    else:
-        return f"{bytes_per_sec / (1024 * 1024):.1f} MB/s"
-
-def format_total(bytes_total):
-    if bytes_total < 1024 * 1024:
-        return f"{bytes_total / 1024:.1f} KB"
-    elif bytes_total < 1024 * 1024 * 1024:
-        return f"{bytes_total / (1024 * 1024):.1f} MB"
-    else:
-        return f"{bytes_total / (1024 * 1024 * 1024):.2f} GB"
-
-_CPU_TEMP_PATH = None
-
-def find_best_cpu_temp_path():
-    # 1. Check hwmon for dedicated CPU temperature drivers (coretemp, k10temp, zenpower, etc.)
-    cpu_hwmon_names = {'coretemp', 'k10temp', 'zenpower', 'cpu_thermal', 'soc_thermal'}
-    for hwmon in sorted(glob.glob('/sys/class/hwmon/hwmon*')):
-        try:
-            with open(os.path.join(hwmon, 'name'), 'r') as f:
-                h_name = f.read().strip().lower()
-            if h_name in cpu_hwmon_names:
-                # Prefer 'Package id 0' or 'Tdie' or 'Tctl' or 'Core 0'
-                for label_file in sorted(glob.glob(os.path.join(hwmon, 'temp*_label'))):
-                    try:
-                        with open(label_file, 'r') as lf:
-                            lbl = lf.read().strip().lower()
-                        if any(k in lbl for k in ('package', 'tdie', 'tctl', 'core 0')):
-                            inp_file = label_file.replace('_label', '_input')
-                            if os.path.isfile(inp_file):
-                                return inp_file
-                    except Exception:
-                        pass
-                t1 = os.path.join(hwmon, 'temp1_input')
-                if os.path.isfile(t1):
-                    return t1
-        except Exception:
-            pass
-
-    # 2. Check thermal zones for designated CPU types (x86_pkg_temp, cpu-thermal, etc.)
-    cpu_zone_keywords = ('x86_pkg_temp', 'cpu', 'pkg', 'k10temp', 'coretemp', 'soc')
-    for zone in sorted(glob.glob('/sys/class/thermal/thermal_zone*')):
-        try:
-            with open(os.path.join(zone, 'type'), 'r') as f:
-                z_type = f.read().strip().lower()
-            if any(k in z_type for k in cpu_zone_keywords):
-                t_file = os.path.join(zone, 'temp')
-                if os.path.isfile(t_file):
-                    return t_file
-        except Exception:
-            pass
-
-    # 3. Check vendor-specific platform monitors (e.g. dell_smm, thinkpad)
-    for hwmon in sorted(glob.glob('/sys/class/hwmon/hwmon*')):
-        try:
-            with open(os.path.join(hwmon, 'name'), 'r') as f:
-                h_name = f.read().strip().lower()
-            if any(k in h_name for k in ('dell', 'thinkpad', 'asus')):
-                t1 = os.path.join(hwmon, 'temp1_input')
-                if os.path.isfile(t1):
-                    return t1
-        except Exception:
-            pass
-
-    # 4. Fallback to classic/legacy paths (ensures 100% compatibility with older laptops/kernels)
-    legacy_paths = [
-        '/sys/class/thermal/thermal_zone0/temp',
-        '/sys/class/hwmon/hwmon0/temp1_input',
-        '/sys/class/hwmon/hwmon1/temp1_input'
-    ]
-    for p in legacy_paths:
-        if os.path.isfile(p):
-            return p
-
-    return None
-
-def get_cpu_temp():
-    global _CPU_TEMP_PATH
-    if not _CPU_TEMP_PATH or not os.path.isfile(_CPU_TEMP_PATH):
-        _CPU_TEMP_PATH = find_best_cpu_temp_path()
-
-    if _CPU_TEMP_PATH:
-        try:
-            with open(_CPU_TEMP_PATH, 'r') as f:
-                val = int(f.read().strip())
-                celsius = round(val / 1000.0, 1) if val > 1000 else float(val)
-                return f"{celsius}°C", int(celsius)
-        except Exception:
-            _CPU_TEMP_PATH = None
-
-    return "N/A", 0
-
-APP_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app_config.json')
-
-def get_system_hostname():
-    try:
-        return socket.gethostname() or os.uname().nodename or 'server'
-    except Exception:
-        return 'server'
-
-def get_app_config():
-    sys_name = get_system_hostname()
-    env_server_name = os.environ.get('SERVER_NAME', '')
-    env_project_name = os.environ.get('PROJECT_NAME', '')
-    env_app_icon = os.environ.get('APP_ICON', '🍍')
-    env_subtitle = os.environ.get('BRANDING_SUBTITLE', 'Server Control Center')
-    env_ssh_user = os.environ.get('SSH_USER', '')
-    if not env_ssh_user or env_ssh_user == 'root':
-        if os.path.isdir('/home/tin'):
-            env_ssh_user = 'tin'
-        elif os.path.isdir('/home/pineapple'):
-            env_ssh_user = 'pineapple'
-        elif os.environ.get('SUDO_USER'):
-            env_ssh_user = os.environ.get('SUDO_USER')
-        else:
-            try:
-                import getpass
-                env_ssh_user = getpass.getuser()
-            except Exception:
-                env_ssh_user = 'user'
-
-    server_name = env_server_name
-    project_name = env_project_name or 'Tinarchy'
-
-    if os.path.exists(APP_CONFIG_FILE):
-        try:
-            with open(APP_CONFIG_FILE, 'r') as f:
-                cfg = json.load(f)
-                if not server_name:
-                    server_name = cfg.get('server_name')
-                if not env_project_name:
-                    project_name = cfg.get('project_name') or project_name
-        except Exception:
-            pass
-
-    display_name = server_name or sys_name
-
-    return {
-        'server_name': server_name or '',
-        'project_name': project_name,
-        'display_name': display_name,
-        'hostname': sys_name,
-        'app_icon': env_app_icon,
-        'branding_subtitle': env_subtitle,
-        'ssh_user': env_ssh_user,
-        'tailscale_domain': get_tailscale_domain()
-    }
-
-def save_app_config(cfg):
-    with open(APP_CONFIG_FILE, 'w') as f:
-        json.dump(cfg, f, indent=2)
-
-def get_power_supply_status() -> dict:
-    """Read AC mains and battery status directly from sysfs for UPS telemetry."""
-    info = {
-        "ac_online": True,
-        "present": False,
-        "capacity": 100,
-        "status": "Full",
-        "voltage_v": 0.0,
-        "health_pct": 100.0,
-        "charge_now_mah": 0,
-        "charge_full_mah": 0,
-        "design_mah": 0
-    }
-    acad_path = "/sys/class/power_supply/ACAD/online"
-    if os.path.exists(acad_path):
-        try:
-            with open(acad_path, "r") as f:
-                info["ac_online"] = (f.read().strip() == "1")
-        except Exception:
-            pass
-
-    bat_dir = "/sys/class/power_supply/BAT1"
-    if os.path.exists(bat_dir):
-        info["present"] = True
-        try:
-            with open(f"{bat_dir}/capacity", "r") as f:
-                info["capacity"] = int(f.read().strip())
-        except Exception:
-            pass
-        try:
-            with open(f"{bat_dir}/status", "r") as f:
-                info["status"] = f.read().strip()
-                if info["status"] == "Discharging":
-                    info["ac_online"] = False
-        except Exception:
-            pass
-        try:
-            with open(f"{bat_dir}/voltage_now", "r") as f:
-                info["voltage_v"] = round(int(f.read().strip()) / 1e6, 2)
-        except Exception:
-            pass
-        try:
-            with open(f"{bat_dir}/charge_now", "r") as f:
-                info["charge_now_mah"] = int(f.read().strip()) // 1000
-            with open(f"{bat_dir}/charge_full", "r") as f:
-                info["charge_full_mah"] = int(f.read().strip()) // 1000
-            with open(f"{bat_dir}/charge_full_design", "r") as f:
-                info["design_mah"] = int(f.read().strip()) // 1000
-            if info["design_mah"] > 0:
-                info["health_pct"] = round((info["charge_full_mah"] / info["design_mah"]) * 100, 1)
-        except Exception:
-            pass
-    return info
-
-_DAILY_REPORT_CACHE = {'data': None, 'ts': 0}
-
-def generate_daily_system_report(force=False):
-    global _DAILY_REPORT_CACHE
-    now = time.time()
-    if not force and _DAILY_REPORT_CACHE['data'] and (now - _DAILY_REPORT_CACHE['ts']) < 4:
-        return _DAILY_REPORT_CACHE['data']
-
-    rep = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
-        "hostname": get_system_hostname(),
-        "kernel": platform.release(),
-        "arch": platform.machine(),
-    }
-
-    # 1. Uptime & Load
-    try:
-        with open('/proc/uptime', 'r') as f:
-            up = float(f.readline().split()[0])
-            d = int(up // 86400)
-            h = int((up % 86400) // 3600)
-            m = int((up % 3600) // 60)
-            rep['uptime'] = f"{d}d {h}h {m}m"
-            rep['uptime_seconds'] = int(up)
-    except Exception:
-        rep['uptime'] = "Unknown"
-        rep['uptime_seconds'] = 0
-
-    try:
-        with open('/proc/loadavg', 'r') as f:
-            parts = f.readline().split()
-            rep['loadavg'] = parts[:3]
-            rep['runnable'] = parts[3] if len(parts) > 3 else "N/A"
-    except Exception:
-        rep['loadavg'] = ["0.00", "0.00", "0.00"]
-        rep['runnable'] = "N/A"
-
-    # 2. CPU & Thermals
-    celsius_str, celsius_val = get_cpu_temp()
-    rep['cpu_temp'] = celsius_str
-    rep['cpu_temp_val'] = celsius_val
-    rep['cpu_percent'] = get_cpu_percent()
-
-    # Governor Telemetry
-    gov_raw = ""
-    gov_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", "scripts", "tinarchy-resource-governor.py")
-    if not os.path.exists(gov_script):
-        for candidate in ["/usr/local/bin/tinarchy-resource-governor", "/home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py", "/home/tin/server-dashboard/configs/scripts/tinarchy-resource-governor.py"]:
-            if os.path.exists(candidate):
-                gov_script = candidate
-                break
-    try:
-        res = subprocess.run(
-            ["/usr/bin/python3", gov_script, "--status"],
-            capture_output=True, text=True, timeout=2
-        )
-        gov_raw = res.stdout.strip()
-    except Exception as e:
-        gov_raw = f"Governor status error: {e}"
-    rep['governor_raw'] = gov_raw
-
-    rep['governor'] = {
-        "tier": "TIER 0: ACTIVE (Interactive Use)",
-        "target_temp": "76.0 °C",
-        "turbo": "DISABLED (Cool)",
-        "max_freq": "2000 MHz",
-        "suwayomi_quota": "80%",
-        "inactivity": "0s",
-        "demand": "throttled_usec=0",
-        "agy_status": "Active process registered"
-    }
-    for line in gov_raw.splitlines():
-        if "Current Operational Tier:" in line:
-            rep['governor']['tier'] = line.split(":", 1)[1].strip()
-        elif "Target Thermal Budget:" in line:
-            rep['governor']['target_temp'] = line.split(":", 1)[1].strip()
-        elif "Intel Turbo Boost:" in line:
-            rep['governor']['turbo'] = line.split(":", 1)[1].strip()
-        elif "Dynamic Frequency Ceiling:" in line:
-            rep['governor']['max_freq'] = line.split(":", 1)[1].strip()
-        elif "Suwayomi CPU Quota:" in line:
-            rep['governor']['suwayomi_quota'] = line.split(":", 1)[1].strip()
-        elif "Inactivity Elapsed:" in line:
-            rep['governor']['inactivity'] = line.split(":", 1)[1].strip()
-        elif "Suwayomi Demand:" in line:
-            rep['governor']['demand'] = line.split(":", 1)[1].strip()
-        elif "agy Daemon" in line:
-            rep['governor']['agy_status'] = line.split(":", 1)[1].strip()
-
-    # 3. RAM & Storage
-    ram = get_ram_stats()
-    used_gb = round(ram.get('ram_used_mb', 0) / 1024, 1)
-    tot_gb = round(ram.get('ram_total_mb', 0) / 1024, 1)
-    rep['ram'] = {
-        'used': f"{used_gb}GB",
-        'total': f"{tot_gb}GB",
-        'percent': ram.get('ram_percent', 0)
-    }
-    try:
-        vfs = os.statvfs('/')
-        tot = vfs.f_blocks * vfs.f_frsize
-        free = vfs.f_bfree * vfs.f_frsize
-        used = tot - free
-        rep['disk'] = {
-            'used': f"{int(used / (1024**3))}GB",
-            'total': f"{int(tot / (1024**3))}GB",
-            'percent': round((used / tot) * 100, 1) if tot > 0 else 0
-        }
-    except Exception:
-        rep['disk'] = {'used': '0GB', 'total': '0GB', 'percent': 0}
-
-    # ZRAM & Readahead
-    rep['zram'] = {
-        'device': '/dev/zram0',
-        'size': '3.8 GB',
-        'compression': 'LZ4',
-        'priority': 100
-    }
-    try:
-        with open('/sys/block/sda/queue/read_ahead_kb', 'r') as f:
-            rep['read_ahead_kb'] = f.read().strip()
-    except Exception:
-        rep['read_ahead_kb'] = '2048'
-
-    rep['ramdisk_transcodes'] = {
-        'path': '/dev/shm/jellyfin-transcodes',
-        'active': os.path.exists('/dev/shm/jellyfin-transcodes'),
-        'engine': 'iGPU QuickSync VA-API (Intel HD Graphics 4000)'
-    }
-
-    # 4. Network & PESU WiFi
-    rep['network'] = {
-        'rps_mask': 'f (All 4 Cores: wlan0, tailscale0, enp2s0f0)',
-        'congestion_control': 'BBR (Bottleneck Bandwidth and RTT)',
-        'tcp_buffer_max': '64 MB Autotuned',
-        'tailscale_ip': _TAILSCALE_IP_CACHE.get('ip') or '100.112.193.54'
-    }
-    try:
-        jnl = subprocess.run(
-            ["journalctl", "-u", "pesu-wifi.service", "--no-pager", "-n", "1"],
-            capture_output=True, text=True, timeout=1
-        )
-        last_pesu = jnl.stdout.strip().split("]: ")[-1] if "]: " in jnl.stdout else "Session active"
-    except Exception:
-        last_pesu = "Session active"
-    rep['pesu_wifi'] = {
-        'ssid': 'PESU-EC-Campus',
-        'gateway': 'http://192.168.254.1:8090',
-        'account': 'deltatime-4',
-        'status': last_pesu
-    }
-
-    # 5. Battery & Autonomous UPS Telemetry
-    pwr = get_power_supply_status()
-    rep['battery'] = {
-        'ac_online': pwr['ac_online'],
-        'source': 'Mains AC (Online)' if pwr['ac_online'] else f"Battery Reserve ({pwr['status']})",
-        'capacity': pwr['capacity'],
-        'status': pwr['status'],
-        'health_pct': pwr['health_pct'],
-        'charge_mah': f"{pwr['charge_now_mah']} / {pwr['charge_full_mah']} mAh",
-        'design_mah': f"{pwr['design_mah']} mAh",
-        'voltage_v': f"{pwr['voltage_v']} V",
-        'chemistry': 'Li-ion (SONY 3S 18650 Steel Cans)',
-        'failover': '< 10 µs (Instantaneous Silicon Switch)',
-        'safe_cutoff': '15% Auto-Poweroff'
-    }
-
-    # 6. Core Services Status
-    cfg_app = get_app_config()
-    current_user = cfg_app.get('ssh_user') or PRIMARY_USER
-    syncthing_unit = f"syncthing@{current_user}.service"
-    try:
-        st_chk = subprocess.run(["systemctl", "is-active", syncthing_unit], capture_output=True, text=True, timeout=1).stdout.strip()
-        if st_chk != "active":
-            for candidate_user in ["pineapple", "tin"]:
-                cand_unit = f"syncthing@{candidate_user}.service"
-                if subprocess.run(["systemctl", "is-active", cand_unit], capture_output=True, text=True, timeout=1).stdout.strip() == "active":
-                    syncthing_unit = cand_unit
-                    break
-    except Exception:
-        pass
-
-    services = [
-        ("tinarchy.service", "Tinarchy Control Engine"),
-        ("tinarchy-resource-governor.service", "Autonomous Resource Governor"),
-        ("tinarchy-net-autotune.service", "Dynamic Network Tuner"),
-        ("pesu-wifi.service", "PESU WiFi Portal Daemon"),
-        ("suwayomi-server.service", "Suwayomi Manga Server"),
-        ("xvfb.service", "Xvfb Headless Display (:99)"),
-        ("jellyfin.service", "Jellyfin Media Server"),
-        (syncthing_unit, "Syncthing Mesh Sync"),
-        ("tailscaled.service", "Tailscale VPN Engine"),
-        ("nginx.service", "Nginx Web Proxy"),
-        ("thermald.service", "Intel Thermal Daemon"),
-    ]
-    rep['services'] = []
-    for unit, label in services:
-        try:
-            res = subprocess.run(["systemctl", "is-active", unit], capture_output=True, text=True, timeout=1)
-            st = res.stdout.strip()
-            rep['services'].append({"unit": unit, "name": label, "status": st if st else "inactive"})
-        except Exception:
-            rep['services'].append({"unit": unit, "name": label, "status": "unknown"})
-
-    # 7. Generate Pre-formatted Markdown String
-    host_display = cfg_app.get('display_name') or rep['hostname'].replace('-', ' ').title()
-    md_lines = [
-        f"# 🍍 {host_display} Daily System Report",
-        f"**Generated:** {rep['timestamp']} | **Uptime:** {rep['uptime']} | **Load:** {', '.join(rep['loadavg'])}",
-        f"",
-        f"---",
-        f"",
-        f"### 🌡️ Thermal & Closed-Loop Governor",
-        f"- **Current Temperature:** {rep['cpu_temp']} (Target Budget: {rep['governor']['target_temp']})",
-        f"- **Operational Tier:** `{rep['governor']['tier']}`",
-        f"- **Intel Turbo Boost:** `{rep['governor']['turbo']}`",
-        f"- **Dynamic Clock Ceiling:** `{rep['governor']['max_freq']}`",
-        f"- **Suwayomi CPU Quota:** `{rep['governor']['suwayomi_quota']}` (Demand: {rep['governor']['demand']})",
-        f"- **User Inactivity Elapsed:** `{rep['governor']['inactivity']}`",
-        f"",
-        f"### 🔋 Autonomous UPS & Battery Guard",
-        f"- **Power Source:** `{rep['battery']['source']}`",
-        f"- **Battery Charge Level:** `{rep['battery']['capacity']}%` ({rep['battery']['status']})",
-        f"- **Pack Health:** `{rep['battery']['health_pct']}%` ({rep['battery']['charge_mah']} | Design: {rep['battery']['design_mah']})",
-        f"- **Cell Pack & Voltage:** `{rep['battery']['chemistry']}` @ `{rep['battery']['voltage_v']}`",
-        f"- **AC Failover Latency:** `{rep['battery']['failover']}`",
-        f"- **Brownout Protection Cutoff:** `{rep['battery']['safe_cutoff']}`",
-        f"",
-        f"### 🌐 Network & Packet Steering",
-        f"- **Multicore RPS/RFS:** `{rep['network']['rps_mask']}`",
-        f"- **Congestion Control:** `{rep['network']['congestion_control']}`",
-        f"- **Tailscale Mesh IP:** `{rep['network']['tailscale_ip']}`",
-        f"- **PESU Wi-Fi:** SSID `{rep['pesu_wifi']['ssid']}` | Active Account: `{rep['pesu_wifi']['account']}`",
-        f"- **Watchdog Status:** `{rep['pesu_wifi']['status']}`",
-        f"",
-        f"### 💾 Storage, RAM & Acceleration",
-        f"- **Physical RAM:** {rep['ram'].get('used', '0GB')} / {rep['ram'].get('total', '0GB')} ({rep['ram'].get('percent', 0)}%)",
-        f"- **LZ4 ZRAM Cushion:** {rep['zram']['size']} (Priority {rep['zram']['priority']})",
-        f"- **Primary SSD:** {rep['disk']['used']} / {rep['disk']['total']} ({rep['disk']['percent']}%)",
-        f"- **Sequential Read-Ahead:** `{rep['read_ahead_kb']} KB`",
-        f"- **RAM-Disk Transcoding:** `{rep['ramdisk_transcodes']['path']}` ({rep['ramdisk_transcodes']['engine']})",
-        f"",
-        f"### 📦 Core System Services Matrix",
-    ]
-    for s in rep['services']:
-        icon = "🟢" if s['status'] == 'active' else "🔴"
-        md_lines.append(f"- {icon} **{s['name']}** (`{s['unit']}`): `{s['status']}`")
-
-    rep['markdown_report'] = "\n".join(md_lines)
-    _DAILY_REPORT_CACHE = {'data': rep, 'ts': now}
-    return rep
-
-# ─── Dynamic Tailscale Host Owner & RBAC ───
-ROLES_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'roles_config.json')
-WHOIS_CACHE = {}
-_HOST_OWNER_CACHE = {'data': None, 'ts': 0}
-
-def get_tailscale_host_owner():
-    """
-    Dynamically discovers the Tailscale account that owns/registered this server node.
-    Always uses the live DisplayName from Tailscale without hardcoded names.
-    Cached for 60 seconds to avoid high-frequency subprocess overhead.
-    """
-    global _HOST_OWNER_CACHE
-    now = time.time()
-    if _HOST_OWNER_CACHE['data'] and (now - _HOST_OWNER_CACHE['ts']) < 60:
-        return _HOST_OWNER_CACHE['data']
-
-    try:
-        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout:
-            st = json.loads(res.stdout)
-            self_user_id = st.get('Self', {}).get('UserID')
-            if self_user_id:
-                user_info = st.get('User', {}).get(str(self_user_id), {})
-                login_name = user_info.get('LoginName', '')
-                display_name = user_info.get('DisplayName') or login_name or 'Owner'
-                data = {
-                    'user_id': self_user_id,
-                    'login_name': login_name,
-                    'display_name': display_name
-                }
-                _HOST_OWNER_CACHE = {'data': data, 'ts': now}
-                return data
-    except Exception as e:
-        print(f"Error resolving Tailscale host owner: {e}")
-    fallback = {
-        'user_id': None,
-        'login_name': os.environ.get('OWNER_EMAIL', ''),
-        'display_name': 'Owner'
-    }
-    return fallback
-
-def get_all_service_ids():
-    global SERVICES
-    try:
-        return [s['id'] for s in SERVICES]
-    except Exception:
-        return ['suwayomi', 'jellyfin', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb']
-
-def get_roles_config():
-    default_cfg = {
-        "admin_accounts": [],
-        "roles": {},
-        "default_role": "viewer",
-        "user_permissions": {},
-        "default_permissions": get_all_service_ids()
-    }
-    if os.path.exists(ROLES_CONFIG_FILE):
-        try:
-            with open(ROLES_CONFIG_FILE, 'r') as f:
-                cfg = json.load(f)
-                if 'admin_accounts' not in cfg:
-                    cfg['admin_accounts'] = []
-                if 'roles' not in cfg:
-                    cfg['roles'] = {}
-                if 'user_permissions' not in cfg:
-                    cfg['user_permissions'] = {}
-                if 'default_permissions' not in cfg:
-                    cfg['default_permissions'] = get_all_service_ids()
-                return cfg
-        except Exception:
-            pass
-    return default_cfg
-
-def save_roles_config(cfg):
-    try:
-        with open(ROLES_CONFIG_FILE, 'w') as f:
-            json.dump(cfg, f, indent=2)
-    except Exception as e:
-        print(f"Error saving roles config: {e}")
-
-def get_user_allowed_services(login_name, role=None):
-    if role is None:
-        role = get_user_role(login_name)
-    # 👑 Owner and 🛡️ Admin ALWAYS have unrestricted access to ALL sites and services!
-    if role in ['owner', 'admin']:
-        return get_all_service_ids()
-    
-    cfg = get_roles_config()
-    user_perms = cfg.get('user_permissions', {})
-    if login_name and login_name in user_perms:
-        return user_perms[login_name]
-    
-    return cfg.get('default_permissions', get_all_service_ids())
-
-def get_user_role(login_name, display_name="", user_id=None):
-    host_owner = get_tailscale_host_owner()
-    # 1. The Tailscale account hosting the server is ALWAYS dynamically the Owner!
-    # Strict matching by unique user_id or unique login_name email (never match on non-unique display name):
-    if user_id and host_owner.get('user_id') and str(user_id) == str(host_owner.get('user_id')):
-        return 'owner'
-    if login_name and host_owner.get('login_name') and login_name.strip().lower() == host_owner.get('login_name').strip().lower():
-        return 'owner'
-
-    # 2. Check if the Owner granted Admin permissions
-    cfg = get_roles_config()
-    roles = cfg.get('roles', {})
-    if login_name in roles:
-        return roles[login_name]
-    
-    admins = cfg.get('admin_accounts', [])
-    if login_name in admins:
-        return 'admin'
-
-    return 'viewer'
-
-def resolve_tailscale_client(ip):
-    host_owner = get_tailscale_host_owner()
-    # Localhost / loopback / server self
-    if ip in ['127.0.0.1', '::1', os.environ.get('TAILSCALE_IP', '127.0.0.1')]:
-        return {
-            'user_id': host_owner.get('user_id'),
-            'login_name': host_owner.get('login_name'),
-            'display_name': host_owner.get('display_name'),
-            'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
-            'device_name': get_system_hostname(),
-            'device_ip': ip,
-            'role': 'owner',
-            'is_owner': True,
-            'is_tailscale': True,
-            'allowed_services': get_all_service_ids()
-        }
-
-    now = time.time()
-    if ip in WHOIS_CACHE and (now - WHOIS_CACHE[ip]['ts']) < 60:
-        return WHOIS_CACHE[ip]['data']
-
-    try:
-        res = subprocess.run(['tailscale', 'whois', '--json', ip], capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout:
-            raw = json.loads(res.stdout)
-            u = raw.get('UserProfile', {})
-            node = raw.get('Node', {})
-            user_id = u.get('ID')
-            login_name = u.get('LoginName', '')
-            display_name = u.get('DisplayName', login_name)
-            avatar = u.get('ProfilePicURL', '')
-            device = node.get('ComputedName', '')
-
-            role = get_user_role(login_name, display_name, user_id=user_id)
-            user_info = {
-                'user_id': user_id,
-                'login_name': login_name,
-                'display_name': display_name,
-                'avatar': avatar,
-                'device_name': device,
-                'device_ip': ip,
-                'role': role,
-                'is_owner': (role == 'owner'),
-                'is_tailscale': True,
-                'allowed_services': get_user_allowed_services(login_name, role)
-            }
-            WHOIS_CACHE[ip] = {'data': user_info, 'ts': now}
-            return user_info
-    except Exception as e:
-        print(f"Tailscale whois error: {e}")
-
-    # Fallback for LAN Wi-Fi / Local Subnet (e.g. 10.14.143.x)
-    is_lan = ip.startswith(('10.', '192.168.', '172.'))
-    lan_role = 'owner' if is_lan else 'viewer'
-    fallback = {
-        'login_name': 'lan_client',
-        'display_name': f'Local LAN ({ip})',
-        'avatar': '',
-        'device_name': ip,
-        'device_ip': ip,
-        'role': lan_role,
-        'is_owner': is_lan,
-        'is_tailscale': False,
-        'allowed_services': get_all_service_ids() if is_lan else get_user_allowed_services('lan_client', 'viewer')
-    }
-    return fallback
-
-def get_tailscale_users():
-    """
-    Dynamically aggregates all Tailscale users and devices (including all shared peers/nodes)
-    using generic loops and whois inspection without any hardcoded names.
-    """
-    try:
-        res = subprocess.run(['tailscale', 'status', '--json'], capture_output=True, text=True, timeout=2)
-        if res.returncode != 0 or not res.stdout:
-            return []
-        data = json.loads(res.stdout)
-        users_map = data.get('User', {})
-        peers = data.get('Peer', {})
-        self_node = data.get('Self', {})
-        
-        all_nodes = list(peers.values())
-        if self_node:
-            all_nodes.append(self_node)
-            
-        # 1. Loop through all nodes to dynamically discover any shared/external users via whois
-        node_details = {}
-        for node in all_nodes:
-            node_id = str(node.get('ID'))
-            uid = node.get('UserID')
-            ips = node.get('TailscaleIPs', [])
-            primary_ip = ips[0] if ips else ''
-            
-            # If this node belongs to an unknown/shared user, discover via whois
-            if primary_ip and (not uid or str(uid) not in users_map):
-                try:
-                    wout = subprocess.check_output(['tailscale', 'whois', '--json', primary_ip], timeout=2)
-                    wdata = json.loads(wout)
-                    uprof = wdata.get('UserProfile', {})
-                    wnode = wdata.get('Node', {})
-                    if uprof and uprof.get('ID'):
-                        user_uid = str(uprof.get('ID'))
-                        users_map[user_uid] = uprof
-                        node['UserID'] = uprof.get('ID')
-                    if wnode:
-                        node_details[node_id] = wnode
-                except Exception as e:
-                    print(f"Whois discovery error for {primary_ip}: {e}")
-
-        # 2. Group nodes by UserID using a generic loop
-        ts_users = []
-        for uid_str, uinfo in users_map.items():
-            try:
-                uid = int(uid_str)
-            except Exception:
-                uid = uid_str
-                
-            user_devices = []
-            for node in all_nodes:
-                if node.get('UserID') == uid:
-                    node_id = str(node.get('ID'))
-                    ips = node.get('TailscaleIPs', [])
-                    wnode = node_details.get(node_id, {})
-                    
-                    # Dynamically resolve hostname
-                    is_shared = bool(node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode'))
-                    raw_hname = node.get('HostName') or wnode.get('Name') or wnode.get('ComputedName') or ''
-                    
-                    if not raw_hname or raw_hname == 'device-of-shared-to-user':
-                        if is_shared:
-                            h_name = "Shared Node"
-                        else:
-                            h_name = "Device"
-                    else:
-                        h_name = raw_hname
-                    
-                    # Dynamically resolve OS (avoid assuming Windows for shared peers)
-                    os_name = (node.get('OS') or wnode.get('Hostinfo', {}).get('OS') or '').lower()
-                    if not os_name:
-                        os_name = 'unknown'
-
-                    user_devices.append({
-                        'name': h_name,
-                        'dns_name': (node.get('DNSName', '')).rstrip('.'),
-                        'os': os_name,
-                        'ip': ips[0] if ips else '',
-                        'online': node.get('Online', False),
-                        'active': node.get('Active', False),
-                        'is_self': bool(self_node and node.get('ID') == self_node.get('ID')),
-                        'is_shared': bool(node.get('ShareeNode') or wnode.get('Hostinfo', {}).get('ShareeNode'))
-                    })
-            
-            l_name = uinfo.get('LoginName', '')
-            d_name = uinfo.get('DisplayName') or l_name or 'User'
-            role = get_user_role(l_name, d_name, user_id=uid)
-            
-            ts_users.append({
-                'id': uid,
-                'display_name': d_name,
-                'login_name': l_name,
-                'avatar': uinfo.get('ProfilePicURL', ''),
-                'role': role,
-                'is_owner': (role == 'owner'),
-                'allowed_services': get_user_allowed_services(l_name, role),
-                'devices': user_devices
-            })
-            
-        role_priority = {'owner': 0, 'admin': 1, 'viewer': 2}
-        ts_users.sort(key=lambda u: (
-            role_priority.get(u.get('role', 'viewer'), 99),
-            (u.get('display_name') or u.get('login_name') or '').lower()
-        ))
-        return ts_users
-    except Exception as e:
-        print(f"Tailscale status error: {e}")
-        return []
-
-def is_tailscale_ssh_active():
-    try:
-        res = subprocess.run(['tailscale', 'debug', 'prefs'], capture_output=True, text=True, timeout=1)
-        if res.returncode == 0:
-            return '"RunSSH": true' in res.stdout
-    except Exception:
-        pass
-    return False
-
-PORT = int(os.environ.get('PORT', 8085))
-PUBLIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')
-WALLPAPER_DIR = os.path.join(os.path.expanduser('~'), 'Wall') if os.path.isdir(os.path.join(os.path.expanduser('~'), 'Wall')) else os.path.join(PUBLIC_DIR, 'Wallpapers')
-
-PRIMARY_USER = os.environ.get('SSH_USER') or ('tin' if os.path.isdir('/home/tin') else ('pineapple' if os.path.isdir('/home/pineapple') else (os.environ.get('SUDO_USER') or os.environ.get('USER', 'tin'))))
-
-# Core Service Toggles (configurable via .env, default: true)
-ENABLE_SUWAYOMI = os.environ.get('ENABLE_SUWAYOMI', 'true').strip().lower() in ('true', '1', 'yes')
-ENABLE_JELLYFIN = os.environ.get('ENABLE_JELLYFIN', 'true').strip().lower() in ('true', '1', 'yes')
-ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1', 'yes')
-ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
-ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
-
-SERVICES = []
-if ENABLE_SUWAYOMI:
-    SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'})
-if ENABLE_JELLYFIN:
-    SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'})
-if ENABLE_TOR:
-    SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'})
-if ENABLE_TAILSCALE_SSH:
-    SERVICES.append({'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'})
-if ENABLE_SYNCTHING:
-    SERVICES.append({'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'})
-
-
-# Optional Services (toggleable via .env)
-ENABLE_SYNCYOMI = os.environ.get('ENABLE_SYNCYOMI', 'false').strip().lower() in ('true', '1', 'yes')
-if ENABLE_SYNCYOMI:
-    syncyomi_port = int(os.environ.get('SYNCYOMI_PORT', 8282))
-    SERVICES.append({
-        'id': 'syncyomi',
-        'name': 'SyncYomi',
-        'port': syncyomi_port,
-        'systemd': 'syncyomi',
-        'icon': '📖',
-        'description': 'Tachiyomi, Mihon & Suwayomi manga reading progress sync',
-        'link': '/syncyomi',
-        'link_text': f':{syncyomi_port}'
-    })
-
-ENABLE_FILEBROWSER = os.environ.get('ENABLE_FILEBROWSER', 'false').strip().lower() in ('true', '1', 'yes')
-if ENABLE_FILEBROWSER:
-    filebrowser_port = int(os.environ.get('FILEBROWSER_PORT', 8081))
-    filebrowser_unit = os.environ.get('FILEBROWSER_SYSTEMD', 'filebrowser-quantum')
-    SERVICES.append({
-        'id': 'filebrowser',
-        'name': 'File Manager',
-        'port': filebrowser_port,
-        'systemd': filebrowser_unit,
-        'icon': '📂',
-        'description': 'Modern web-based file manager',
-        'link': '/files',
-        'link_text': f':{filebrowser_port}'
-    })
-
-ENABLE_COUCHDB = os.environ.get('ENABLE_COUCHDB', 'false').strip().lower() in ('true', '1', 'yes')
-if ENABLE_COUCHDB:
-    couchdb_port = int(os.environ.get('COUCHDB_PORT', 5984))
-    SERVICES.append({
-        'id': 'couchdb',
-        'name': 'Obsidian LiveSync',
-        'port': couchdb_port,
-        'systemd': 'couchdb',
-        'icon': '🔮',
-        'description': 'Real-time E2EE sync backend for Obsidian vaults',
-        'link': '/obsidian',
-        'link_text': f':{couchdb_port}'
-    })
-
-def trigger_suwayomi_sync_async(force=False):
-    """Triggers Suwayomi GraphQL startSync in a non-blocking background thread."""
-    def _run():
-        try:
-            cmd = ['/usr/local/bin/suwayomi-trigger-sync']
-            if force:
-                cmd.append('--force')
-            subprocess.run(cmd, capture_output=True, timeout=15)
-        except Exception:
-            pass
-    threading.Thread(target=_run, daemon=True).start()
-
-def get_syncthing_home_dir():
-    candidates = [
-        f"/home/{PRIMARY_USER}/.local/state/syncthing",
-        f"/home/{PRIMARY_USER}/.config/syncthing",
-        os.path.expanduser('~/.local/state/syncthing'),
-        os.path.expanduser('~/.config/syncthing'),
-    ]
-    for c in candidates:
-        if os.path.exists(os.path.join(c, 'config.xml')):
-            return c
-    return None
-
-def get_syncthing_cli_cmd():
-    home_dir = get_syncthing_home_dir()
-    if home_dir:
-        return ['syncthing', '--home', home_dir, 'cli']
-    return ['syncthing', 'cli']
-
-_SYNCTHING_DEVICE_ID_CACHE = {'id': None, 'ts': 0}
-
-def get_syncthing_device_id():
-    global _SYNCTHING_DEVICE_ID_CACHE
-    now = time.time()
-    if _SYNCTHING_DEVICE_ID_CACHE['id'] and (now - _SYNCTHING_DEVICE_ID_CACHE['ts'] < 3600):
-        return _SYNCTHING_DEVICE_ID_CACHE['id']
-    home_dir = get_syncthing_home_dir()
-    cmd = ['syncthing', '--home', home_dir, 'device-id'] if home_dir else ['syncthing', 'device-id']
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
-        if res.returncode == 0 and res.stdout.strip():
-            dev_id = res.stdout.strip()
-            _SYNCTHING_DEVICE_ID_CACHE = {'id': dev_id, 'ts': now}
-            return dev_id
-    except Exception:
-        pass
-    if home_dir:
-        cp = os.path.join(home_dir, 'config.xml')
-        if os.path.exists(cp):
-            try:
-                import xml.etree.ElementTree as ET
-                tree = ET.parse(cp)
-                root = tree.getroot()
-                for dev in root.findall('device'):
-                    dev_id = dev.get('id')
-                    if dev_id:
-                        _SYNCTHING_DEVICE_ID_CACHE = {'id': dev_id, 'ts': now}
-                        return dev_id
-            except Exception:
-                pass
-    return ""
-
-# Load optional machine-specific services (untracked in git, e.g. Navidrome)
-LOCAL_SERVICES_FILE = os.path.join(os.path.dirname(__file__), 'services.local.json')
-if os.path.exists(LOCAL_SERVICES_FILE):
-    try:
-        with open(LOCAL_SERVICES_FILE, 'r') as f:
-            local_svcs = json.load(f)
-            if isinstance(local_svcs, list):
-                SERVICES.extend(local_svcs)
-    except Exception as e:
-        print(f'Error loading local services: {e}')
-
-def trigger_drive_sync():
-    sync_bin = os.environ.get('DRIVE_SYNC_BIN')
-    if not sync_bin:
-        for candidate in [
-            '/usr/local/bin/tinarchy-drive-sync',
-            '/usr/local/bin/pinedash-drive-sync',
-            '/usr/bin/tinarchy-drive-sync',
-            '/usr/bin/pinedash-drive-sync',
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs/scripts/pinedash-drive-sync')
-        ]:
-            if os.path.exists(candidate):
-                sync_bin = candidate
-                break
-    if sync_bin:
-        subprocess.Popen([sync_bin])
-    else:
-        raise FileNotFoundError("Drive sync binary not found")
+import socket
+import socketserver
+import subprocess
+import threading
+import queue
+import time
+import http.server
+
+# ─── Modular Tinarchy Core Imports ───
+import pywal_generator
+from tinarchy import config, telemetry, services, auth, syncthing, reports
+from tinarchy.sse import sse_broker
+
+# ─── Backward-Compatibility Re-Exports ───
+from tinarchy.config import (
+    PORT, PUBLIC_DIR, WALLPAPER_DIR, APP_CONFIG_FILE, ROLES_CONFIG_FILE,
+    LOCAL_SERVICES_FILE, PRIMARY_USER, load_env, get_tailscale_domain,
+    get_system_hostname, get_app_config, save_app_config
+)
+from tinarchy.telemetry import (
+    get_cpu_percent, get_ram_stats, get_cpu_temp, get_power_supply_status,
+    format_speed, format_total
+)
+from tinarchy.services import (
+    SERVICES, get_all_service_ids, is_tailscale_ssh_active,
+    trigger_suwayomi_sync_async
+)
+from tinarchy.auth import (
+    get_tailscale_host_owner, get_roles_config, save_roles_config,
+    get_user_allowed_services, get_user_role, resolve_tailscale_client,
+    get_tailscale_users
+)
+from tinarchy.syncthing import (
+    get_syncthing_home_dir, get_syncthing_cli_cmd, get_syncthing_device_id,
+    trigger_drive_sync, start_syncthing_auto_pair_thread
+)
+from tinarchy.reports import generate_daily_system_report
+
+sse_broker.set_syncthing_module(syncthing)
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
@@ -1100,7 +67,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(data_bytes)
 
     def end_headers(self):
-        if hasattr(self, 'path') and (self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.svg', '.woff2', '.ico'))):
+        if hasattr(self, 'path') and (
+            self.path.startswith('/Wallpapers/') or
+            self.path.startswith('/thumbnails/') or
+            self.path.endswith(('.png', '.jpg', '.jpeg', '.webp', '.mp4', '.svg', '.woff2', '.ico'))
+        ):
             self.send_header('Cache-Control', 'public, max-age=31536000, immutable')
         super().end_headers()
 
@@ -1118,7 +89,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def check_auth(self):
         client_ip = self.get_client_ip()
-        return resolve_tailscale_client(client_ip)
+        return auth.resolve_tailscale_client(client_ip)
 
     def serve_html_file(self, rel_path):
         target_file = os.path.join(PUBLIC_DIR, rel_path)
@@ -1217,13 +188,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         return True
 
     def handle_service_routes(self):
-        # Extract path without query or fragment, strip trailing slashes
         raw_path = self.path.split('?')[0].split('#')[0]
         clean_path = raw_path.rstrip('/').lower() if raw_path != '/' else '/'
         if not clean_path or clean_path == '/':
             return False
 
-        # Support backward-compatible /links/ prefix (e.g. /links/files -> /files)
         if clean_path.startswith('/links'):
             sub = clean_path[6:].strip('/')
             if not sub:
@@ -1234,7 +203,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return True
             clean_path = '/' + sub
 
-        # Canonical URL redirects to hide .html from URL bar
         if clean_path in ['/index.html', '/public/index.html']:
             self.send_response(301)
             self.send_header('Location', '/')
@@ -1249,16 +217,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return True
 
-        # Clean /settings route: directly serve settings.html without URL change
         if clean_path == '/settings':
             return self.serve_html_file('settings.html')
 
         session = self.check_auth()
         role = session.get('role', 'viewer')
         login_name = session.get('login_name', '')
-        allowed_services = get_user_allowed_services(login_name, role)
+        allowed_services = auth.get_user_allowed_services(login_name, role)
 
-        # 1. Dedicated Static Guide Pages for non-HTTP / setup services
+        # Static guide pages
         if clean_path in ['/ssh', '/sshd', '/tailscale-ssh']:
             if 'tailscale-ssh' not in allowed_services:
                 return self.serve_access_denied('Tailscale SSH')
@@ -1284,9 +251,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             syncthing_port = int(os.environ.get('SYNCTHING_PORT', 8384))
             raw_host = self.headers.get('Host', '')
             host = raw_host.split(':')[0] if raw_host else get_system_hostname()
-            target_url = f"http://{host}:{syncthing_port}/"
             self.send_response(302)
-            self.send_header('Location', target_url)
+            self.send_header('Location', f"http://{host}:{syncthing_port}/")
             self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
             self.end_headers()
             return True
@@ -1298,16 +264,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 syncthing_port = int(os.environ.get('SYNCTHING_PORT', 8384))
                 raw_host = self.headers.get('Host', '')
                 host = raw_host.split(':')[0] if raw_host else get_system_hostname()
-                target_url = f"http://{host}:{syncthing_port}/"
                 self.send_response(302)
-                self.send_header('Location', target_url)
+                self.send_header('Location', f"http://{host}:{syncthing_port}/")
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 self.end_headers()
                 return True
             return self.serve_guide_page('syncthing.html')
 
         if clean_path in ['/api/suwayomi/sync', '/api/manga/sync']:
-            trigger_suwayomi_sync_async(force=True)
+            services.trigger_suwayomi_sync_async(force=True)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -1321,7 +286,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     return self.serve_access_denied('SyncYomi')
             return self.serve_guide_page('syncyomi.html')
 
-        # 2. Top-Level Web Application Redirects
+        # Top-level application redirects
         raw_host = self.headers.get('Host', '')
         host = raw_host.split(':')[0] if raw_host else get_system_hostname()
 
@@ -1345,7 +310,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
             if 'suwayomi' not in allowed_services:
                 return self.serve_access_denied('Suwayomi Server')
-            trigger_suwayomi_sync_async()
+            services.trigger_suwayomi_sync_async()
             target_url = f"https://{host}:4567/"
         elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
             if 'jellyfin' not in allowed_services:
@@ -1375,16 +340,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
         super().do_HEAD()
 
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
     def do_GET(self):
         clean_path = self.path.split('?')[0]
+
+        # Dynamic client pairing script
         if clean_path in ['/pair', '/pair.sh']:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            pair_script = os.path.join(base_dir, 'configs', 'scripts', 'pair-client.sh')
+            pair_script = os.path.join(config.BASE_DIR, 'configs', 'scripts', 'pair-client.sh')
             if os.path.isfile(pair_script):
                 with open(pair_script, 'r', encoding='utf-8') as f:
                     content = f.read()
-                server_id = get_syncthing_device_id()
-                app_cfg = get_app_config()
+                server_id = syncthing.get_syncthing_device_id()
+                app_cfg = config.get_app_config()
                 srv_name = app_cfg.get('display_name') or app_cfg.get('server_name') or 'Tinarchy'
                 srv_folder_id = os.environ.get('SYNCTHING_SHARED_FOLDER_ID', 'shared')
                 srv_folder_label = os.environ.get('SYNCTHING_SHARED_FOLDER_LABEL', 'Shared')
@@ -1406,76 +379,56 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(encoded)
                 return
 
+        # Static assets
         if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp', '.sh')):
             super().do_GET()
             return
 
         if self.handle_service_routes():
             return
-            
+
         session = self.check_auth()
 
-        if self.path == '/api/services':
-            global _SERVICES_STATUS_CACHE
-            now = time.time()
-            if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
-                units = [s['systemd'] for s in SERVICES]
-                unit_status = {}
-                try:
-                    res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=2)
-                    lines = res.stdout.strip().splitlines()
-                    for u, line in zip(units, lines):
-                        unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
-                except Exception:
-                    pass
+        # ─── REAL-TIME SERVER-SENT EVENTS (SSE) TELEMETRY STREAM ───
+        if self.path in ['/api/events/telemetry', '/api/events']:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache, no-transform')
+            self.send_header('Connection', 'keep-alive')
+            self.send_header('X-Accel-Buffering', 'no')  # Informs Nginx reverse proxy to bypass buffering
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
 
-                tor_proxy_enabled = False
-                suwayomi_conf = '/var/lib/suwayomi/.local/share/Tachidesk/server.conf'
-                try:
-                    if os.path.isfile(suwayomi_conf):
-                        with open(suwayomi_conf, 'r') as sf:
-                            tor_proxy_enabled = ('server.socksProxyEnabled = true' in sf.read())
-                except Exception:
-                    pass
+            client_q = sse_broker.subscribe()
+            try:
+                # 1. Push immediate initial telemetry snapshot so the client doesn't wait
+                init_snapshot = telemetry.collect_full_system_snapshot(syncthing)
+                self.wfile.write(f"event: telemetry\ndata: {json.dumps(init_snapshot)}\n\n".encode('utf-8'))
+                self.wfile.flush()
 
-                base_results = []
-                ts_ssh_on = is_tailscale_ssh_active()
-                for s in SERVICES:
-                    status_obj = s.copy()
-                    if s['id'] == 'tailscale-ssh':
-                        status_obj['status'] = 'online' if (unit_status.get('tailscaled') == 'online' and ts_ssh_on) else 'offline'
-                    else:
-                        status_obj['status'] = unit_status.get(s['systemd'], 'offline')
+                # 2. Stream subsequent broadcasts
+                while True:
+                    try:
+                        msg = client_q.get(timeout=15.0)
+                        self.wfile.write(msg)
+                        self.wfile.flush()
+                    except queue.Empty:
+                        # Keepalive heartbeat comment to prevent proxy timeouts
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                sse_broker.unsubscribe(client_q)
+            return
 
-                    if s['id'] == 'suwayomi':
-                        status_obj['torProxyEnabled'] = tor_proxy_enabled
-
-                    if 'link' in s:
-                        service_link = s['link']
-                    else:
-                        service_link = f"/{s['id']}"
-                        if s['id'] == 'filebrowser':
-                            service_link = '/files'
-                        elif s['id'] == 'couchdb':
-                            service_link = '/obsidian'
-                        elif s['id'] == 'suwayomi':
-                            service_link = '/manga'
-                        elif s['id'] == 'tor':
-                            service_link = '/tor'
-                        elif 'navidrome' in s['id']:
-                            service_link = '/navidrome'
-                    status_obj['link'] = service_link
-                    base_results.append(status_obj)
-
-                _SERVICES_STATUS_CACHE = {'data': base_results, 'ts': now}
-
+        elif self.path == '/api/services':
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
-            allowed_services = get_user_allowed_services(login_name, role)
-            filtered_results = [s for s in _SERVICES_STATUS_CACHE['data'] if s['id'] in allowed_services]
+            allowed_services = auth.get_user_allowed_services(login_name, role)
+            filtered = services.get_services_status(allowed_services)
+            self.send_compressed(json.dumps(filtered).encode(), "application/json")
 
-            self.send_compressed(json.dumps(filtered_results).encode(), "application/json")
-            
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
@@ -1487,16 +440,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "avatar": session.get('avatar', ''),
                 "is_owner": session.get('is_owner', False),
                 "device_name": session.get('device_name', ''),
-                "allowed_services": get_user_allowed_services(login_name, role)
+                "allowed_services": auth.get_user_allowed_services(login_name, role)
             }).encode(), "application/json")
 
         elif self.path == '/api/users':
             role = session.get('role', 'viewer')
-            ts_users = [] if role == 'guest' else get_tailscale_users()
+            ts_users = [] if role == 'guest' else auth.get_tailscale_users()
             self.send_compressed(json.dumps({
                 "current_user": session,
                 "tailscale_users": ts_users,
-                "roles_config": get_roles_config(),
+                "roles_config": auth.get_roles_config(),
                 "can_manage_roles": (session.get('role') == 'owner'),
                 "can_manage_site_access": (session.get('role') in ['owner', 'admin']),
                 "available_services": [
@@ -1511,7 +464,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             }).encode(), "application/json")
 
         elif self.path == '/api/app/config':
-            self.send_compressed(json.dumps(get_app_config()).encode(), "application/json")
+            self.send_compressed(json.dumps(config.get_app_config()).encode(), "application/json")
 
         elif self.path == '/api/pywal':
             pywal_file = os.path.join(PUBLIC_DIR, 'pywal.json')
@@ -1547,150 +500,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/drive/sync':
             try:
-                trigger_drive_sync()
+                syncthing.trigger_drive_sync()
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', 'application/json')
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), 'application/json', code=500)
 
+        # Backward-compatible REST telemetry snapshot
         elif self.path == '/api/system':
-            stats = {}
-            stats.update(get_ram_stats())
-
-            try:
-                vfs = os.statvfs('/')
-                disk_total = vfs.f_blocks * vfs.f_frsize
-                disk_free = vfs.f_bfree * vfs.f_frsize
-                disk_used = disk_total - disk_free
-                stats['disk_used'] = f"{int(disk_used / (1024**3))}GB"
-                stats['disk_total'] = f"{int(disk_total / (1024**3))}GB"
-                stats['disk_percent'] = round((disk_used / disk_total) * 100, 1) if disk_total > 0 else 0
-            except Exception:
-                stats['disk_used'] = "0GB"
-                stats['disk_total'] = "0GB"
-                stats['disk_percent'] = 0
-
-            stats['cpu_percent'] = get_cpu_percent()
-
-            try:
-                with open('/proc/uptime', 'r') as f:
-                    uptime_seconds = float(f.readline().split()[0])
-                    days = int(uptime_seconds // (24 * 3600))
-                    hours = int((uptime_seconds % (24 * 3600)) // 3600)
-                    minutes = int((uptime_seconds % 3600) // 60)
-                    stats['uptime'] = f"{days}d {hours}h {minutes}m"
-            except Exception:
-                stats['uptime'] = "Unknown"
-
-            try:
-                with open('/proc/loadavg', 'r') as f:
-                    stats['loadavg'] = f.readline().split()[:3]
-            except Exception:
-                stats['loadavg'] = ["0.00", "0.00", "0.00"]
-
-            import socket
-            stats['hostname'] = socket.gethostname()
-            
-            global _TAILSCALE_IP_CACHE
-            now_t = time.time()
-            if _TAILSCALE_IP_CACHE['ip'] and (now_t - _TAILSCALE_IP_CACHE['ts']) < 60:
-                stats['tailscale_ip'] = _TAILSCALE_IP_CACHE['ip']
-            else:
-                try:
-                    res = subprocess.run(['tailscale', 'ip', '-4'], capture_output=True, text=True, timeout=2)
-                    ip = res.stdout.strip() if res.returncode == 0 else "Offline"
-                    _TAILSCALE_IP_CACHE = {'ip': ip, 'ts': now_t}
-                    stats['tailscale_ip'] = ip
-                except Exception:
-                    stats['tailscale_ip'] = _TAILSCALE_IP_CACHE.get('ip') or "Offline"
-
-            now_t = time.time()
-            try:
-                with _NET_LOCK:
-                    rx_tot = 0
-                    tx_tot = 0
-                    with open('/proc/net/dev', 'r') as f_dev:
-                        for line in f_dev.readlines()[2:]:
-                            parts = line.split(':')
-                            if len(parts) == 2:
-                                iface = parts[0].strip()
-                                if iface != 'lo':
-                                    fields = parts[1].split()
-                                    rx_tot += int(fields[0])
-                                    tx_tot += int(fields[8])
-                    dt = now_t - PREV_NET['time']
-                    if dt >= 0.5:
-                        rx_spd = max(0, (rx_tot - PREV_NET['rx']) / dt) if PREV_NET['rx'] > 0 and rx_tot >= PREV_NET['rx'] else 0
-                        tx_spd = max(0, (tx_tot - PREV_NET['tx']) / dt) if PREV_NET['tx'] > 0 and tx_tot >= PREV_NET['tx'] else 0
-                        PREV_NET = {'time': now_t, 'rx': rx_tot, 'tx': tx_tot, 'rx_spd': rx_spd, 'tx_spd': tx_spd, 'rx_tot': rx_tot, 'tx_tot': tx_tot}
-                    else:
-                        rx_spd = PREV_NET.get('rx_spd', 0)
-                        tx_spd = PREV_NET.get('tx_spd', 0)
-
-                stats['net_rx_bytes_sec'] = rx_spd
-                stats['net_tx_bytes_sec'] = tx_spd
-                stats['net_rx_speed'] = format_speed(rx_spd)
-                stats['net_tx_speed'] = format_speed(tx_spd)
-                stats['net_rx_formatted'] = stats['net_rx_speed']
-                stats['net_tx_formatted'] = stats['net_tx_speed']
-                stats['net_rx_total'] = format_total(rx_tot)
-                stats['net_tx_total'] = format_total(tx_tot)
-                stats['net_text'] = f"▲ {stats['net_tx_speed']} · ▼ {stats['net_rx_speed']}"
-                tot_spd = rx_spd + tx_spd
-                if tot_spd > 512:
-                    import math
-                    stats['net_percent'] = min(100, max(5, int(math.log10(tot_spd) * 15)))
-                else:
-                    stats['net_percent'] = 2
-            except Exception:
-                stats['net_rx_speed'] = '0 B/s'
-                stats['net_tx_speed'] = '0 B/s'
-                stats['net_text'] = '↓ 0 B/s · ↑ 0 B/s'
-                stats['net_percent'] = 0
-                stats['net_rx_total'] = '0 MB'
-                stats['net_tx_total'] = '0 MB'
-
-            celsius_str, celsius_val = get_cpu_temp()
-            stats['cpu_temp'] = celsius_str
-            stats['cpu_temp_val'] = celsius_val
-
-            sys_name = get_system_hostname()
-            app_cfg = get_app_config()
-            stats['display_name'] = app_cfg.get('display_name') or sys_name
-            stats['server_name'] = stats['display_name']
-            stats['project_name'] = app_cfg.get('project_name', sys_name)
-            stats['app_icon'] = app_cfg.get('app_icon', '🍍')
-            stats['branding_subtitle'] = app_cfg.get('branding_subtitle', 'Server Control Center')
-            stats['ssh_user'] = app_cfg.get('ssh_user', '')
-            stats['tailscale_domain'] = app_cfg.get('tailscale_domain', '')
-            stats['hostname'] = sys_name
-            # Drive sync status
-            sync_last_file = '/run/tinarchy-drive/sync-last' if os.path.exists('/run/tinarchy-drive/sync-last') else '/run/pinedash-drive/sync-last'
-            if os.path.exists(sync_last_file):
-                try:
-                    with open(sync_last_file, 'r') as f_s:
-                        ts = int(f_s.read().strip())
-                        stats['drive_last_sync'] = ts
-                        diff = int(time.time()) - ts
-                        if diff < 60:
-                            stats['drive_last_sync_human'] = 'Just now'
-                        elif diff < 3600:
-                            stats['drive_last_sync_human'] = f"{diff // 60}m ago"
-                        elif diff < 86400:
-                            stats['drive_last_sync_human'] = f"{diff // 3600}h ago"
-                        else:
-                            stats['drive_last_sync_human'] = f"{diff // 86400}d ago"
-                except Exception:
-                    stats['drive_last_sync_human'] = 'Synced'
-            else:
-                stats['drive_last_sync_human'] = 'Pending'
-
-            stats['syncthing_device_id'] = get_syncthing_device_id()
-            stats['syncthing_port'] = int(os.environ.get('SYNCTHING_PORT', 8384))
-            stats['syncthing_folder_id'] = os.environ.get('SYNCTHING_SHARED_FOLDER_ID', 'shared')
-            stats['syncthing_folder_label'] = os.environ.get('SYNCTHING_SHARED_FOLDER_LABEL', 'Shared')
-
+            stats = telemetry.collect_full_system_snapshot(syncthing)
             self.send_compressed(json.dumps(stats).encode(), "application/json")
-            
+
         elif self.path == '/api/system/tor-exit':
             role = session.get('role', 'viewer')
             if role == 'guest':
@@ -1708,23 +527,15 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps({"active": active, "enabled": active}).encode(), "application/json")
 
         elif self.path in ['/api/reports/daily', '/api/system/daily-report']:
-            report_data = generate_daily_system_report()
+            report_data = reports.generate_daily_system_report()
             self.send_compressed(json.dumps(report_data).encode(), "application/json")
 
         else:
             super().do_GET()
 
-
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
-
     def do_POST(self):
         if self.path in ['/api/suwayomi/sync', '/api/manga/sync']:
-            trigger_suwayomi_sync_async(force=True)
+            services.trigger_suwayomi_sync_async(force=True)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -1752,43 +563,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             target_user = str(data.get('user', '')).strip()
             new_role = str(data.get('role', 'viewer')).strip().lower()
-            if new_role not in ['admin', 'viewer']:
+            try:
+                auth.update_user_role(target_user, new_role)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "user": target_user, "role": new_role}).encode())
+            except ValueError as e:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Invalid role. Permitted: admin, viewer"}')
-                return
-
-            host_owner = get_tailscale_host_owner()
-            if target_user.lower() == str(host_owner.get('login_name', '')).lower():
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(b'{"error": "Cannot modify the host Owner role"}')
-                return
-
-            cfg = get_roles_config()
-            if 'admin_accounts' not in cfg:
-                cfg['admin_accounts'] = []
-            if 'roles' not in cfg:
-                cfg['roles'] = {}
-
-            if new_role == 'admin':
-                if target_user not in cfg['admin_accounts']:
-                    cfg['admin_accounts'].append(target_user)
-                cfg['roles'][target_user] = 'admin'
-            else:
-                if target_user in cfg['admin_accounts']:
-                    cfg['admin_accounts'].remove(target_user)
-                cfg['roles'][target_user] = 'viewer'
-
-            save_roles_config(cfg)
-            WHOIS_CACHE.clear()
-
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"success": True, "user": target_user, "role": new_role}).encode())
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
 
         # ─── Site Access Management: OWNER & ADMIN ───
@@ -1802,48 +587,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             target_user = str(data.get('user', '')).strip()
             allowed_services = data.get('allowed_services')
-
-            if not target_user:
+            if not target_user or not isinstance(allowed_services, list):
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Missing user parameter"}')
+                self.wfile.write(b'{"error": "Invalid user or allowed_services"}')
                 return
 
-            if not isinstance(allowed_services, list):
+            try:
+                sanitized = auth.update_user_permissions(target_user, allowed_services)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "user": target_user, "allowed_services": sanitized}).encode())
+            except ValueError as e:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "allowed_services must be a list of service IDs"}')
-                return
-
-            host_owner = get_tailscale_host_owner()
-            if target_user.lower() == str(host_owner.get('login_name', '')).lower():
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(b'{"error": "Cannot modify site permissions for the host Owner"}')
-                return
-
-            valid_ids = get_all_service_ids()
-            sanitized = [s for s in allowed_services if s in valid_ids]
-
-            cfg = get_roles_config()
-            if 'user_permissions' not in cfg:
-                cfg['user_permissions'] = {}
-
-            cfg['user_permissions'][target_user] = sanitized
-            save_roles_config(cfg)
-            WHOIS_CACHE.clear()
-
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "success": True,
-                "user": target_user,
-                "allowed_services": sanitized
-            }).encode())
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
             return
 
         # ─── Wallpapers: ADMIN & OWNER ───
@@ -1865,14 +626,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             img_path = os.path.join(WALLPAPER_DIR, filename)
             if not os.path.exists(img_path):
                 img_path = os.path.join(PUBLIC_DIR, 'Wallpapers', filename)
-            
+
             pywal_data = None
             if os.path.exists(img_path):
                 try:
                     pywal_data = pywal_generator.generate_pywal_palette(img_path)
                 except Exception as e:
                     print(f"Pywal generation error: {e}")
-            
+
             if not pywal_data:
                 pywal_data = pywal_generator.generate_pywal_palette('default_palette')
 
@@ -1894,7 +655,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         # ─── Drive Sync: POST ───
         elif self.path == '/api/drive/sync':
             try:
-                trigger_drive_sync()
+                syncthing.trigger_drive_sync()
                 self.send_compressed(b'{"success": true, "message": "Drive sync triggered"}', "application/json")
             except Exception as e:
                 self.send_compressed(json.dumps({"success": False, "error": str(e)}).encode(), "application/json", code=500)
@@ -1904,53 +665,32 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path.startswith('/api/services/') and self.path.endswith('/toggle'):
             service_id = self.path.split('/')[3]
             role = session.get('role', 'viewer')
-            
-            allowed = False
-            if role in ['owner', 'admin']:
-                allowed = True
-                
-            if not allowed:
+
+            if role not in ['owner', 'admin']:
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required to manage services"}')
                 return
 
-            service_id = self.path.split('/')[3]
-            service = next((s for s in SERVICES if s['id'] == service_id), None)
-            
-            if not service:
-                self.send_response(404)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(b'{"error": "Service not found"}')
-                return
-
             action = data.get('action')
-            if action not in ['start', 'stop']:
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(b'{"error": "Invalid action"}')
-                return
-
             try:
-                if service_id == 'tailscale-ssh':
-                    ssh_val = 'true' if action == 'start' else 'false'
-                    subprocess.run(['tailscale', 'set', f'--ssh={ssh_val}', '--accept-risk=lose-ssh'], check=True, timeout=5)
-                else:
-                    subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
-                global _SERVICES_STATUS_CACHE
-                _SERVICES_STATUS_CACHE['ts'] = 0
+                services.toggle_service(service_id, action)
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(b'{"success": true}')
-            except (subprocess.CalledProcessError, Exception) as e:
+            except ValueError as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+            except Exception as e:
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            return
 
         # ─── Tor Proxy & Exit Node: ADMIN & OWNER ───
         elif self.path in ['/api/suwayomi/tor', '/api/system/tor-exit']:
@@ -1963,43 +703,33 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
             if self.path == '/api/suwayomi/tor':
                 enable = data.get('enable', False)
-                search = 'server.socksProxyEnabled = false' if enable else 'server.socksProxyEnabled = true'
-                replace = 'server.socksProxyEnabled = true' if enable else 'server.socksProxyEnabled = false'
-                
                 try:
-                    cmd = f"sudo sed -i 's/{search}/{replace}/' /var/lib/suwayomi/.local/share/Tachidesk/server.conf && sudo systemctl restart suwayomi-server"
-                    subprocess.run(cmd, shell=True, check=True)
+                    services.set_suwayomi_tor(enable)
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
                     self.wfile.write(b'{"success": true}')
-                except subprocess.CalledProcessError as e:
+                except Exception as e:
                     self.send_response(500)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+                return
 
             elif self.path == '/api/system/tor-exit':
                 enable = data.get('enable', False)
-                action = 'start' if enable else 'stop'
                 try:
-                    if enable:
-                        # Auto-toggle ON the Tor proxy if not already on
-                        chk_tor = subprocess.run(['systemctl', 'is-active', 'tor'], capture_output=True, text=True)
-                        if chk_tor.stdout.strip() != 'active':
-                            subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
-
-                    cmd = f"sudo {os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tor_exit_node.sh')} {action}"
-                    subprocess.run(cmd, shell=True, check=True)
+                    services.set_tor_exit(enable)
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
                     self.wfile.write(b'{"success": true}')
-                except subprocess.CalledProcessError as e:
+                except Exception as e:
                     self.send_response(500)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+                return
 
         # ─── Server Identity Branding: OWNER ONLY ───
         elif self.path == '/api/app/config':
@@ -2010,9 +740,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(b'{"error": "Forbidden: Only the Owner can configure server branding"}')
                 return
             new_name = str(data.get('server_name', '')).strip()
-            cfg = get_app_config()
+            cfg = config.get_app_config()
             cfg['server_name'] = new_name
-            save_app_config(cfg)
+            config.save_app_config(cfg)
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -2025,51 +755,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"error": "Endpoint not found"}')
 
-
-def start_syncthing_auto_pair_thread():
-    def _worker():
-        time.sleep(3)
-        cli_cmd = get_syncthing_cli_cmd()
-        auto_share_env = os.environ.get('SYNCTHING_AUTO_SHARE_FOLDERS', 'shared,shared-drive')
-        auto_share_folders = [f.strip() for f in auto_share_env.split(',') if f.strip()]
-        while True:
-            try:
-                # 1. Check pending devices
-                res = subprocess.run(cli_cmd + ['show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
-                if res.returncode == 0 and res.stdout:
-                    pending = json.loads(res.stdout)
-                    for dev_id, dev_info in pending.items():
-                        name = dev_info.get('name') or 'Client Device'
-                        subprocess.run(cli_cmd + ['config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
-                        subprocess.run(cli_cmd + ['config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
-                        for fid in auto_share_folders:
-                            if subprocess.run(cli_cmd + ['config', 'folders', fid, 'dump-json'], capture_output=True).returncode == 0:
-                                subprocess.run(cli_cmd + ['config', 'folders', fid, 'devices', 'add', '--device-id', dev_id], capture_output=True)
-
-                # 2. Check pending folders
-                res_f = subprocess.run(cli_cmd + ['show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
-                if res_f.returncode == 0 and res_f.stdout:
-                    pending_f = json.loads(res_f.stdout)
-                    for folder_id, f_info in pending_f.items():
-                        if folder_id in auto_share_folders:
-                            dev_id = f_info.get('deviceID')
-                            if dev_id:
-                                subprocess.run(cli_cmd + ['config', 'folders', folder_id, 'devices', 'add', '--device-id', dev_id], capture_output=True)
-            except Exception:
-                pass
-            time.sleep(5)
-
-    t = threading.Thread(target=_worker, daemon=True, name="SyncthingAutoPair")
-    t.start()
-
 class ThreadingSimpleServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    pass
+    daemon_threads = True
 
 if __name__ == '__main__':
     ThreadingSimpleServer.allow_reuse_address = True
     bind_host = os.environ.get('HOST', '127.0.0.1')
-    app_cfg = get_app_config()
-    start_syncthing_auto_pair_thread()
+    app_cfg = config.get_app_config()
+    syncthing.start_syncthing_auto_pair_thread()
     with ThreadingSimpleServer((bind_host, PORT), DashboardHandler) as httpd:
         print(f"Serving {app_cfg.get('project_name', 'Tinarchy')} backend ({app_cfg.get('display_name')}) on {bind_host}:{PORT}")
         httpd.serve_forever()

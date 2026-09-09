@@ -33,7 +33,14 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - Intelligently tunes luminance ($L \in [0.72, 0.85]$) and contrast for frosted glass readability.
   - Pre-renders lightweight `.webp` thumbnails for instant, flicker-free wallpaper switching.
   - **Live Glassmorphic Sliders**: Real-time slider controls for background blur and glass translucency with immediate cross-page synchronization between `/settings` and the main dashboard.
+  - **📱 Per-Device UI Scaling & Display Size**: Integrated interface scaling in Settings (`85%` to `125%`) with 1-click preset chips (**Compact 90%**, **Default 100%**, **Comfortable Laptop 108%**, **Large 115%**). Stored locally per device via `localStorage` so laptops scale up comfortably without enlarging the mobile view.
   - **Adaptive Small-Screen Layouts**: Responsive single-column list view with compact tiles on mobile phones and small viewports without horizontal or vertical overflow.
+
+- **⚡ Modular Backend Architecture & Real-Time SSE Telemetry Streaming**:
+  - **Modular Package Structure (`tinarchy/`)**: Decoupled monolithic server into dedicated submodules (`telemetry`, `sse`, `services`, `auth`, `syncthing`, `reports`, `config`) while maintaining 100% backward compatibility for existing external scripts and REST endpoints.
+  - **Low-Overhead Server-Sent Events (SSE)**: Streams live system telemetry (CPU load, RAM, disk, network throughput, package thermals) via `/api/events/telemetry` with immediate state push upon connection and 2-second heartbeats.
+  - **Nginx Zero-Buffering & Autonomous Idling**: Pushes `X-Accel-Buffering: no` for instantaneous frame delivery through reverse proxies, and automatically idles the background collector thread when 0 clients are connected to conserve CPU cycles and battery.
+  - **Graceful Fallback Polling**: Client uses native browser `EventSource` with automated fallback to interval polling if disconnected or unsupported.
 
 - **⚡ Persistent Remote SSH & Terminal Ecosystem (tmux + Zsh)**:
   - **Automatic Session Persistence**: Interactive SSH and Tailscale SSH logins automatically attach to a persistent `tmux` session (`main`). Running builds, downloads, and servers never get killed if Wi-Fi drops or your client machine sleeps.
@@ -159,6 +166,23 @@ flowchart TD
     DriveRoot --> Notes
     DriveRoot --> Shared
     Dashboard -->|Manual Sync Trigger| DriveRoot
+```
+
+### 🧩 Modular Backend Core (`tinarchy/`)
+
+The monolithic server has been decomposed into a decoupled, thread-safe Python package structure:
+
+```
+server-dashboard/
+├── server.py              # Lightweight HTTP router, SSE dispatcher & backward-compatible re-exports
+├── tinarchy/              # Modular backend core package
+│   ├── config.py          # Centralized environment, filesystem paths, and dynamic branding loader
+│   ├── telemetry.py       # Pure sysfs/proc hardware collectors (CPU, RAM, Disks, Network, Battery)
+│   ├── sse.py             # Thread-safe Server-Sent Events broker with auto-idling when clients = 0
+│   ├── services.py        # Systemd service registry, status matrix, lifecycle actions, and Tor toggles
+│   ├── auth.py            # Tailscale WHOIS resolution and RBAC enforcement (owner, admin, viewer, guest)
+│   ├── syncthing.py       # Syncthing CLI daemon, device ID resolution, and pairing worker
+│   └── reports.py         # Autonomous daily markdown system report generator
 ```
 
 ---

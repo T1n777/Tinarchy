@@ -127,6 +127,11 @@
             root.style.setProperty('--ui-blur', `${Math.round(t * 30)}px`);
             root.style.setProperty('--ui-saturate', '180%');
 
+            // 2.5 UI Scale
+            const savedScale = localStorage.getItem('dashboard-ui-scale') || '100';
+            const scaleFactor = (parseInt(savedScale, 10) || 100) / 100;
+            root.style.setProperty('--ui-scale', scaleFactor);
+
             // 3. Media Loading
             const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
             const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
@@ -188,15 +193,22 @@
             --wp-blur: 16px;
             --ui-blur: 24px;
             --ui-saturate: 180%;
+            --ui-scale: 1;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
         body {
             font-family: var(--font-family);
             color: var(--text);
             min-height: 100vh;
+            min-height: 100dvh;
             overflow-x: hidden;
+            position: relative;
             -webkit-font-smoothing: antialiased;
             background: transparent;
         }
@@ -232,7 +244,7 @@
         ::selection { background: var(--primary); color: #0b0f14; text-shadow: none; }
         ::-moz-selection { background: var(--primary); color: #0b0f14; text-shadow: none; }
 
-        .container { max-width: 1080px; margin: 0 auto; padding: 32px 24px; }
+        .container { max-width: 1080px; margin: 0 auto; padding: 32px 24px; zoom: var(--ui-scale, 1); }
         .top-nav-wrapper { margin-bottom: 24px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-radius: 14px; }
         .brand { font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; color: #ffffff; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
@@ -641,6 +653,24 @@
                             <strong>Ultra Performance</strong>
                             <span>Barebones · Max Speed</span>
                         </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="section-header">UI Scaling & Display Size</div>
+                    <p class="section-sub">Adjust interface scale for laptops, desktops, or high-DPI displays. Saved locally on this device.</p>
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Interface Scale</label>
+                        <div class="blur-row" style="display: flex; align-items: center; gap: 14px;">
+                            <input type="range" id="scale-slider" min="85" max="125" step="1" value="100" class="slider" oninput="saveUiScale(this.value)">
+                            <span style="font-size: 0.85rem; font-weight: 700; min-width: 44px; font-family: var(--font-mono); color: var(--primary);" id="scale-label">100%</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 5px 12px;" onclick="setUiScalePreset(90)">Compact (90%)</button>
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 5px 12px;" onclick="setUiScalePreset(100)">Default (100%)</button>
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 5px 12px;" onclick="setUiScalePreset(108)">Comfortable Laptop (108%)</button>
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 5px 12px;" onclick="setUiScalePreset(115)">Large (115%)</button>
                     </div>
 
                     <hr class="divider">
@@ -1224,6 +1254,27 @@
             showToast(`Theme changed to ${themeName === 'glass' ? 'Frosted Glass' : (themeName === 'solid' ? 'Solid Dark' : 'Ultra')}`, 'success');
         }
 
+        function saveUiScale(val) {
+            val = parseInt(val, 10);
+            if (isNaN(val)) val = 100;
+            const label = document.getElementById('scale-label');
+            if (label) label.innerText = val + '%';
+            const slider = document.getElementById('scale-slider');
+            if (slider && slider.value != val) slider.value = val;
+            localStorage.setItem('dashboard-ui-scale', val);
+            const factor = val / 100;
+            [document.documentElement, document.body].forEach(el => {
+                if (el) el.style.setProperty('--ui-scale', factor);
+            });
+            const container = document.querySelector('.container');
+            if (container) container.style.zoom = factor;
+        }
+
+        function setUiScalePreset(val) {
+            saveUiScale(val);
+            showToast(`UI scale set to ${val}%`, 'success');
+        }
+
         function saveTranslucency(val) {
             val = parseInt(val, 10);
             const label = document.getElementById('translucency-label');
@@ -1778,6 +1829,22 @@
             if (transSlider) transSlider.value = savedTrans;
             if (transLabel) transLabel.innerText = savedTrans + '%';
             saveTranslucency(savedTrans);
+
+            const savedScale = localStorage.getItem('dashboard-ui-scale') || '100';
+            const scaleSlider = document.getElementById('scale-slider');
+            const scaleLabel = document.getElementById('scale-label');
+            if (scaleSlider) scaleSlider.value = savedScale;
+            if (scaleLabel) scaleLabel.innerText = savedScale + '%';
+            saveUiScale(savedScale);
+
+            window.addEventListener('storage', (e) => {
+                if (e.key === 'dashboard-ui-scale') {
+                    const val = e.newValue || '100';
+                    if (scaleSlider) scaleSlider.value = val;
+                    if (scaleLabel) scaleLabel.innerText = val + '%';
+                    saveUiScale(val);
+                }
+            });
 
             renderPywalSwatches();
 
