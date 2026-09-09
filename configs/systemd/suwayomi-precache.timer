@@ -1,0 +1,11 @@
+[Unit]
+Description=Suwayomi Thumbnail Background Pre-Cacher Timer
+After=network.target
+
+[Timer]
+OnBootSec=3min
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

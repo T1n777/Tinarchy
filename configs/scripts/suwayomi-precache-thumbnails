@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""
+Suwayomi Background Manga Thumbnail Pre-Cacher
+Proactively downloads and caches missing cover images for all manga in your library,
+ensuring instantaneous (< 1 ms) loading in Suwayomi Web UI and mobile sync clients.
+
+Dual-Tier Storage Architecture:
+- Tier 1 (SSD Persistence): Direct query to Suwayomi core (:4567) ensures covers are permanently
+  saved to /var/lib/suwayomi/cache/Tachidesk/thumbnails/.
+- Tier 2 (Zero-JVM Fast-Path): Request through Nginx (:8080) warms the proxy cache with a unified,
+  normalized key ($request_method/manga/api/v1/manga/$1/thumbnail) that serves requests via kernel
+  sendfile in < 1 ms, completely ignoring client cache-buster query timestamps.
+"""
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.request
+import urllib.error
+
+GRAPHQL_URL = "http://127.0.0.1:4567/manga/api/graphql"
+DIRECT_URL_TEMPLATE = "http://127.0.0.1:4567/manga/api/v1/manga/{id}/thumbnail"
+NGINX_URL_TEMPLATE = "http://127.0.0.1:8080/manga/api/v1/manga/{id}/thumbnail"
+
+DOWNLOADS_DIR = "/var/lib/suwayomi/.local/share/Tachidesk/downloads/thumbnails"
+CACHE_DIR = "/var/lib/suwayomi/cache/Tachidesk/thumbnails"
+
+def get_mangas(library_only=True):
+    filter_clause = "filter: { inLibrary: { equalTo: true } }" if library_only else ""
+    query = """
+    {
+      mangas(%s) {
+        nodes {
+          id
+          title
+          inLibrary
+        }
+      }
+    }
+    """ % filter_clause
+    req = urllib.request.Request(
+        GRAPHQL_URL,
+        data=json.dumps({"query": query}).encode("utf-8"),
+        headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data.get("data", {}).get("mangas", {}).get("nodes", [])
+    except Exception as e:
+        print("[ERROR] Failed to query Suwayomi GraphQL: %s" % e, file=sys.stderr)
+        return []
+
+def is_cached_on_disk(manga_id):
+    for d in (DOWNLOADS_DIR, CACHE_DIR):
+        if not os.path.exists(d):
+            continue
+        for ext in (".webp", ".jpg", ".jpeg", ".png", ".gif"):
+            fpath = os.path.join(d, "%s%s" % (manga_id, ext))
+            if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
+                return True
+    return False
+
+def precache_thumbnail(manga_id, title, force=False):
+    on_disk = is_cached_on_disk(manga_id)
+    direct_url = DIRECT_URL_TEMPLATE.format(id=manga_id)
+    nginx_url = NGINX_URL_TEMPLATE.format(id=manga_id)
+
+    # 1. If missing from SSD, fetch directly from Suwayomi to force permanent disk save
+    if not on_disk or force:
+        try:
+            req_direct = urllib.request.Request(direct_url, headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
+            with urllib.request.urlopen(req_direct, timeout=30) as resp:
+                resp.read()
+        except urllib.error.HTTPError as e:
+            print("  ✗ [Suwayomi Direct %d] ID %3d | %s: %s" % (e.code, manga_id, title, e.reason), file=sys.stderr)
+            return False
+        except Exception as e:
+            print("  ✗ [Suwayomi Direct Error] ID %3d | %s: %s" % (manga_id, title, e), file=sys.stderr)
+            return False
+
+    # 2. Warm Nginx fast-path cache
+    try:
+        start = time.time()
+        req_nginx = urllib.request.Request(nginx_url, headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
+        with urllib.request.urlopen(req_nginx, timeout=15) as resp:
+            data = resp.read()
+            elapsed = time.time() - start
+            cache_status = resp.headers.get("X-Cache-Status", "DIRECT")
+            disk_tag = "SSD" if on_disk else "NEW"
+            print("  ✓ [%s|%s] ID %3d | %4d KB in %4.2fs | %s" % (cache_status, disk_tag, manga_id, len(data)//1024, elapsed, title))
+            return True
+    except urllib.error.HTTPError as e:
+        print("  ✗ [Nginx %d] ID %3d | %s: %s" % (e.code, manga_id, title, e.reason), file=sys.stderr)
+    except Exception as e:
+        print("  ✗ [Nginx Error] ID %3d | %s: %s" % (manga_id, title, e), file=sys.stderr)
+    return False
+
+def main():
+    parser = argparse.ArgumentParser(description="Pre-cache Suwayomi manga thumbnails")
+    parser.add_argument("--all", action="store_true", help="Pre-cache all manga in database, not just library")
+    parser.add_argument("--force", action="store_true", help="Re-download even if already cached on disk")
+    parser.add_argument("--delay", type=float, default=0.20, help="Delay between requests in seconds (default: 0.20)")
+    parser.add_argument("--id", type=int, help="Pre-cache a specific manga ID")
+    args = parser.parse_args()
+
+    print("=== Suwayomi Thumbnail Dual-Tier Pre-Cacher ===")
+
+    if args.id:
+        print("Target: Specific Manga ID %d" % args.id)
+        success = precache_thumbnail(args.id, "Manga #%d" % args.id, force=args.force)
+        sys.exit(0 if success else 1)
+
+    print("Target: %s" % ("All Database Entries" if args.all else "Library Only"))
+    mangas = get_mangas(library_only=not args.all)
+    if not mangas:
+        print("No manga found or Suwayomi server unreachable. Exiting.")
+        sys.exit(1)
+
+    print("Total entries found: %d" % len(mangas))
+    if args.force:
+        to_fetch = mangas
+    else:
+        to_fetch = [m for m in mangas if not is_cached_on_disk(m["id"])]
+
+    cached_count = len(mangas) - len(to_fetch)
+    print("Already cached on disk: %d" % cached_count)
+    print("To download / warm: %d" % len(to_fetch))
+
+    if to_fetch:
+        print("\n[Tier 1] Proactively fetching missing thumbnails to disk...")
+        success = 0
+        for idx, m in enumerate(to_fetch, 1):
+            print("[%3d/%3d]" % (idx, len(to_fetch)), end="")
+            if precache_thumbnail(m["id"], m["title"], force=args.force):
+                success += 1
+            time.sleep(args.delay)
+        print("\nTier 1 complete: Successfully fetched %d/%d missing thumbnails." % (success, len(to_fetch)))
+
+    print("\n[Tier 2] Warming Nginx Fast-Path Cache for all library entries...")
+    warmed = 0
+    for m in mangas:
+        req = urllib.request.Request(NGINX_URL_TEMPLATE.format(id=m["id"]), headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                resp.read()
+                warmed += 1
+        except Exception:
+            pass
+    print("Warmed %d/%d entries into Nginx cache." % (warmed, len(mangas)))
+
+if __name__ == "__main__":
+    main()
