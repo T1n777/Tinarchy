@@ -119,6 +119,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
     [ "$(grep -E '^ENABLE_SYNCYOMI=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_SYNCYOMI="true"
     [ "$(grep -E '^ENABLE_FILEBROWSER=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_FILEBROWSER="true"
     [ "$(grep -E '^ENABLE_COUCHDB=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_COUCHDB="true"
+    EXISTING_HARDWARE_MEMORY_PROFILE=$(grep -E '^HARDWARE_MEMORY_PROFILE=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
 fi
 
 # ─── Header Banner ────────────────────────────────────────────────────────────
@@ -962,10 +963,28 @@ if [ -f "$REPO_ROOT/configs/scripts/tinarchy-net-autotune.py" ]; then
     fi
 fi
 
-# 10. High-Performance Virtual Memory & Network Sysctl Tuning
+# 10. High-Performance Virtual Memory & Network Sysctl Tuning (Adaptive Hardware Profiling)
 if [ -f "$REPO_ROOT/configs/sysctl/99-server-optimization.conf" ]; then
-    echo -e "${CYAN}🚀 Applying kernel virtual memory & BBR network sysctl optimizations...${NC}"
+    echo -e "${CYAN}🚀 Configuring kernel virtual memory & BBR network sysctl optimizations...${NC}"
     cp "$REPO_ROOT/configs/sysctl/99-server-optimization.conf" /etc/sysctl.d/
+
+    # Auto-detect Swap Architecture (ZRAM vs Physical Disk Swap)
+    MEM_PROFILE="${EXISTING_HARDWARE_MEMORY_PROFILE:-auto}"
+    if [ "$MEM_PROFILE" = "auto" ] || [ -z "$MEM_PROFILE" ]; then
+        if grep -q "zram" /proc/swaps 2>/dev/null || [ -e /dev/zram0 ]; then
+            MEM_PROFILE="zram"
+        else
+            MEM_PROFILE="disk-swap"
+        fi
+    fi
+
+    if [ "$MEM_PROFILE" = "zram" ] && [ -f "$REPO_ROOT/configs/sysctl/profiles/zram.conf" ]; then
+        echo -e "${GREEN}   ⚡ Hardware Detected: Compressed ZRAM (/dev/zram0). Applying 3.3x RAM-expansion profile...${NC}"
+        cat "$REPO_ROOT/configs/sysctl/profiles/zram.conf" >> /etc/sysctl.d/99-server-optimization.conf
+    else
+        echo -e "${GREEN}   ⚡ Hardware Detected: Physical Disk Swap. Applying low-swappiness disk protection profile...${NC}"
+    fi
+
     sysctl --system >/dev/null 2>&1 || true
 fi
 

@@ -77,9 +77,13 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **4-Tier Operational Ladder**: Automatically scales between Tier 0 (Active / whisper-quiet at 76°C with Suwayomi CPU capped) and Tier 3 (Unconstrained Sprint at 84°C unlocking full Intel Turbo Boost 3.10GHz for background batch jobs).
   - **Instant User Wakeup (< 3s)**: Snaps back to Tier 0 the instant a keystroke is registered in SSH or media streaming begins on Jellyfin.
 
-- **🌐 Dynamic Multicore Network Autotuner (RPS/RFS & BBR)**:
+- **🌐 Dynamic Multicore Network & Adaptive Memory Autotuner (RPS/RFS, BBR & Hardware Profiles)**:
   - **Universal Multicore Steering**: Distributes network packet processing across all CPU cores (`rps_cpus = f`) on active Wi-Fi, Ethernet, and Tailscale interfaces.
   - **TCP Buffer & BBR Autotuning**: Dynamically sizes kernel TCP socket buffers up to 64MB and activates BBR congestion control for maximum throughput across high-latency remote links.
+  - **Adaptive Hardware-Aware Memory Profiling**: Automatically detects whether the host uses modern in-memory compressed ZRAM (`/dev/zram0`) or physical disk swap (`/swapfile`):
+    - **ZRAM Profile (`profiles/zram.conf`)**: Enables `swappiness = 150` with seekless single-page faults and 256MB writeback bounds, multiplying effective RAM by ~3.3x without SSD thrashing or I/O freezes.
+    - **Physical Disk-Swap Profile (`profiles/disk-swap.conf`)**: Yashwanth's classic low-swappiness tuning (`swappiness = 30`, `dirty_ratio = 50`) engineered to protect physical SSD/HDD swapfiles on older laptops while aggressively holding directory inode trees in RAM (`vfs_cache_pressure = 10`).
+    - **Zero-Config Installer**: `install.sh` automatically probes `/proc/swaps` and `/dev/zram0` on install, or accepts manual `HARDWARE_MEMORY_PROFILE` overrides from `.env`.
 
 - **⚡ Multi-Trigger `$HOME/drive/` Synchronization Engine**:
   - Unifies storage (wallpapers, manga, note vaults, and media) into a clean `$HOME/drive/` hierarchy with zero duplication.
