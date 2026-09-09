@@ -606,6 +606,10 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
     if [ -f "$REPO_ROOT/configs/systemd/suwayomi-server.service" ]; then
         cp "$REPO_ROOT/configs/systemd/suwayomi-server.service" /etc/systemd/system/
     fi
+    mkdir -p /etc/suwayomi
+    if [ -f "$REPO_ROOT/configs/suwayomi/suwayomi-env.conf" ]; then
+        cp "$REPO_ROOT/configs/suwayomi/suwayomi-env.conf" /etc/suwayomi/server.conf
+    fi
     if [ -f "$REPO_ROOT/configs/scripts/suwayomi-trigger-sync" ]; then
         cp "$REPO_ROOT/configs/scripts/suwayomi-trigger-sync" /usr/local/bin/
         chmod 755 /usr/local/bin/suwayomi-trigger-sync
@@ -624,13 +628,13 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
         cp "$REPO_ROOT/configs/systemd/suwayomi-server-java-library-path.conf" /etc/systemd/system/suwayomi-server.service.d/java-library-path.conf
     fi
 
-    # X Virtual Framebuffer (Xvfb) for Headless Chromium / JCEF Turnstile bypass
-    if ! command -v Xvfb >/dev/null 2>&1; then
-        echo -e "  ${CYAN}🖥️ Installing Xvfb for headless Suwayomi browser engine...${NC}"
+    # X Virtual Framebuffer (Xvfb) & AWT libraries for Headless Chromium / JCEF Turnstile bypass
+    if ! command -v Xvfb >/dev/null 2>&1 || ! ldconfig -p 2>/dev/null | grep -q libXtst; then
+        echo -e "  ${CYAN}🖥️ Installing Xvfb & X11 AWT libraries for headless Suwayomi browser engine...${NC}"
         case "$OS_FAMILY" in
-            arch)   pacman -S --needed --noconfirm xorg-server-xvfb || true ;;
-            debian) apt-get install -y xvfb || true ;;
-            fedora) dnf install -y xorg-x11-server-Xvfb || true ;;
+            arch)   pacman -S --needed --noconfirm xorg-server-xvfb libxtst libxi || true ;;
+            debian) apt-get install -y xvfb libxtst6 libxi6 || true ;;
+            fedora) dnf install -y xorg-x11-server-Xvfb libXtst libXi || true ;;
         esac
     fi
     if [ -f "$REPO_ROOT/configs/systemd/xvfb.service" ]; then
@@ -958,6 +962,33 @@ if [ -f "$REPO_ROOT/configs/scripts/tinarchy-net-autotune.py" ]; then
     fi
 fi
 
+# 10. High-Performance Virtual Memory & Network Sysctl Tuning
+if [ -f "$REPO_ROOT/configs/sysctl/99-server-optimization.conf" ]; then
+    echo -e "${CYAN}🚀 Applying kernel virtual memory & BBR network sysctl optimizations...${NC}"
+    cp "$REPO_ROOT/configs/sysctl/99-server-optimization.conf" /etc/sysctl.d/
+    sysctl --system >/dev/null 2>&1 || true
+fi
+
+# 11. Hardware RAM-Disk Tmpfiles Rules
+if [ -d "$REPO_ROOT/configs/tmpfiles" ]; then
+    echo -e "${CYAN}💾 Configuring RAM-Disk tmpfiles for instant media transcode caching...${NC}"
+    cp "$REPO_ROOT/configs/tmpfiles/"*.conf /etc/tmpfiles.d/ 2>/dev/null || true
+    systemd-tmpfiles --create /etc/tmpfiles.d/jellyfin-ramdisk.conf 2>/dev/null || true
+fi
+
+# 12. PESU WiFi Keepalive Daemon Service
+if [ -f "$REPO_ROOT/configs/systemd/pesu-wifi.service" ]; then
+    echo -e "${CYAN}📡 Deploying PESU WiFi Login Manager & Daemon unit...${NC}"
+    cp "$REPO_ROOT/configs/systemd/pesu-wifi.service" /etc/systemd/system/
+fi
+
+# 13. Jellyfin High-Performance Configs (RAM-Disk Transcodes & Cache)
+if [ -d "/etc/jellyfin" ] && [ -d "$REPO_ROOT/configs/jellyfin" ]; then
+    echo -e "${CYAN}🍿 Applying Jellyfin RAM-disk transcode and caching optimizations...${NC}"
+    cp -n "$REPO_ROOT/configs/jellyfin/"*.xml /etc/jellyfin/ 2>/dev/null || true
+    chown -R jellyfin:jellyfin /etc/jellyfin/*.xml 2>/dev/null || true
+fi
+
 # ─── PHASE 5: Reload and Manage Systemd Services ──────────────────────────────
 echo ""
 echo -e "${CYAN}⚡ Managing systemd services...${NC}"
@@ -1000,6 +1031,7 @@ manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
 manage_service "tinarchy-resource-governor.service" "Autonomous Resource Governor" "true"
 manage_service "tinarchy-net-autotune.service" "Dynamic Network Tuner" "true"
+manage_service "pesu-wifi.service" "PESU WiFi Portal Daemon" "true"
 manage_service "filebrowser-quantum.service" "FileBrowser Quantum" "$INSTALL_FILEBROWSER"
 manage_service "couchdb.service" "Obsidian LiveSync CouchDB" "$INSTALL_COUCHDB"
 manage_service "pinedash-drive-sync.service" "Drive Sync Boot" "$INSTALL_DRIVE_ENGINE"

@@ -167,6 +167,24 @@ def test_battery_ups_guard():
         assert bat["health_pct"] > 50.0
 run_test("Autonomous UPS & Battery Telemetry Guard", test_battery_ups_guard)
 
+# 11. Suwayomi Manga Reader Engine Live & Nginx HTTPS Proxy
+def test_suwayomi_live():
+    # Direct backend check on port 4566
+    req = urllib.request.Request("http://127.0.0.1:4566/")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        assert r.status == 200
+        assert "Jetty" in r.headers.get("Server", "")
+    # Nginx reverse proxy check on port 4567 (HTTPS)
+    import ssl
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    req_ssl = urllib.request.Request("https://127.0.0.1:4567/")
+    with urllib.request.urlopen(req_ssl, timeout=3, context=ctx) as r:
+        assert r.status == 200
+        assert "nginx" in r.headers.get("Server", "").lower()
+run_test("Suwayomi Manga Reader Live & Nginx HTTPS Proxy (200 OK)", test_suwayomi_live)
+
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
 print(f"  TEST RESULTS: {passed}/{len(tests)} TESTS PASSED")
