@@ -114,7 +114,11 @@ def test_network():
     res = subprocess.run(["sysctl", "-n", "net.ipv4.tcp_congestion_control"], capture_output=True, text=True)
     if res.stdout.strip() != "bbr":
         raise Exception(f"TCP congestion control is {res.stdout.strip()}, expected bbr")
-run_test("Multicore RPS (Mask f) & BBR Congestion Control", test_network)
+    if os.path.exists("/sys/class/net/wlan0"):
+        chk = subprocess.run(["tc", "qdisc", "show", "dev", "wlan0"], capture_output=True, text=True)
+        if "cake" not in chk.stdout:
+            raise Exception("wlan0 missing CAKE AQM qdisc")
+run_test("Multicore RPS (Mask f), BBR Congestion Control & CAKE AQM", test_network)
 
 # 7. Hardware & Storage
 def test_hardware():
@@ -183,6 +187,15 @@ def test_suwayomi_live():
     with urllib.request.urlopen(req_ssl, timeout=3, context=ctx) as r:
         assert r.status == 200
         assert "nginx" in r.headers.get("Server", "").lower()
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    conf = os.path.join(root, "configs", "suwayomi", "server.conf")
+    if os.path.exists(conf):
+        with open(conf) as f:
+            c = f.read()
+            if 'server.jwtTokenExpiry = "5m"' in c:
+                raise Exception("Suwayomi jwtTokenExpiry is still set to 5m")
+            if 'server.socksProxyEnabled = true' in c:
+                raise Exception("Suwayomi socksProxyEnabled is still set to true")
 run_test("Suwayomi Manga Reader Live & Nginx HTTPS Proxy (200 OK)", test_suwayomi_live)
 
 passed = sum(1 for _, ok, _ in tests if ok)

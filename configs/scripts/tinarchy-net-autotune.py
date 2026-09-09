@@ -41,6 +41,38 @@ def apply_multicore_rps():
             actions.append(f"{iface}/{q_name} RPS error: {e}")
     return actions
 
+def apply_cake_qdisc():
+    """Ensure CAKE Active Queue Management (AQM) with diffserv4 is active on physical/wireless interfaces."""
+    actions = []
+    if not os.path.exists("/sys/class/net"):
+        return actions
+    for iface in os.listdir("/sys/class/net"):
+        if iface in ("lo", "tailscale0") or iface.startswith("veth") or iface.startswith("docker") or iface.startswith("br-"):
+            continue
+        operstate_file = f"/sys/class/net/{iface}/operstate"
+        if os.path.exists(operstate_file):
+            try:
+                with open(operstate_file) as f:
+                    st = f.read().strip()
+                if st not in ("up", "dormant"):
+                    continue
+            except Exception:
+                pass
+        try:
+            chk = subprocess.run(["tc", "qdisc", "show", "dev", iface], capture_output=True, text=True, timeout=2)
+            if "cake" not in chk.stdout or "diffserv4" not in chk.stdout:
+                res = subprocess.run(["tc", "qdisc", "replace", "dev", iface, "root", "cake", "diffserv4"], capture_output=True, text=True, timeout=2)
+                if res.returncode == 0:
+                    actions.append(f"{iface}: CAKE diffserv4 applied")
+                else:
+                    actions.append(f"{iface}: CAKE error: {res.stderr.strip()}")
+            else:
+                actions.append(f"{iface}: CAKE diffserv4 already active")
+        except Exception as e:
+            actions.append(f"{iface}: CAKE exception: {e}")
+    return actions
+
+
 def get_live_flows():
     """Extract TCP socket telemetry from ss for Tailscale peers (100.64.0.0/10)."""
     try:
@@ -134,7 +166,8 @@ def run_cycle(state):
 
 def main():
     rps_actions = apply_multicore_rps()
-    init_msg = f"Universal Tuner initialized. Multicore setup: {', '.join(rps_actions)}"
+    cake_actions = apply_cake_qdisc()
+    init_msg = f"Universal Tuner initialized. Multicore setup: {', '.join(rps_actions)} | AQM: {', '.join(cake_actions)}"
     print(init_msg)
     log_event(init_msg)
 
@@ -148,6 +181,7 @@ def main():
         try:
             if int(time.time()) % 600 < 15:
                 apply_multicore_rps()
+                apply_cake_qdisc()
 
             state = run_cycle(state)
             if time.time() - state.get('day_start', 0) >= 86400:
