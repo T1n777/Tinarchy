@@ -198,7 +198,5 @@ def set_tor_exit(enable: bool):
             subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
 
     tor_script = os.path.join(BASE_DIR, 'configs', 'scripts', 'tor_exit_node.sh')
-    if not os.path.isfile(tor_script):
-        tor_script = os.path.join(BASE_DIR, 'tor_exit_node.sh')
     cmd = f"sudo {tor_script} {action}"
     subprocess.run(cmd, shell=True, check=True)
