@@ -392,6 +392,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(encoded)
                 return
 
+        # 1-Click Tailscale SSH check redirect
+        if clean_path in ['/ssh-auth', '/ssh']:
+            url_file = '/tmp/tailscale_ssh_url'
+            target_url = None
+            if os.path.isfile(url_file):
+                with open(url_file, 'r', encoding='utf-8') as f:
+                    u = f.read().strip()
+                    if u.startswith('https://login.tailscale.com/'):
+                        target_url = u
+            if target_url:
+                self.send_response(307)
+                self.send_header('Location', target_url)
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                return
+            else:
+                self.send_response(503)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(b"<h1>No active Tailscale SSH check session</h1><p>Wait a few seconds and refresh.</p>")
+                return
+
         # Static assets
         if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp', '.sh')):
             super().do_GET()
