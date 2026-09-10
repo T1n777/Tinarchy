@@ -61,10 +61,12 @@ def get_tailscale_host_owner():
                 user_info = st.get('User', {}).get(str(self_user_id), {})
                 login_name = user_info.get('LoginName', '')
                 display_name = user_info.get('DisplayName') or login_name or 'Owner'
+                avatar = user_info.get('ProfilePicURL', '')
                 data = {
                     'user_id': self_user_id,
                     'login_name': login_name,
-                    'display_name': display_name
+                    'display_name': display_name,
+                    'avatar': avatar
                 }
                 _HOST_OWNER_CACHE = {'data': data, 'ts': now}
                 return data
@@ -73,7 +75,8 @@ def get_tailscale_host_owner():
     fallback = {
         'user_id': None,
         'login_name': os.environ.get('OWNER_EMAIL', ''),
-        'display_name': 'Owner'
+        'display_name': 'Owner',
+        'avatar': ''
     }
     return fallback
 
@@ -147,7 +150,7 @@ def resolve_tailscale_client(ip):
             'user_id': host_owner.get('user_id'),
             'login_name': host_owner.get('login_name'),
             'display_name': host_owner.get('display_name'),
-            'avatar': 'https://lh3.googleusercontent.com/a/ACg8ocL92RrWfI8Ahb8E_7Rk3UvYWjsMvXusLJQqYicGtM1nm3Yrv5Dm=s96-c',
+            'avatar': host_owner.get('avatar', ''),
             'device_name': get_system_hostname(),
             'device_ip': ip,
             'role': 'owner',

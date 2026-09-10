@@ -105,66 +105,77 @@ def trigger_suwayomi_sync_async(force=False):
     threading.Thread(target=_run, daemon=True).start()
 
 _SERVICES_STATUS_CACHE = {'data': None, 'ts': 0}
+_SERVICES_STATUS_LOCK = threading.Lock()
+
+def invalidate_services_cache():
+    global _SERVICES_STATUS_CACHE
+    with _SERVICES_STATUS_LOCK:
+        _SERVICES_STATUS_CACHE['data'] = None
+        _SERVICES_STATUS_CACHE['ts'] = 0
 
 def get_services_status(allowed_services=None):
     global _SERVICES_STATUS_CACHE
     now = time.time()
-    if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
-        units = [s['systemd'] for s in SERVICES]
-        unit_status = {}
-        try:
-            res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=2)
-            lines = res.stdout.strip().splitlines()
-            for u, line in zip(units, lines):
-                unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
-        except Exception:
-            pass
+    with _SERVICES_STATUS_LOCK:
+        if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
+            units = [s['systemd'] for s in SERVICES]
+            unit_status = {}
+            try:
+                res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=2)
+                lines = res.stdout.strip().splitlines()
+                for u, line in zip(units, lines):
+                    unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
+            except Exception:
+                pass
 
-        tor_proxy_enabled = False
-        for sc in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
-            if os.path.isfile(sc):
-                try:
-                    with open(sc, 'r') as sf:
-                        if 'server.socksProxyEnabled = true' in sf.read():
-                            tor_proxy_enabled = True
-                            break
-                except Exception:
-                    pass
+            tor_proxy_enabled = False
+            for sc in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
+                if os.path.isfile(sc):
+                    try:
+                        with open(sc, 'r') as sf:
+                            if 'server.socksProxyEnabled = true' in sf.read():
+                                tor_proxy_enabled = True
+                                break
+                    except Exception:
+                        pass
 
-        base_results = []
-        ts_ssh_on = is_tailscale_ssh_active()
-        for s in SERVICES:
-            status_obj = s.copy()
-            if s['id'] == 'tailscale-ssh':
-                status_obj['status'] = 'online' if (unit_status.get('tailscaled') == 'online' and ts_ssh_on) else 'offline'
-            else:
-                status_obj['status'] = unit_status.get(s['systemd'], 'offline')
+            base_results = []
+            ts_ssh_on = is_tailscale_ssh_active()
+            for s in SERVICES:
+                status_obj = s.copy()
+                if s['id'] == 'tailscale-ssh':
+                    status_obj['status'] = 'online' if (unit_status.get('tailscaled') == 'online' and ts_ssh_on) else 'offline'
+                else:
+                    status_obj['status'] = unit_status.get(s['systemd'], 'offline')
 
-            if s['id'] == 'suwayomi':
-                status_obj['torProxyEnabled'] = tor_proxy_enabled
+                if s['id'] == 'suwayomi':
+                    status_obj['torProxyEnabled'] = tor_proxy_enabled
 
-            if 'link' in s:
-                service_link = s['link']
-            else:
-                service_link = f"/{s['id']}"
-                if s['id'] == 'filebrowser':
-                    service_link = '/files'
-                elif s['id'] == 'couchdb':
-                    service_link = '/obsidian'
-                elif s['id'] == 'suwayomi':
-                    service_link = '/manga'
-                elif s['id'] == 'tor':
-                    service_link = '/tor'
-                elif 'navidrome' in s['id']:
-                    service_link = '/navidrome'
-            status_obj['link'] = service_link
-            base_results.append(status_obj)
+                if 'link' in s:
+                    service_link = s['link']
+                else:
+                    service_link = f"/{s['id']}"
+                    if s['id'] == 'filebrowser':
+                        service_link = '/files'
+                    elif s['id'] == 'couchdb':
+                        service_link = '/obsidian'
+                    elif s['id'] == 'suwayomi':
+                        service_link = '/manga'
+                    elif s['id'] == 'tor':
+                        service_link = '/tor'
+                    elif 'navidrome' in s['id']:
+                        service_link = '/navidrome'
+                status_obj['link'] = service_link
+                base_results.append(status_obj)
 
-        _SERVICES_STATUS_CACHE = {'data': base_results, 'ts': now}
+            _SERVICES_STATUS_CACHE['data'] = base_results
+            _SERVICES_STATUS_CACHE['ts'] = now
+
+        cached_data = _SERVICES_STATUS_CACHE['data'] or []
 
     if allowed_services is None:
-        return _SERVICES_STATUS_CACHE['data']
-    return [s for s in _SERVICES_STATUS_CACHE['data'] if s['id'] in allowed_services]
+        return cached_data
+    return [s for s in cached_data if s['id'] in allowed_services]
 
 def toggle_service(service_id: str, action: str):
     service = next((s for s in SERVICES if s['id'] == service_id), None)
@@ -179,16 +190,19 @@ def toggle_service(service_id: str, action: str):
     else:
         subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
 
-    global _SERVICES_STATUS_CACHE
-    _SERVICES_STATUS_CACHE['ts'] = 0
+    invalidate_services_cache()
 
 def set_suwayomi_tor(enable: bool):
     val = 'true' if enable else 'false'
     for path in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
         if os.path.exists(path):
-            cmd = f"sudo sed -i --follow-symlinks -E 's/^(server\\.socksProxyEnabled\\s*=\\s*)(true|false)/\\1{val}/' {path}"
-            subprocess.run(cmd, shell=True, check=False)
+            subprocess.run([
+                'sudo', 'sed', '-i', '--follow-symlinks', '-E',
+                f's/^(server\\.socksProxyEnabled\\s*=\\s*)(true|false)/\\1{val}/',
+                path
+            ], check=False)
     subprocess.run(['sudo', 'systemctl', 'restart', 'suwayomi-server'], check=True)
+    invalidate_services_cache()
 
 def set_tor_exit(enable: bool):
     action = 'start' if enable else 'stop'
@@ -198,5 +212,5 @@ def set_tor_exit(enable: bool):
             subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
 
     tor_script = os.path.join(BASE_DIR, 'configs', 'scripts', 'tor_exit_node.sh')
-    cmd = f"sudo {tor_script} {action}"
-    subprocess.run(cmd, shell=True, check=True)
+    subprocess.run(['sudo', tor_script, action], check=True)
+    invalidate_services_cache()

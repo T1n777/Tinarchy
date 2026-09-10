@@ -53,7 +53,7 @@ def generate_daily_system_report(force=False):
     gov_raw = ""
     gov_script = os.path.join(BASE_DIR, "configs", "scripts", "tinarchy-resource-governor.py")
     if not os.path.exists(gov_script):
-        for candidate in ["/usr/local/bin/tinarchy-resource-governor", "/home/pineapple/Tinarchy/configs/scripts/tinarchy-resource-governor.py", "/home/tin/server-dashboard/configs/scripts/tinarchy-resource-governor.py"]:
+        for candidate in ["/usr/local/bin/tinarchy-resource-governor", os.path.expanduser("~/Tinarchy/configs/scripts/tinarchy-resource-governor.py")]:
             if os.path.exists(candidate):
                 gov_script = candidate
                 break

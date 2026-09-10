@@ -57,6 +57,34 @@ def get_syncthing_device_id():
                 pass
     return ""
 
+import urllib.request
+import urllib.error
+
+_SYNCTHING_API_CACHE = {'addr': None, 'apikey': None, 'ts': 0}
+
+def get_syncthing_api_info():
+    global _SYNCTHING_API_CACHE
+    now = time.time()
+    if _SYNCTHING_API_CACHE['addr'] and _SYNCTHING_API_CACHE['apikey'] and (now - _SYNCTHING_API_CACHE['ts'] < 300):
+        return _SYNCTHING_API_CACHE['addr'], _SYNCTHING_API_CACHE['apikey']
+
+    home_dir = get_syncthing_home_dir()
+    if home_dir:
+        cp = os.path.join(home_dir, 'config.xml')
+        if os.path.exists(cp):
+            try:
+                tree = ET.parse(cp)
+                gui = tree.getroot().find('gui')
+                if gui is not None:
+                    addr = gui.findtext('address') or '127.0.0.1:8384'
+                    apikey = gui.findtext('apikey') or ''
+                    if apikey:
+                        _SYNCTHING_API_CACHE = {'addr': addr, 'apikey': apikey, 'ts': now}
+                        return addr, apikey
+            except Exception:
+                pass
+    return None, None
+
 def trigger_drive_sync():
     sync_bin = os.environ.get('DRIVE_SYNC_BIN')
     if not sync_bin:
@@ -84,11 +112,42 @@ def start_syncthing_auto_pair_thread():
         auto_share_folders = [f.strip() for f in auto_share_env.split(',') if f.strip()]
         while True:
             try:
-                # 1. Check pending devices
-                res = subprocess.run(cli_cmd + ['show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
-                if res.returncode == 0 and res.stdout:
-                    pending = json.loads(res.stdout)
-                    for dev_id, dev_info in pending.items():
+                addr, apikey = get_syncthing_api_info()
+                pending_devices = None
+                pending_folders = None
+
+                if addr and apikey:
+                    headers = {'X-API-Key': apikey}
+                    try:
+                        req_d = urllib.request.Request(f"http://{addr}/rest/cluster/pending/devices", headers=headers)
+                        with urllib.request.urlopen(req_d, timeout=3) as resp:
+                            if resp.status == 200:
+                                pending_devices = json.loads(resp.read().decode('utf-8'))
+                    except Exception:
+                        pass
+
+                    try:
+                        req_f = urllib.request.Request(f"http://{addr}/rest/cluster/pending/folders", headers=headers)
+                        with urllib.request.urlopen(req_f, timeout=3) as resp:
+                            if resp.status == 200:
+                                pending_folders = json.loads(resp.read().decode('utf-8'))
+                    except Exception:
+                        pass
+
+                # Fallback to CLI only if REST API was unavailable
+                if pending_devices is None:
+                    res = subprocess.run(cli_cmd + ['show', 'pending', 'devices'], capture_output=True, text=True, timeout=5)
+                    if res.returncode == 0 and res.stdout:
+                        pending_devices = json.loads(res.stdout)
+
+                if pending_folders is None:
+                    res_f = subprocess.run(cli_cmd + ['show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
+                    if res_f.returncode == 0 and res_f.stdout:
+                        pending_folders = json.loads(res_f.stdout)
+
+                # Process pending devices if any exist
+                if pending_devices:
+                    for dev_id, dev_info in pending_devices.items():
                         name = dev_info.get('name') or 'Client Device'
                         subprocess.run(cli_cmd + ['config', 'devices', 'add', '--device-id', dev_id, '--name', name], capture_output=True)
                         subprocess.run(cli_cmd + ['config', 'devices', dev_id, 'compression', 'set', 'always'], capture_output=True)
@@ -96,18 +155,16 @@ def start_syncthing_auto_pair_thread():
                             if subprocess.run(cli_cmd + ['config', 'folders', fid, 'dump-json'], capture_output=True).returncode == 0:
                                 subprocess.run(cli_cmd + ['config', 'folders', fid, 'devices', 'add', '--device-id', dev_id], capture_output=True)
 
-                # 2. Check pending folders
-                res_f = subprocess.run(cli_cmd + ['show', 'pending', 'folders'], capture_output=True, text=True, timeout=5)
-                if res_f.returncode == 0 and res_f.stdout:
-                    pending_f = json.loads(res_f.stdout)
-                    for folder_id, f_info in pending_f.items():
+                # Process pending folders if any exist
+                if pending_folders:
+                    for folder_id, f_info in pending_folders.items():
                         if folder_id in auto_share_folders:
                             dev_id = f_info.get('deviceID')
                             if dev_id:
                                 subprocess.run(cli_cmd + ['config', 'folders', folder_id, 'devices', 'add', '--device-id', dev_id], capture_output=True)
             except Exception:
                 pass
-            time.sleep(5)
+            time.sleep(15)
 
     t = threading.Thread(target=_worker, daemon=True, name="SyncthingAutoPair")
     t.start()

@@ -1387,43 +1387,7 @@
             if (customInput) customInput.value = hex;
         }
 
-        
-        async function loadAuthConfig() {
-            try {
-                const res = await fetch('/api/auth/config');
-                if (!res.ok) return;
-                const data = await res.json();
-                const toggle = document.getElementById('auth-require-toggle');
-                if (toggle) {
-                    if (data.require_auth) toggle.classList.add('on');
-                    else toggle.classList.remove('on');
-                }
-            } catch(e) {}
-        }
 
-        async function toggleAuthRequirement(btn) {
-            const isCurrentlyOn = btn.classList.contains('on');
-            const newState = !isCurrentlyOn;
-            try {
-                const res = await fetch('/api/auth/config', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({require_auth: newState})
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (newState) {
-                        btn.classList.add('on');
-                        showToast('Password login enabled. Next visit will require login.', 'default');
-                    } else {
-                        btn.classList.remove('on');
-                        showToast('Password login disabled. Tailscale devices have instant access.', 'success');
-                    }
-                }
-            } catch(e) {
-                showToast('Failed to update auth config: ' + e, 'error');
-            }
-        }
 
         
         async function loadAppConfig() {
@@ -1813,8 +1777,7 @@
 
         // Initialize on boot
         (async function init() {
-            const res = await fetch('/api/me');
-            if (res.status === 401) { window.location.href = '/login.html'; return; }
+            await fetch('/api/me');
             loadUsers();
             initWallpapers();
             

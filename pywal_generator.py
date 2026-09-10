@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import subprocess
 import colorsys
 from PIL import Image
 
@@ -51,7 +52,7 @@ def generate_pywal_palette(img_path):
         elif img_path.lower().endswith('.mp4'):
             frame_path = f'/tmp/wal_frame_{base_name}.png'
             if not os.path.exists(frame_path):
-                os.system(f"ffmpeg -y -ss 00:00:01 -i '{img_path}' -vframes 1 '{frame_path}' >/dev/null 2>&1")
+                subprocess.run(["ffmpeg", "-y", "-ss", "00:00:01", "-i", img_path, "-vframes", "1", frame_path], capture_output=True)
             if os.path.exists(frame_path):
                 actual_img = frame_path
 

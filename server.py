@@ -4,6 +4,7 @@ import re
 import json
 import gzip
 import html
+import base64
 import socket
 import socketserver
 import subprocess
@@ -46,12 +47,9 @@ sse_broker.set_syncthing_module(syncthing)
 
 # ─── Low-Churn API Micro-Caches (Sub-Millisecond Response) ───
 _REPORTS_CACHE = {'data': None, 'ts': 0, 'lock': threading.Lock()}
-_SERVICES_CACHE = {}
-_SERVICES_CACHE_LOCK = threading.Lock()
 
 def invalidate_services_cache():
-    with _SERVICES_CACHE_LOCK:
-        _SERVICES_CACHE.clear()
+    services.invalidate_services_cache()
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
@@ -393,7 +391,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
         # 1-Click Tailscale SSH check redirect
-        if clean_path in ['/ssh-auth', '/ssh']:
+        if clean_path in ['/ssh-auth']:
             url_file = '/tmp/tailscale_ssh_url'
             target_url = None
             if os.path.isfile(url_file):
@@ -461,18 +459,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
             allowed_services = auth.get_user_allowed_services(login_name, role)
-            cache_key = tuple(sorted(allowed_services))
-            now_t = time.time()
-            cached_bytes = None
-            with _SERVICES_CACHE_LOCK:
-                if cache_key in _SERVICES_CACHE and (now_t - _SERVICES_CACHE[cache_key]['ts']) < 2.5:
-                    cached_bytes = _SERVICES_CACHE[cache_key]['data']
-            if cached_bytes is None:
-                filtered = services.get_services_status(allowed_services)
-                cached_bytes = json.dumps(filtered).encode()
-                with _SERVICES_CACHE_LOCK:
-                    _SERVICES_CACHE[cache_key] = {'data': cached_bytes, 'ts': now_t}
-            self.send_compressed(cached_bytes, "application/json")
+            filtered = services.get_services_status(allowed_services)
+            self.send_compressed(json.dumps(filtered).encode(), "application/json")
 
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
@@ -709,6 +697,65 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             }).encode(), "application/json")
             return
 
+        # ─── Wallpaper Upload: ADMIN & OWNER ───
+        elif self.path == '/api/wallpaper/upload':
+            if session.get('role') not in ['owner', 'admin']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                return
+
+            raw_data = data.get('data', '')
+            raw_filename = data.get('filename', '')
+            if not raw_data or not raw_filename:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Missing image data or filename"}')
+                return
+
+            safe_name = os.path.basename(raw_filename)
+            safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', safe_name)
+            target_dir = os.path.join(PUBLIC_DIR, 'Wallpapers')
+            os.makedirs(target_dir, exist_ok=True)
+            target_path = os.path.join(target_dir, safe_name)
+
+            try:
+                b64_content = raw_data.split(',', 1)[1] if ',' in raw_data else raw_data
+                file_bytes = base64.b64decode(b64_content)
+                with open(target_path, 'wb') as f_wp:
+                    f_wp.write(file_bytes)
+
+                pywal_data = None
+                try:
+                    pywal_data = pywal_generator.generate_pywal_palette(target_path)
+                except Exception as e:
+                    print(f"Pywal generation error on upload: {e}")
+
+                if not pywal_data:
+                    pywal_data = pywal_generator.generate_pywal_palette('default_palette')
+
+                try:
+                    with open(os.path.join(PUBLIC_DIR, 'pywal.json'), 'w') as f_out:
+                        json.dump(pywal_data, f_out, indent=2)
+                except Exception:
+                    pass
+
+                self.send_compressed(json.dumps({
+                    "success": True,
+                    "url": f"/Wallpapers/{safe_name}",
+                    "filename": safe_name,
+                    "is_video": safe_name.lower().endswith('.mp4'),
+                    "pywal": pywal_data
+                }).encode(), "application/json")
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            return
+
         # ─── Drive Sync: POST ───
         elif self.path == '/api/drive/sync':
             try:
@@ -763,6 +810,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 try:
                     services.set_suwayomi_tor(enable)
+                    invalidate_services_cache()
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
@@ -778,6 +826,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 enable = data.get('enable', False)
                 try:
                     services.set_tor_exit(enable)
+                    invalidate_services_cache()
                     self.send_response(200)
                     self.send_header('Content-Type', 'application/json')
                     self.end_headers()
