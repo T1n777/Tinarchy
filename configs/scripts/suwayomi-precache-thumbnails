@@ -29,10 +29,10 @@ THUMBNAIL_DIRS = [
 def find_graphql_url():
     candidates = [
         "http://127.0.0.1:4566/api/graphql",
-        "http://127.0.0.1:8080/manga/api/graphql",
-        "http://127.0.0.1:8080/api/graphql",
         "http://127.0.0.1:4567/manga/api/graphql",
         "http://127.0.0.1:4567/api/graphql",
+        "http://127.0.0.1:8080/manga/api/graphql",
+        "http://127.0.0.1:8080/api/graphql",
     ]
     for url in candidates:
         try:
@@ -48,18 +48,19 @@ def find_graphql_url():
                         return url
         except Exception:
             pass
-    return "http://127.0.0.1:4566/api/graphql"
+    return "http://127.0.0.1:4567/manga/api/graphql"
 
 def find_direct_template():
     for port in (4566, 4567):
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/")
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                if resp.status == 200:
-                    return f"http://127.0.0.1:{port}/api/v1/manga/{{id}}/thumbnail"
-        except Exception:
-            pass
-    return "http://127.0.0.1:4566/api/v1/manga/{id}/thumbnail"
+        for prefix in ("/manga", ""):
+            try:
+                req = urllib.request.Request(f"http://127.0.0.1:{port}{prefix}/api/v1/about")
+                with urllib.request.urlopen(req, timeout=2) as resp:
+                    if resp.status == 200:
+                        return f"http://127.0.0.1:{port}{prefix}/api/v1/manga/{{id}}/thumbnail"
+            except Exception:
+                pass
+    return "http://127.0.0.1:4567/manga/api/v1/manga/{id}/thumbnail"
 
 def find_nginx_template():
     for port, path in ((8080, "/manga/api/v1/manga/{id}/thumbnail"), (8080, "/api/v1/manga/{id}/thumbnail")):
