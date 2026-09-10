@@ -34,3 +34,7 @@ tmp/
 
 # Large local media
 /public/Wallpapers
+
+# Rust cargo build artifacts
+target/
+tinarchy-rs/target/
