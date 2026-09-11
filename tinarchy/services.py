@@ -8,6 +8,7 @@ from tinarchy.config import PRIMARY_USER, LOCAL_SERVICES_FILE, BASE_DIR
 # Core Service Toggles (configurable via .env, default: true)
 ENABLE_SUWAYOMI = os.environ.get('ENABLE_SUWAYOMI', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_JELLYFIN = os.environ.get('ENABLE_JELLYFIN', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_SEERR = os.environ.get('ENABLE_SEERR', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
@@ -17,6 +18,9 @@ if ENABLE_SUWAYOMI:
     SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'})
 if ENABLE_JELLYFIN:
     SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'})
+if ENABLE_SEERR:
+    seerr_port = int(os.environ.get('SEERR_PORT', 5055))
+    SERVICES.append({'id': 'seerr', 'name': 'Seerr', 'port': seerr_port, 'systemd': 'seerr', 'icon': '🎬', 'description': 'Media discovery & request management for Jellyfin / Plex', 'link': '/seerr', 'link_text': f':{seerr_port}'})
 if ENABLE_TOR:
     SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'})
 if ENABLE_TAILSCALE_SSH:
@@ -82,7 +86,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb']
 
 def is_tailscale_ssh_active():
     try:
@@ -211,6 +215,35 @@ def set_tor_exit(enable: bool):
         if chk_tor.stdout.strip() != 'active':
             subprocess.run(['sudo', 'systemctl', 'start', 'tor'], check=True)
 
-    tor_script = os.path.join(BASE_DIR, 'configs', 'scripts', 'tor_exit_node.sh')
+    candidates = [
+        '/usr/local/bin/tor_exit_node.sh',
+        os.path.join(BASE_DIR, 'configs', 'scripts', 'tor_exit_node.sh'),
+        os.path.join(BASE_DIR, 'tor_exit_node.sh')
+    ]
+    tor_script = next((c for c in candidates if os.path.isfile(c)), None)
+    if not tor_script:
+        raise FileNotFoundError("tor_exit_node.sh not found in system or repository paths")
     subprocess.run(['sudo', tor_script, action], check=True)
     invalidate_services_cache()
+
+def is_tor_exit_active() -> bool:
+    candidates = [
+        '/usr/local/bin/tor_exit_node.sh',
+        os.path.join(BASE_DIR, 'configs', 'scripts', 'tor_exit_node.sh'),
+        os.path.join(BASE_DIR, 'tor_exit_node.sh')
+    ]
+    tor_script = next((c for c in candidates if os.path.isfile(c)), None)
+    if tor_script:
+        try:
+            res = subprocess.run(['sudo', tor_script, 'status'], capture_output=True, text=True, timeout=2)
+            if res.returncode == 0 and 'active' in res.stdout:
+                return True
+            if res.returncode != 0:
+                return False
+        except Exception:
+            pass
+    try:
+        res = subprocess.run(['sudo', 'iptables', '-t', 'nat', '-C', 'PREROUTING', '-i', 'tailscale0', '-j', 'TOR_EXIT'], capture_output=True, timeout=2)
+        return (res.returncode == 0)
+    except Exception:
+        return False

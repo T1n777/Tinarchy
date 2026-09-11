@@ -56,6 +56,7 @@ class TestModularCore(unittest.TestCase):
     def test_services(self):
         all_ids = services.get_all_service_ids()
         self.assertIn('suwayomi', all_ids)
+        self.assertIn('seerr', all_ids)
         self.assertIn('tailscale-ssh', all_ids)
 
         svcs_status = services.get_services_status()
@@ -65,6 +66,8 @@ class TestModularCore(unittest.TestCase):
             self.assertIn('id', s)
             self.assertIn('status', s)
             self.assertIn(s['status'], ['online', 'offline', 'unknown'])
+
+        self.assertIsInstance(services.is_tor_exit_active(), bool)
 
     def test_sse_broker(self):
         broker = SSEBroker(interval=1.0)

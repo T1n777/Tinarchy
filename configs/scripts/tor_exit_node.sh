@@ -1,6 +1,16 @@
 #!/bin/bash
 ACTION=$1
 
+if [ "$ACTION" = "status" ]; then
+    if iptables -t nat -C PREROUTING -i tailscale0 -j TOR_EXIT 2>/dev/null; then
+        echo "active"
+        exit 0
+    else
+        echo "inactive"
+        exit 1
+    fi
+fi
+
 # Clean up any existing rules first to remain idempotent
 iptables -t nat -D PREROUTING -i tailscale0 -j TOR_EXIT 2>/dev/null
 iptables -t nat -F TOR_EXIT 2>/dev/null

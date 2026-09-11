@@ -210,6 +210,7 @@ Tinarchy/
 | **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal budget & workload governor |
 | **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
 | **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
+| **Seerr (Overseerr)** | `5055` | `/seerr` & `:5055` | `seerr.service` | Media discovery & request management for Jellyfin and Plex |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
 | **SSH & tmux Persistence** | `22` | `:22` | `sshd.service` / `tmux` | Resilient remote sessions with auto-attach |
@@ -399,14 +400,15 @@ sudo systemctl enable --now pinedash-drive-sync.service
 
 ### 8. Configure Tor Exit Node (Optional)
 
-Make the exit node script executable:
+Install and make the exit node script executable:
 ```bash
-chmod +x ~/Tinarchy/configs/scripts/tor_exit_node.sh
+chmod +x configs/scripts/tor_exit_node.sh
+sudo install -m 755 configs/scripts/tor_exit_node.sh /usr/local/bin/tor_exit_node.sh
 ```
 
 To allow the dashboard backend to toggle the Tor exit node without password prompts, add a sudoers rule (`sudo visudo -f /etc/sudoers.d/99-tor-exit`):
 ```text
-%wheel ALL=(ALL) NOPASSWD: /home/*/Tinarchy/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /home/*/Tinarchy/configs/scripts/tor_exit_node.sh *, /home/*/Tinarchy/tor_exit_node.sh *, /home/*/server-dashboard/tor_exit_node.sh *, /home/*/server-dashboard/configs/scripts/tor_exit_node.sh *, /usr/bin/iptables, /usr/bin/ip6tables
 ```
 
 ---

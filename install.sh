@@ -880,9 +880,17 @@ if [ "$INSTALL_TOR" = "true" ]; then
     echo -e "${CYAN}🧅 Configuring Tor SOCKS5 & Exit Node permissions...${NC}"
     [ -f "$REPO_ROOT/configs/scripts/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/configs/scripts/tor_exit_node.sh"
     
+    if [ -f "$REPO_ROOT/configs/scripts/tor_exit_node.sh" ]; then
+        install -m 755 "$REPO_ROOT/configs/scripts/tor_exit_node.sh" /usr/local/bin/tor_exit_node.sh
+    elif [ -f "$REPO_ROOT/tor_exit_node.sh" ]; then
+        install -m 755 "$REPO_ROOT/tor_exit_node.sh" /usr/local/bin/tor_exit_node.sh
+    fi
+
     SUDOERS_FILE="/etc/sudoers.d/99-tor-exit"
-    echo "%wheel ALL=(ALL) NOPASSWD: $REPO_ROOT/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *" > "$SUDOERS_FILE"
-    echo "%sudo ALL=(ALL) NOPASSWD: $REPO_ROOT/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *" >> "$SUDOERS_FILE"
+    cat << EOF > "$SUDOERS_FILE"
+%wheel ALL=(ALL) NOPASSWD: /usr/local/bin/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, $REPO_ROOT/tor_exit_node.sh *, $REPO_ROOT/configs/scripts/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *, $USER_HOME/server-dashboard/configs/scripts/tor_exit_node.sh *, /usr/bin/iptables, /usr/bin/ip6tables
+%sudo ALL=(ALL) NOPASSWD: /usr/local/bin/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, $REPO_ROOT/tor_exit_node.sh *, $REPO_ROOT/configs/scripts/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *, $USER_HOME/server-dashboard/configs/scripts/tor_exit_node.sh *, /usr/bin/iptables, /usr/bin/ip6tables
+EOF
     chmod 440 "$SUDOERS_FILE"
     echo -e "${GREEN}✅ Tor exit node sudoers rule configured at $SUDOERS_FILE${NC}"
 fi
@@ -909,6 +917,16 @@ EnvironmentFile=-${REPO_ROOT}/.env
 WantedBy=multi-user.target
 EOF
     ln -sfn /etc/systemd/system/tinarchy.service /etc/systemd/system/server-dashboard.service
+
+    # Grant dashboard user passwordless permissions for service management & toggles
+    SUDOERS_DASHBOARD="/etc/sudoers.d/99-dashboard-systemctl"
+    cat << EOF > "$SUDOERS_DASHBOARD"
+${TARGET_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/iptables, /usr/bin/ip6tables, /usr/bin/sed, /usr/local/bin/tor_exit_node.sh, ${REPO_ROOT}/tor_exit_node.sh, ${REPO_ROOT}/configs/scripts/tor_exit_node.sh, ${USER_HOME}/server-dashboard/tor_exit_node.sh, ${USER_HOME}/server-dashboard/configs/scripts/tor_exit_node.sh
+%wheel ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/iptables, /usr/bin/ip6tables, /usr/bin/sed, /usr/local/bin/tor_exit_node.sh, ${REPO_ROOT}/tor_exit_node.sh, ${REPO_ROOT}/configs/scripts/tor_exit_node.sh, ${USER_HOME}/server-dashboard/tor_exit_node.sh, ${USER_HOME}/server-dashboard/configs/scripts/tor_exit_node.sh
+%sudo ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /usr/bin/iptables, /usr/bin/ip6tables, /usr/bin/sed, /usr/local/bin/tor_exit_node.sh, ${REPO_ROOT}/tor_exit_node.sh, ${REPO_ROOT}/configs/scripts/tor_exit_node.sh, ${USER_HOME}/server-dashboard/tor_exit_node.sh, ${USER_HOME}/server-dashboard/configs/scripts/tor_exit_node.sh
+EOF
+    chmod 440 "$SUDOERS_DASHBOARD"
+    echo -e "${GREEN}✅ Dashboard sudoers rules configured at $SUDOERS_DASHBOARD${NC}"
 fi
 
 # 8. Headless Display Sleep & Powerdown
@@ -1002,8 +1020,10 @@ fi
 # 11. Hardware RAM-Disk Tmpfiles Rules
 if [ -d "$REPO_ROOT/configs/tmpfiles" ]; then
     echo -e "${CYAN}💾 Configuring RAM-Disk tmpfiles for instant media transcode caching...${NC}"
-    cp "$REPO_ROOT/configs/tmpfiles/"*.conf /etc/tmpfiles.d/ 2>/dev/null || true
-    systemd-tmpfiles --create /etc/tmpfiles.d/jellyfin-ramdisk.conf 2>/dev/null || true
+    if [ -f "$REPO_ROOT/configs/tmpfiles/jellyfin-ramdisk.conf" ]; then
+        cp "$REPO_ROOT/configs/tmpfiles/jellyfin-ramdisk.conf" /etc/tmpfiles.d/ 2>/dev/null || true
+        systemd-tmpfiles --create /etc/tmpfiles.d/jellyfin-ramdisk.conf 2>/dev/null || true
+    fi
 fi
 
 # 12. PESU WiFi Keepalive Daemon Service
@@ -1012,11 +1032,36 @@ if [ -f "$REPO_ROOT/configs/systemd/pesu-wifi.service" ]; then
     cp "$REPO_ROOT/configs/systemd/pesu-wifi.service" /etc/systemd/system/
 fi
 
-# 13. Jellyfin High-Performance Configs (RAM-Disk Transcodes & Cache)
-if [ -d "/etc/jellyfin" ] && [ -d "$REPO_ROOT/configs/jellyfin" ]; then
-    echo -e "${CYAN}🍿 Applying Jellyfin RAM-disk transcode and caching optimizations...${NC}"
-    cp -n "$REPO_ROOT/configs/jellyfin/"*.xml /etc/jellyfin/ 2>/dev/null || true
-    chown -R jellyfin:jellyfin /etc/jellyfin/*.xml 2>/dev/null || true
+# 13. Jellyfin High-Performance Configs (RAM-Disk Transcodes, Cache & User Permissions)
+if [ "$INSTALL_JELLYFIN" = "true" ] || [ -d "/etc/jellyfin" ]; then
+    echo -e "${CYAN}🍿 Applying Jellyfin permissions, RAM-disk transcode and caching optimizations...${NC}"
+    if [ -d "/etc/jellyfin" ] && [ -d "$REPO_ROOT/configs/jellyfin" ]; then
+        cp -n "$REPO_ROOT/configs/jellyfin/"*.xml /etc/jellyfin/ 2>/dev/null || true
+    fi
+
+    # Deploy user override for storage access
+    mkdir -p /etc/systemd/system/jellyfin.service.d
+    if [ -f "$REPO_ROOT/configs/systemd/jellyfin-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/jellyfin-storage-access.conf" > /etc/systemd/system/jellyfin.service.d/override.conf
+    fi
+
+    # Deploy tmpfiles override to persist directory permissions across boots/upgrades
+    if [ -f "$REPO_ROOT/configs/tmpfiles/jellyfin-permissions.conf" ]; then
+        sed -e "s|tin|${TARGET_USER}|g" \
+            "$REPO_ROOT/configs/tmpfiles/jellyfin-permissions.conf" > /etc/tmpfiles.d/jellyfin.conf
+    fi
+
+    # Ensure user is member of jellyfin group
+    usermod -aG jellyfin "$TARGET_USER" 2>/dev/null || true
+
+    # Fix ownership and permissions immediately
+    mkdir -p /var/lib/jellyfin /var/cache/jellyfin /var/log/jellyfin /etc/jellyfin
+    chown -R "${TARGET_USER}:${TARGET_USER}" /var/lib/jellyfin /var/cache/jellyfin /var/log/jellyfin /etc/jellyfin 2>/dev/null || true
+    chmod -R 775 /var/lib/jellyfin /var/cache/jellyfin /var/log/jellyfin /etc/jellyfin 2>/dev/null || true
+    systemd-tmpfiles --create /etc/tmpfiles.d/jellyfin.conf 2>/dev/null || true
 fi
 
 # ─── PHASE 5: Reload and Manage Systemd Services ──────────────────────────────
@@ -1058,6 +1103,9 @@ manage_service "xvfb.service" "Xvfb Virtual Display (:99)" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-precache.timer" "Suwayomi Thumbnail Pre-Cacher Timer" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
+if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seerr.service ]; then
+    manage_service "seerr.service" "Seerr Media Requests" "true"
+fi
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
 manage_service "tinarchy-resource-governor.service" "Autonomous Resource Governor" "true"
