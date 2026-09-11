@@ -90,11 +90,10 @@ def trigger_drive_sync():
     if not sync_bin:
         for candidate in [
             '/usr/local/bin/tinarchy-drive-sync',
-            '/usr/local/bin/pinedash-drive-sync',
             '/usr/bin/tinarchy-drive-sync',
-            '/usr/bin/pinedash-drive-sync',
             os.path.join(BASE_DIR, 'configs', 'scripts', 'tinarchy-drive-sync'),
-            os.path.join(BASE_DIR, 'configs', 'scripts', 'pinedash-drive-sync')
+            '/usr/local/bin/pinedash-drive-sync',
+            '/usr/bin/pinedash-drive-sync',
         ]:
             if os.path.exists(candidate):
                 sync_bin = candidate
