@@ -58,14 +58,18 @@ package() {
     install -Dm644 server.py pywal_generator.py "$pkgdir/usr/share/$_pkgname/"
     chmod 755 "$pkgdir/usr/share/$_pkgname/server.py"
 
-    # Install web assets and templates
+    # Install web assets, python package and templates
     cp -dr --no-preserve=ownership public "$pkgdir/usr/share/$_pkgname/"
     cp -dr --no-preserve=ownership configs "$pkgdir/usr/share/$_pkgname/"
+    cp -dr --no-preserve=ownership tinarchy "$pkgdir/usr/share/$_pkgname/"
 
     # Install helper scripts
-    install -Dm755 tor_exit_node.sh "$pkgdir/usr/lib/$_pkgname/tor_exit_node.sh"
+    install -Dm755 configs/scripts/tor_exit_node.sh "$pkgdir/usr/lib/$_pkgname/tor_exit_node.sh"
     install -Dm755 configs/scripts/tinarchy-drive-sync "$pkgdir/usr/bin/tinarchy-drive-sync"
     ln -sr "$pkgdir/usr/bin/tinarchy-drive-sync" "$pkgdir/usr/bin/pinedash-drive-sync"
+    install -Dm755 configs/scripts/tinarchy-resource-governor.py "$pkgdir/usr/bin/tinarchy-resource-governor"
+    install -Dm755 configs/scripts/tinarchy-net-autotune.sh "$pkgdir/usr/bin/tinarchy-net-autotune"
+    install -Dm755 configs/scripts/tinarchy-display-sleep "$pkgdir/usr/bin/tinarchy-display-sleep"
 
     # Install binary launcher
     install -Dm755 "$srcdir/tinarchy-launcher.sh" "$pkgdir/usr/bin/$_pkgname"
@@ -109,6 +113,10 @@ EOF_SERVICES
     # Systemd unit & tmpfiles
     install -Dm644 "$srcdir/$_pkgname.service" "$pkgdir/usr/lib/systemd/system/$_pkgname.service"
     install -Dm644 "$srcdir/$_pkgname.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/$_pkgname.conf"
+    install -Dm644 configs/systemd/tinarchy-resource-governor.service "$pkgdir/usr/lib/systemd/system/tinarchy-resource-governor.service"
+    install -Dm644 configs/systemd/tinarchy-net-autotune.service "$pkgdir/usr/lib/systemd/system/tinarchy-net-autotune.service"
+    install -Dm644 configs/systemd/tinarchy-display-sleep.service "$pkgdir/usr/lib/systemd/system/tinarchy-display-sleep.service"
+
 
     # License and documentation
     if [ -f LICENSE ]; then

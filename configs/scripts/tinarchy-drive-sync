@@ -50,16 +50,8 @@ DRIVE_DIR="${STORAGE_DIR:-$USER_HOME/drive}"
 # 2. Verify and repair symlinks
 WALL_DIR="${WALLPAPER_DIR:-$USER_HOME/Wall}"
 [ -d "$WALL_DIR" ] && ln -sfn "$WALL_DIR" "$DRIVE_DIR/Wallpapers"
-[ -d "/var/lib/suwayomi/downloads" ] && ln -sfn /var/lib/suwayomi/downloads "$DRIVE_DIR/Media/Manga"
-mkdir -p "$DRIVE_DIR/notes" "$DRIVE_DIR/shared/backups" "$DRIVE_DIR/Media/Movies" "$DRIVE_DIR/Media/Shows" "$DRIVE_DIR/Media/Music"
+mkdir -p "$DRIVE_DIR/notes" "$DRIVE_DIR/Media/Movies" "$DRIVE_DIR/Media/Shows" "$DRIVE_DIR/Media/Music"
 
-# 3. Trigger server database snapshot if present
-for script_path in "$USER_HOME/scripts/backup-server-databases.sh" "/usr/local/bin/backup-server-databases.sh"; do
-    if [ -x "$script_path" ]; then
-        "$script_path" >/dev/null 2>&1 || true
-        break
-    fi
-done
 
 # 4. Touch Drive Directory
 touch "$DRIVE_DIR"

@@ -47,6 +47,8 @@ from datetime import datetime
 CONFIG_FILE = "/etc/default/tinarchy-resource-governor"
 LOG_FILE = "/var/log/tinarchy/resource-governor.log"
 LEARNING_STATE_FILE = "/var/log/tinarchy/thermal-learning.json"
+RUNTIME_STATUS_FILE = "/run/tinarchy/governor-status.json"
+
 
 DEFAULT_CONFIG = {
     "CHECK_INTERVAL_SECONDS": 4,      # Dynamic closed-loop sampling tick (seconds)
@@ -616,6 +618,10 @@ class AdaptiveGovernor:
             self.current_freq_khz = target_freq
             self.turbo_enabled = target_turbo
             self.current_quota_pct = target_quota
+            try:
+                write_runtime_status(get_status_payload(self))
+            except Exception:
+                pass
             return
 
         if self.current_tier == -1:
@@ -736,9 +742,28 @@ class AdaptiveGovernor:
         if emergency_brake:
             log_event(f"THERMAL DAMPENER: Temp={current_temp:.1f}°C, Slew={slew_rate:+.2f}°C/s. Throttling ceiling to {target_freq//1000}MHz.")
 
+        try:
+            write_runtime_status(get_status_payload(self))
+        except Exception:
+            pass
+
 # ─── Entry Point & CLI ──────────────────────────────────────────────────────
 
-def print_status(gov=None):
+def write_runtime_status(data):
+    try:
+        os.makedirs(os.path.dirname(RUNTIME_STATUS_FILE), exist_ok=True)
+        tmp = f"{RUNTIME_STATUS_FILE}.{os.getpid()}.tmp"
+        with open(tmp, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp, RUNTIME_STATUS_FILE)
+        try:
+            os.chmod(RUNTIME_STATUS_FILE, 0o644)
+        except OSError:
+            pass
+    except Exception:
+        pass
+
+def get_status_payload(gov=None):
     now = time.time()
     state = get_current_state()
     phys_t = get_last_physical_input_time()
@@ -748,7 +773,7 @@ def print_status(gov=None):
     latest_act = max(phys_t, term_t)
     idle_secs = now - latest_act if latest_act > 0 else 999999
     turbo_str = "DISABLED (Cool)" if state["no_turbo"] == "1" else "ENABLED (Boost 3.1GHz)"
-    freq_mhz = int(state["max_freq"]) // 1000 if state["max_freq"].isdigit() else state["max_freq"]
+    freq_mhz = int(state["max_freq"]) // 1000 if str(state["max_freq"]).isdigit() else state["max_freq"]
 
     tier = 0
     if idle_secs >= CONFIG["TIER_3_TIMEOUT"]:
@@ -757,6 +782,11 @@ def print_status(gov=None):
         tier = 2
     elif idle_secs >= CONFIG["TIER_1_TIMEOUT"]:
         tier = 1
+
+    if gov is not None and hasattr(gov, 'current_tier') and gov.current_tier is not None:
+        active_tier = gov.current_tier
+    else:
+        active_tier = tier
 
     power = get_power_supply_status()
     if not power["ac_online"]:
@@ -769,8 +799,9 @@ def print_status(gov=None):
             "TIER 2: IDLE ACCELERATION (0.5 - 1.0 hr)",
             "TIER 3: UNCONSTRAINED SPRINT (1.0+ hr Deep Idle)"
         ]
-        tier_display = tier_names[tier]
-        target_budget = f"{CONFIG[f'TARGET_TEMP_TIER_{tier}']:.1f} °C"
+        tier_idx = max(0, min(3, active_tier))
+        tier_display = tier_names[tier_idx]
+        target_budget = f"{CONFIG[f'TARGET_TEMP_TIER_{tier_idx}']:.1f} °C"
 
     suw_stat = get_suwayomi_demand()
     agy_pid, agy_ticks = get_agy_demand()
@@ -778,28 +809,59 @@ def print_status(gov=None):
     pwr_src = "Mains AC (Online)" if power["ac_online"] else f"BATTERY RESERVE (Discharging {power['capacity']}%)"
     bat_health = f"{power['capacity']}% | Health: {power['health_pct']}% ({power['charge_full_mah']}/{power['design_mah']} mAh, {power['voltage_v']}V)"
 
-    print("══════════════════════════════════════════════════════════════════════")
-    print("  PINEAPPLE STATION - CONTINUOUS SELF-LEARNING THERMAL & DEMAND GOVERNOR")
-    print("══════════════════════════════════════════════════════════════════════")
-    print(f"• Current Operational Tier: {tier_display}")
-    print(f"• Power Supply Source:      {pwr_src}")
-    print(f"• Battery Pack & Health:    {bat_health} [Cutoff <= 15%]")
-    print(f"• Inactivity Elapsed:       {int(idle_secs)}s ({idle_secs / 60:.1f} minutes)")
-    print(f"• Package Temperature:      {state['temp']:.1f} °C")
-    print(f"• Target Thermal Budget:    {target_budget}")
-    print(f"• Intel Turbo Boost:        {turbo_str} (no_turbo={state['no_turbo']})")
-    print(f"• Dynamic Frequency Ceiling:{freq_mhz} MHz")
-    print(f"• Suwayomi CPU Quota:       {state['suwayomi_quota']}")
-    print(f"• Suwayomi Demand:          throttled_usec={suw_stat.get('throttled_usec', 0)}")
-    print(f"• agy Daemon (PID {agy_pid}):   Active process registered (Immune: oom_score_adj=-500)")
-    print(f"• Active Media Streaming:   {'YES' if is_streaming else 'NO'}")
+    lines = [
+        "══════════════════════════════════════════════════════════════════════",
+        "  PINEAPPLE STATION - CONTINUOUS SELF-LEARNING THERMAL & DEMAND GOVERNOR",
+        "══════════════════════════════════════════════════════════════════════",
+        f"• Current Operational Tier: {tier_display}",
+        f"• Power Supply Source:      {pwr_src}",
+        f"• Battery Pack & Health:    {bat_health} [Cutoff <= 15%]",
+        f"• Inactivity Elapsed:       {int(idle_secs)}s ({idle_secs / 60:.1f} minutes)",
+        f"• Package Temperature:      {state['temp']:.1f} °C",
+        f"• Target Thermal Budget:    {target_budget}",
+        f"• Intel Turbo Boost:        {turbo_str} (no_turbo={state['no_turbo']})",
+        f"• Dynamic Frequency Ceiling:{freq_mhz} MHz",
+        f"• Suwayomi CPU Quota:       {state['suwayomi_quota']}",
+        f"• Suwayomi Demand:          throttled_usec={suw_stat.get('throttled_usec', 0)}",
+        f"• agy Daemon (PID {agy_pid}):   Active process registered (Immune: oom_score_adj=-500)" if agy_pid else "• agy Daemon:                Idle / Not active",
+        f"• Active Media Streaming:   {'YES' if is_streaming else 'NO'}",
+    ]
     if term_reasons:
-        print(f"• Terminal Activity:        {'; '.join(term_reasons)}")
+        lines.append(f"• Terminal Activity:        {'; '.join(term_reasons)}")
     if stream_reasons:
-        print(f"• Streaming Sockets:        {'; '.join(stream_reasons)}")
-    print("══════════════════════════════════════════════════════════════════════")
+        lines.append(f"• Streaming Sockets:        {'; '.join(stream_reasons)}")
+    lines.append("══════════════════════════════════════════════════════════════════════")
+
+    return {
+        "timestamp": now,
+        "governor": {
+            "tier": tier_display,
+            "target_temp": target_budget,
+            "turbo": turbo_str,
+            "max_freq": f"{freq_mhz} MHz",
+            "suwayomi_quota": str(state['suwayomi_quota']),
+            "inactivity": f"{int(idle_secs)}s",
+            "demand": f"throttled_usec={suw_stat.get('throttled_usec', 0)}",
+            "agy_status": f"Active process registered (PID {agy_pid})" if agy_pid else "Idle"
+        },
+        "governor_raw": "\n".join(lines),
+        "details": {
+            "power_source": pwr_src,
+            "battery": bat_health,
+            "package_temp": state['temp'],
+            "streaming": is_streaming
+        }
+    }
+
+def print_status(gov=None):
+    payload = get_status_payload(gov)
+    print(payload["governor_raw"])
 
 def main():
+    if "--json" in sys.argv:
+        print(json.dumps(get_status_payload()))
+        return
+
     if "--status" in sys.argv or "-s" in sys.argv:
         print_status()
         return
@@ -808,7 +870,10 @@ def main():
 
     if "--run-once" in sys.argv:
         governor.tick()
-        print_status(governor)
+        if "--json" in sys.argv:
+            print(json.dumps(get_status_payload(governor)))
+        else:
+            print_status(governor)
         return
 
     # Graceful shutdown handler

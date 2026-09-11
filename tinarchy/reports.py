@@ -1,7 +1,9 @@
 import os
 import time
+import json
 import platform
 import subprocess
+
 from datetime import datetime
 from tinarchy.config import get_system_hostname, get_app_config, PRIMARY_USER, BASE_DIR
 from tinarchy.telemetry import get_cpu_temp, get_cpu_percent, get_ram_stats, get_power_supply_status, get_tailscale_ip
@@ -50,50 +52,74 @@ def generate_daily_system_report(force=False):
     rep['cpu_percent'] = get_cpu_percent()
 
     # Governor Telemetry
-    gov_raw = ""
-    gov_script = os.path.join(BASE_DIR, "configs", "scripts", "tinarchy-resource-governor.py")
-    if not os.path.exists(gov_script):
-        for candidate in ["/usr/local/bin/tinarchy-resource-governor", os.path.expanduser("~/Tinarchy/configs/scripts/tinarchy-resource-governor.py")]:
-            if os.path.exists(candidate):
-                gov_script = candidate
-                break
-    try:
-        res = subprocess.run(
-            ["/usr/bin/python3", gov_script, "--status"],
-            capture_output=True, text=True, timeout=2
-        )
-        gov_raw = res.stdout.strip()
-    except Exception as e:
-        gov_raw = f"Governor status error: {e}"
-    rep['governor_raw'] = gov_raw
+    gov_status_file = "/run/tinarchy/governor-status.json"
+    gov_data = None
+    if os.path.exists(gov_status_file):
+        try:
+            # If written within last 15 seconds, use live daemon state (0 subprocess overhead)
+            if (now - os.path.getmtime(gov_status_file)) <= 15:
+                with open(gov_status_file, "r") as f:
+                    gov_data = json.load(f)
+        except Exception:
+            gov_data = None
 
-    rep['governor'] = {
-        "tier": "TIER 0: ACTIVE (Interactive Use)",
-        "target_temp": "76.0 °C",
-        "turbo": "DISABLED (Cool)",
-        "max_freq": "2000 MHz",
-        "suwayomi_quota": "200%",
-        "inactivity": "0s",
-        "demand": "throttled_usec=0",
-        "agy_status": "Active process registered"
-    }
-    for line in gov_raw.splitlines():
-        if "Current Operational Tier:" in line:
-            rep['governor']['tier'] = line.split(":", 1)[1].strip()
-        elif "Target Thermal Budget:" in line:
-            rep['governor']['target_temp'] = line.split(":", 1)[1].strip()
-        elif "Intel Turbo Boost:" in line:
-            rep['governor']['turbo'] = line.split(":", 1)[1].strip()
-        elif "Dynamic Frequency Ceiling:" in line:
-            rep['governor']['max_freq'] = line.split(":", 1)[1].strip()
-        elif "Suwayomi CPU Quota:" in line:
-            rep['governor']['suwayomi_quota'] = line.split(":", 1)[1].strip()
-        elif "Inactivity Elapsed:" in line:
-            rep['governor']['inactivity'] = line.split(":", 1)[1].strip()
-        elif "Suwayomi Demand:" in line:
-            rep['governor']['demand'] = line.split(":", 1)[1].strip()
-        elif "agy Daemon" in line:
-            rep['governor']['agy_status'] = line.split(":", 1)[1].strip()
+    if gov_data and isinstance(gov_data.get("governor"), dict):
+        rep['governor'] = gov_data["governor"]
+        rep['governor_raw'] = gov_data.get("governor_raw", "")
+    else:
+        rep['governor'] = {
+            "tier": "TIER 0: ACTIVE (Interactive Use)",
+            "target_temp": "76.0 °C",
+            "turbo": "DISABLED (Cool)",
+            "max_freq": "2000 MHz",
+            "suwayomi_quota": "200%",
+            "inactivity": "0s",
+            "demand": "throttled_usec=0",
+            "agy_status": "Active process registered"
+        }
+        gov_raw = ""
+        gov_script = os.path.join(BASE_DIR, "configs", "scripts", "tinarchy-resource-governor.py")
+        if not os.path.exists(gov_script):
+            for candidate in ["/usr/local/bin/tinarchy-resource-governor", os.path.expanduser("~/Tinarchy/configs/scripts/tinarchy-resource-governor.py")]:
+                if os.path.exists(candidate):
+                    gov_script = candidate
+                    break
+        try:
+            res = subprocess.run(
+                ["/usr/bin/python3", gov_script, "--json"],
+                capture_output=True, text=True, timeout=2
+            )
+            parsed = json.loads(res.stdout)
+            if isinstance(parsed.get("governor"), dict):
+                rep['governor'].update(parsed["governor"])
+            gov_raw = parsed.get("governor_raw", "")
+        except Exception:
+            try:
+                res = subprocess.run(
+                    ["/usr/bin/python3", gov_script, "--status"],
+                    capture_output=True, text=True, timeout=2
+                )
+                gov_raw = res.stdout.strip()
+                for line in gov_raw.splitlines():
+                    if "Current Operational Tier:" in line:
+                        rep['governor']['tier'] = line.split(":", 1)[1].strip()
+                    elif "Target Thermal Budget:" in line:
+                        rep['governor']['target_temp'] = line.split(":", 1)[1].strip()
+                    elif "Intel Turbo Boost:" in line:
+                        rep['governor']['turbo'] = line.split(":", 1)[1].strip()
+                    elif "Dynamic Frequency Ceiling:" in line:
+                        rep['governor']['max_freq'] = line.split(":", 1)[1].strip()
+                    elif "Suwayomi CPU Quota:" in line:
+                        rep['governor']['suwayomi_quota'] = line.split(":", 1)[1].strip()
+                    elif "Inactivity Elapsed:" in line:
+                        rep['governor']['inactivity'] = line.split(":", 1)[1].strip()
+                    elif "Suwayomi Demand:" in line:
+                        rep['governor']['demand'] = line.split(":", 1)[1].strip()
+                    elif "agy Daemon" in line:
+                        rep['governor']['agy_status'] = line.split(":", 1)[1].strip()
+            except Exception as e:
+                gov_raw = f"Governor status error: {e}"
+        rep['governor_raw'] = gov_raw
 
     # 3. RAM & Storage
     ram = get_ram_stats()

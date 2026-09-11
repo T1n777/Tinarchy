@@ -878,12 +878,11 @@ fi
 # 6. Tor Anonymity Proxy & Global Exit Node
 if [ "$INSTALL_TOR" = "true" ]; then
     echo -e "${CYAN}🧅 Configuring Tor SOCKS5 & Exit Node permissions...${NC}"
-    [ -f "$REPO_ROOT/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/tor_exit_node.sh"
     [ -f "$REPO_ROOT/configs/scripts/tor_exit_node.sh" ] && chmod +x "$REPO_ROOT/configs/scripts/tor_exit_node.sh"
     
     SUDOERS_FILE="/etc/sudoers.d/99-tor-exit"
-    echo "%wheel ALL=(ALL) NOPASSWD: $REPO_ROOT/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *" > "$SUDOERS_FILE"
-    echo "%sudo ALL=(ALL) NOPASSWD: $REPO_ROOT/tor_exit_node.sh *, $USER_HOME/server-dashboard/tor_exit_node.sh *" >> "$SUDOERS_FILE"
+    echo "%wheel ALL=(ALL) NOPASSWD: $REPO_ROOT/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *" > "$SUDOERS_FILE"
+    echo "%sudo ALL=(ALL) NOPASSWD: $REPO_ROOT/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *" >> "$SUDOERS_FILE"
     chmod 440 "$SUDOERS_FILE"
     echo -e "${GREEN}✅ Tor exit node sudoers rule configured at $SUDOERS_FILE${NC}"
 fi
