@@ -180,7 +180,7 @@ flowchart TD
 The monolithic server has been decomposed into a decoupled, thread-safe Python package structure:
 
 ```
-server-dashboard/
+Tinarchy/
 ├── server.py              # Lightweight HTTP router, SSE dispatcher & backward-compatible re-exports
 ├── tinarchy/              # Modular backend core package
 │   ├── config.py          # Centralized environment, filesystem paths, and dynamic branding loader
@@ -401,12 +401,12 @@ sudo systemctl enable --now pinedash-drive-sync.service
 
 Make the exit node script executable:
 ```bash
-chmod +x ~/Tinarchy/tor_exit_node.sh
+chmod +x ~/Tinarchy/configs/scripts/tor_exit_node.sh
 ```
 
 To allow the dashboard backend to toggle the Tor exit node without password prompts, add a sudoers rule (`sudo visudo -f /etc/sudoers.d/99-tor-exit`):
 ```text
-%wheel ALL=(ALL) NOPASSWD: /home/*/Tinarchy/tor_exit_node.sh *, /home/*/server-dashboard/tor_exit_node.sh *
+%wheel ALL=(ALL) NOPASSWD: /home/*/Tinarchy/configs/scripts/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /usr/local/bin/tor_exit_node.sh *
 ```
 
 ---

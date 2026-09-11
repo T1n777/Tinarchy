@@ -68,7 +68,7 @@ package() {
     install -Dm755 configs/scripts/tinarchy-drive-sync "$pkgdir/usr/bin/tinarchy-drive-sync"
     ln -sr "$pkgdir/usr/bin/tinarchy-drive-sync" "$pkgdir/usr/bin/pinedash-drive-sync"
     install -Dm755 configs/scripts/tinarchy-resource-governor.py "$pkgdir/usr/bin/tinarchy-resource-governor"
-    install -Dm755 configs/scripts/tinarchy-net-autotune.sh "$pkgdir/usr/bin/tinarchy-net-autotune"
+    install -Dm755 configs/scripts/tinarchy-net-autotune.py "$pkgdir/usr/bin/tinarchy-net-autotune"
     install -Dm755 configs/scripts/tinarchy-display-sleep "$pkgdir/usr/bin/tinarchy-display-sleep"
 
     # Install binary launcher

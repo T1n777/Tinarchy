@@ -121,4 +121,5 @@ echo "🎉 SyncYomi setup completed successfully!"
 echo "• Web UI: http://127.0.0.1:8282"
 echo "• Dashboard Guide: /syncyomi"
 echo "• If the dashboard is running, restart it to display the SyncYomi tile:"
-echo "    sudo systemctl restart server-dashboard.service"
+echo "    sudo systemctl restart tinarchy.service"
+
