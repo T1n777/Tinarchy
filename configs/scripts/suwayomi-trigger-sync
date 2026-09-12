@@ -116,6 +116,69 @@ def trigger_sync(force=False, cooldown=10, wait_sync=False):
         return False
 
 
+def ensure_webui_sync_triggers():
+    """Ensures Suwayomi WebUI index.html contains tab open/close/unload sync triggers."""
+    target_paths = [
+        "/var/lib/suwayomi/cache/Tachidesk/webUI-serve/index.html",
+        "/var/lib/suwayomi/.local/share/Tachidesk/webUI/index.html",
+    ]
+    script_snippet = """        <!-- Automated SyncYomi Sync Triggers -->
+        <script>
+            (function() {
+                const SYNC_MUTATION = JSON.stringify({ query: "mutation { startSync(input: {}) { clientMutationId } }" });
+                let lastSyncTime = 0;
+                const COOLDOWN_MS = 15000;
+
+                function triggerSync(force) {
+                    const now = Date.now();
+                    if (!force && (now - lastSyncTime < COOLDOWN_MS)) return;
+                    lastSyncTime = now;
+
+                    const targets = ["/manga/api/graphql", "/api/graphql"];
+                    for (const url of targets) {
+                        try {
+                            if (navigator.sendBeacon) {
+                                const blob = new Blob([SYNC_MUTATION], { type: "application/json" });
+                                if (navigator.sendBeacon(url, blob)) break;
+                            }
+                        } catch (e) {}
+                        try {
+                            fetch(url, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: SYNC_MUTATION,
+                                keepalive: true
+                            }).catch(() => {});
+                            break;
+                        } catch (e) {}
+                    }
+                }
+
+                window.addEventListener("load", () => triggerSync(false));
+                document.addEventListener("visibilitychange", () => {
+                    if (document.visibilityState === "hidden") {
+                        triggerSync(false);
+                    }
+                });
+                window.addEventListener("pagehide", () => triggerSync(true));
+                window.addEventListener("beforeunload", () => triggerSync(true));
+            })();
+        </script>
+"""
+    for p in target_paths:
+        if os.path.isfile(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if "Automated SyncYomi Sync Triggers" not in content and "</body>" in content:
+                    content = content.replace("</body>", script_snippet + "    </body>")
+                    with open(p, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    print(f"[suwayomi-trigger-sync] Injected sync triggers into {p}")
+            except Exception as e:
+                print(f"[suwayomi-trigger-sync] Warning: Could not inject web triggers into {p}: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Trigger Suwayomi GraphQL Sync with SyncYomi")
     parser.add_argument("--wait-for-ready", action="store_true", help="Wait for Suwayomi to start listening before triggering")
@@ -137,6 +200,7 @@ def main():
             print(f"[suwayomi-trigger-sync] Timed out waiting for Suwayomi on {ABOUT_URL}. Skipping.")
             sys.exit(0)
         time.sleep(1)
+        ensure_webui_sync_triggers()
 
     trigger_sync(force=args.force, cooldown=args.cooldown, wait_sync=args.sync)
     # Always exit 0 to guarantee that systemd service lifecycle is never blocked or faulted
