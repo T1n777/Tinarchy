@@ -55,6 +55,7 @@ SERVICES = [
     "pesu-wifi.service",
     "suwayomi-server.service",
     "jellyfin.service",
+    "seerr.service",
     get_syncthing_unit(),
     "tailscaled.service",
     "nginx.service",
@@ -211,6 +212,32 @@ def test_suwayomi_live():
             if 'server.socksProxyEnabled = true' in c:
                 raise Exception("Suwayomi socksProxyEnabled is still set to true")
 run_test("Suwayomi Manga Reader Live & Nginx Fast-Path Proxy (200 OK)", test_suwayomi_live)
+
+# 12. Seerr Media Discovery Live & Nginx Reverse Proxy
+def test_seerr_live():
+    # Direct loopback check
+    req = urllib.request.Request("http://127.0.0.1:5054/api/v1/settings/public")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Seerr direct backend returned status {r.status}")
+        data = json.loads(r.read().decode())
+        if "applicationTitle" not in data:
+            raise Exception("Seerr public settings missing applicationTitle")
+
+    # Nginx port 5055 proxy check (SSL or HTTP redirect)
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def http_error_301(self, req, fp, code, msg, headers):
+            return fp
+        def http_error_302(self, req, fp, code, msg, headers):
+            return fp
+        def http_error_307(self, req, fp, code, msg, headers):
+            return fp
+
+    opener = urllib.request.build_opener(NoRedirect)
+    resp = opener.open("http://127.0.0.1:5055/", timeout=3)
+    if resp.status not in (301, 302, 307):
+        raise Exception(f"Nginx port 5055 HTTP redirect expected 301/307, got {resp.status}")
+run_test("Seerr Media Discovery Live & Nginx Reverse Proxy (200/301 OK)", test_seerr_live)
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")

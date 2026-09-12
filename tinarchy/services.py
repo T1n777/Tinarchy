@@ -12,6 +12,7 @@ ENABLE_SEERR = os.environ.get('ENABLE_SEERR', 'true').strip().lower() in ('true'
 ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_SEERR = os.environ.get('ENABLE_SEERR', 'true').strip().lower() in ('true', '1', 'yes')
 
 SERVICES = []
 if ENABLE_SUWAYOMI:
@@ -20,7 +21,7 @@ if ENABLE_JELLYFIN:
     SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'})
 if ENABLE_SEERR:
     seerr_port = int(os.environ.get('SEERR_PORT', 5055))
-    SERVICES.append({'id': 'seerr', 'name': 'Seerr', 'port': seerr_port, 'systemd': 'seerr', 'icon': '🎬', 'description': 'Media discovery & request management for Jellyfin / Plex', 'link': '/seerr', 'link_text': f':{seerr_port}'})
+    SERVICES.append({'id': 'seerr', 'name': 'Seerr Discovery', 'port': seerr_port, 'systemd': 'seerr', 'icon': '🎬', 'description': 'Media discovery & request manager for Jellyfin', 'link': '/seerr', 'link_text': f':{seerr_port}'})
 if ENABLE_TOR:
     SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'})
 if ENABLE_TAILSCALE_SSH:
@@ -167,6 +168,8 @@ def get_services_status(allowed_services=None):
                         service_link = '/manga'
                     elif s['id'] == 'tor':
                         service_link = '/tor'
+                    elif s['id'] == 'seerr':
+                        service_link = '/seerr'
                     elif 'navidrome' in s['id']:
                         service_link = '/navidrome'
                 status_obj['link'] = service_link

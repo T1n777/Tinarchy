@@ -222,6 +222,7 @@ def generate_daily_system_report(force=False):
         ("suwayomi-server.service", "Suwayomi Manga Server"),
         ("xvfb.service", "Xvfb Headless Display (:99)"),
         ("jellyfin.service", "Jellyfin Media Server"),
+        ("seerr.service", "Seerr Media Discovery"),
         (syncthing_unit, "Syncthing Mesh Sync"),
         ("tailscaled.service", "Tailscale VPN Engine"),
         ("nginx.service", "Nginx Web Proxy"),

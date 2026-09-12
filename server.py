@@ -327,12 +327,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if 'jellyfin' not in allowed_services:
                 return self.serve_access_denied('Jellyfin Media Server')
             target_url = f"https://{host}:8096/"
-        elif clean_path in ['/seerr', '/overseerr', '/requests']:
+        elif clean_path in ['/seerr', '/overseerr', '/requests', '/discover']:
             if 'seerr' not in allowed_services:
-                return self.serve_access_denied('Seerr')
+                return self.serve_access_denied('Seerr Discovery')
             svc = next((s for s in SERVICES if s.get('id') == 'seerr'), None)
             port = svc.get('port', 5055) if svc else 5055
-            target_url = f"http://{host}:{port}/"
+            target_url = f"https://{host}:{port}/"
         elif clean_path in ['/navidrome', '/music', '/audio']:
             if 'navidrome' not in allowed_services:
                 return self.serve_access_denied('Navidrome Music')
