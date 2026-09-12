@@ -575,10 +575,10 @@ sudo systemctl restart tinarchy
 
 #### D. Automated Bidirectional Sync Triggers & Reactive Bridge
 Manual syncing is completely eliminated through a unified 5-point lifecycle hook system:
-- **Service Start Trigger (`ExecStartPost`)**: As soon as Suwayomi starts and port 4567 is reachable, `/usr/local/bin/suwayomi-trigger-sync` pulls the latest reading progress from SyncYomi.
+- **Service Start Trigger (`ExecStartPost`)**: As soon as Suwayomi starts and port 4567 is reachable, `/usr/local/bin/suwayomi-trigger-sync --update-library` pulls latest progress from SyncYomi, initiates a full library update to fetch newly released chapters read on mobile, and automatically syncs reading progress again upon completion.
 - **Service Stop Trigger (`ExecStop`)**: When stopping or restarting Suwayomi via systemd or the Dashboard, an immediate sync is flushed to SyncYomi *before* the JVM halts.
-- **Service Open Trigger**: Launching the Manga Reader from the dashboard (`/manga`, `/reader`, etc.) fires a non-blocking background sync request.
-- **Service Close Trigger (Beacon)**: When closing or navigating away from the `/manga/` web tab, the browser transmits a background beacon (`navigator.sendBeacon('/api/suwayomi/sync')`), automatically recording reading progress.
+- **Service Open & Site Reload Trigger**: Opening Suwayomi or refreshing/reloading the browser tab immediately triggers a SyncYomi sync (`pageshow` & direct GraphQL execution).
+- **Service Close & Background Trigger (Beacon)**: When closing, navigating away from, or backgrounding the `/manga/` web tab, the browser transmits a background beacon (`navigator.sendBeacon`) to automatically record reading progress.
 - **Reactive Sync Bridge (`syncyomi-suwayomi-bridge.service`)**: A lightweight background daemon monitors SyncYomi's database. Whenever an external client (such as your phone) finishes an upload, the bridge triggers Suwayomi to sync within 2 seconds.
 
 #### E. Mobile Optimization Guide (Komikku / Mihon on Android)

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-Suwayomi Sync Trigger Utility
-Triggers an immediate background sync between Suwayomi and SyncYomi via GraphQL.
-Supports debouncing, waiting for service readiness, and synchronous execution for shutdown hooks.
-Completely fail-safe: skips gracefully if SyncYomi is not configured/enabled, and never returns
-fatal exit codes that could disrupt the Suwayomi systemd service.
+Suwayomi Sync & Library Update Trigger Utility
+Handles:
+1. Triggering immediate background sync with SyncYomi via GraphQL startSync mutation.
+2. Triggering full library update upon Suwayomi service start (and post-update sync).
+3. Injecting automated browser-side sync triggers (tab open, site reload, backgrounding, tab close).
+4. Synchronous execution for shutdown hooks (ExecStop).
+Completely fail-safe: never returns fatal exit codes that could disrupt the Suwayomi systemd service.
 """
 
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -18,6 +21,8 @@ import urllib.request
 GRAPHQL_URL = "http://127.0.0.1:4567/manga/api/graphql"
 ABOUT_URL = "http://127.0.0.1:4567/manga/api/v1/about"
 MUTATION_QUERY = {"query": "mutation { startSync(input: {}) { clientMutationId } }"}
+MUTATION_UPDATE_LIBRARY = {"query": "mutation { updateLibrary(input: {}) { clientMutationId } }"}
+QUERY_LIBRARY_UPDATE_STATUS = {"query": "{ libraryUpdateStatus { jobsInfo { isRunning finishedJobs totalJobs } } }"}
 LOCK_FILE = "/run/suwayomi-sync.last"
 FALLBACK_LOCK_FILE = "/tmp/suwayomi-sync.last"
 
@@ -116,18 +121,69 @@ def trigger_sync(force=False, cooldown=10, wait_sync=False):
         return False
 
 
+def trigger_library_update():
+    """Triggers an asynchronous full library update in Suwayomi."""
+    payload = json.dumps(MUTATION_UPDATE_LIBRARY).encode("utf-8")
+    req = urllib.request.Request(
+        GRAPHQL_URL,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "SuwayomiSyncTrigger/1.0"
+        }
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = resp.read().decode("utf-8")
+            print(f"[suwayomi-trigger-sync] Full library update triggered successfully: {data}")
+            return True
+    except Exception as e:
+        print(f"[suwayomi-trigger-sync] Note on library update trigger: {e}")
+        return False
+
+
+def watch_library_update_completion():
+    """Polls libraryUpdateStatus and flushes a final SyncYomi sync once all jobs are finished."""
+    time.sleep(5)
+    max_polls = 180  # Up to 15 minutes of background polling
+    for _ in range(max_polls):
+        try:
+            payload = json.dumps(QUERY_LIBRARY_UPDATE_STATUS).encode("utf-8")
+            req = urllib.request.Request(
+                GRAPHQL_URL,
+                data=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "User-Agent": "SuwayomiSyncTrigger/1.0"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                jobs_info = res_data.get("data", {}).get("libraryUpdateStatus", {}).get("jobsInfo", {})
+                is_running = jobs_info.get("isRunning", False)
+                if not is_running:
+                    finished = jobs_info.get("finishedJobs", 0)
+                    total = jobs_info.get("totalJobs", 0)
+                    print(f"[suwayomi-trigger-sync] Library update completed ({finished}/{total} jobs). Triggering post-update SyncYomi sync...")
+                    trigger_sync(force=True)
+                    break
+        except Exception:
+            pass
+        time.sleep(5)
+
+
 def ensure_webui_sync_triggers():
-    """Ensures Suwayomi WebUI index.html contains tab open/close/unload sync triggers."""
+    """Ensures Suwayomi WebUI index.html contains tab open, reload, visibility, and close sync triggers."""
     target_paths = [
         "/var/lib/suwayomi/cache/Tachidesk/webUI-serve/index.html",
         "/var/lib/suwayomi/.local/share/Tachidesk/webUI/index.html",
     ]
-    script_snippet = """        <!-- Automated SyncYomi Sync Triggers -->
+    script_snippet = """        <!-- Automated SyncYomi Sync Triggers: Tab Open, Reload, Visibility Change & Close -->
         <script>
             (function() {
                 const SYNC_MUTATION = JSON.stringify({ query: "mutation { startSync(input: {}) { clientMutationId } }" });
                 let lastSyncTime = 0;
-                const COOLDOWN_MS = 15000;
+                const COOLDOWN_MS = 10000;
 
                 function triggerSync(force) {
                     const now = Date.now();
@@ -154,12 +210,20 @@ def ensure_webui_sync_triggers():
                     }
                 }
 
-                window.addEventListener("load", () => triggerSync(false));
+                // 1. Immediate trigger on page load or site reload (never missed)
+                triggerSync(true);
+
+                // 2. Trigger on pageshow (fires on load, reload, and bfcache restores)
+                window.addEventListener("pageshow", () => triggerSync(true));
+
+                // 3. Trigger on visibility change (switching tabs, minimizing browser, app backgrounding)
                 document.addEventListener("visibilitychange", () => {
                     if (document.visibilityState === "hidden") {
                         triggerSync(false);
                     }
                 });
+
+                // 4. Trigger on tab close / navigation away / reload initiation
                 window.addEventListener("pagehide", () => triggerSync(true));
                 window.addEventListener("beforeunload", () => triggerSync(true));
             })();
@@ -170,11 +234,26 @@ def ensure_webui_sync_triggers():
             try:
                 with open(p, "r", encoding="utf-8") as f:
                     content = f.read()
-                if "Automated SyncYomi Sync Triggers" not in content and "</body>" in content:
+
+                # If an older version exists, update it cleanly
+                if "Automated SyncYomi Sync Triggers" in content:
+                    start_marker = "<!-- Automated SyncYomi Sync Triggers"
+                    end_marker = "</script>"
+                    start_idx = content.find(start_marker)
+                    if start_idx != -1:
+                        end_idx = content.find(end_marker, start_idx)
+                        if end_idx != -1:
+                            content = content[:start_idx] + script_snippet.strip() + content[end_idx + len(end_marker):]
+                            with open(p, "w", encoding="utf-8") as f:
+                                f.write(content)
+                            print(f"[suwayomi-trigger-sync] Updated web triggers in {p}")
+                            continue
+
+                if "</body>" in content:
                     content = content.replace("</body>", script_snippet + "    </body>")
                     with open(p, "w", encoding="utf-8") as f:
                         f.write(content)
-                    print(f"[suwayomi-trigger-sync] Injected sync triggers into {p}")
+                    print(f"[suwayomi-trigger-sync] Injected web triggers into {p}")
             except Exception as e:
                 print(f"[suwayomi-trigger-sync] Warning: Could not inject web triggers into {p}: {e}")
 
@@ -186,8 +265,15 @@ def main():
     parser.add_argument("--force", action="store_true", help="Bypass debounce lock")
     parser.add_argument("--cooldown", type=int, default=10, help="Debounce cooldown in seconds (default: 10)")
     parser.add_argument("--sync", action="store_true", help="Wait for sync completion (useful in ExecStop)")
+    parser.add_argument("--update-library", action="store_true", help="Trigger a full library update and sync again upon completion")
+    parser.add_argument("--watch-library-update", action="store_true", help="Internal background worker to monitor library update completion")
 
     args = parser.parse_args()
+
+    # If running as internal background watcher
+    if args.watch_library_update:
+        watch_library_update_completion()
+        sys.exit(0)
 
     # If SyncYomi is explicitly disabled in Suwayomi's configuration, exit cleanly
     if not is_syncyomi_enabled():
@@ -202,7 +288,25 @@ def main():
         time.sleep(1)
         ensure_webui_sync_triggers()
 
+    # Trigger initial sync
     trigger_sync(force=args.force, cooldown=args.cooldown, wait_sync=args.sync)
+
+    # Trigger full library update ONLY if requested (service start)
+    if args.update_library:
+        trigger_library_update()
+        # Spawn detached background process to monitor update completion and trigger final sync
+        script_path = os.path.abspath(__file__)
+        try:
+            subprocess.Popen(
+                [sys.executable, script_path, "--watch-library-update"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            print("[suwayomi-trigger-sync] Background post-update sync monitor spawned.")
+        except Exception as e:
+            print(f"[suwayomi-trigger-sync] Warning spawning post-update monitor: {e}")
+
     # Always exit 0 to guarantee that systemd service lifecycle is never blocked or faulted
     sys.exit(0)
 
