@@ -362,6 +362,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if 'qbittorrent' not in allowed_services:
                 return self.serve_access_denied('qBittorrent')
             target_url = "/qbittorrent/"
+        elif clean_path in ['/bazarr', '/subtitles']:
+            if 'bazarr' not in allowed_services:
+                return self.serve_access_denied('Bazarr')
+            target_url = "/bazarr/"
+
 
         if target_url:
             self.send_response(302)

@@ -1147,6 +1147,17 @@ if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/p
     fi
     manage_service "prowlarr.service" "Prowlarr Indexer Manager" "true"
 fi
+if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/bazarr.service ]; then
+    mkdir -p /etc/systemd/system/bazarr.service.d
+    if [ -f "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" > /etc/systemd/system/bazarr.service.d/override.conf
+    fi
+    manage_service "bazarr.service" "Bazarr Subtitles Manager" "true"
+fi
+
 if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
     QBIT_CONF="${USER_HOME}/.config/qBittorrent/qBittorrent.conf"
     if [ -f "$QBIT_CONF" ]; then

@@ -256,6 +256,21 @@ def test_qbittorrent_live():
             raise Exception(f"Nginx /qbittorrent/ proxy returned status {r.status}")
 run_test("qBittorrent Web UI Live & Nginx Reverse Proxy (200 OK)", test_qbittorrent_live)
 
+# 14. Bazarr Subtitles Manager Live & Nginx Reverse Proxy
+def test_bazarr_live():
+    req = urllib.request.Request("http://127.0.0.1:6767/bazarr/api/system/ping")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Bazarr direct backend returned status {r.status}")
+
+    # Nginx path proxy check on port 8080
+    req_proxy = urllib.request.Request("http://127.0.0.1:8080/bazarr/api/system/ping")
+    with urllib.request.urlopen(req_proxy, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Nginx /bazarr/ proxy returned status {r.status}")
+run_test("Bazarr Subtitles Manager Live & Nginx Reverse Proxy (200 OK)", test_bazarr_live)
+
+
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
 print(f"  TEST RESULTS: {passed}/{len(tests)} TESTS PASSED")

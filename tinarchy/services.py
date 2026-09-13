@@ -128,6 +128,21 @@ if ENABLE_QBITTORRENT:
         'link_text': '/qbittorrent'
     })
 
+ENABLE_BAZARR = os.environ.get('ENABLE_BAZARR', 'true').strip().lower() in ('true', '1', 'yes')
+if ENABLE_BAZARR:
+    bazarr_port = int(os.environ.get('BAZARR_PORT', 6767))
+    SERVICES.append({
+        'id': 'bazarr',
+        'name': 'Bazarr',
+        'port': bazarr_port,
+        'systemd': 'bazarr',
+        'icon': '📝',
+        'description': 'Companion subtitle downloader for Radarr and Sonarr',
+        'link': '/bazarr/',
+        'link_text': '/bazarr'
+    })
+
+
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
     try:
