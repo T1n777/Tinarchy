@@ -828,8 +828,15 @@ if [ "$INSTALL_NGINX" = "true" ]; then
     chown -R http:http /var/cache/nginx/suwayomi 2>/dev/null || chown -R www-data:www-data /var/cache/nginx/suwayomi 2>/dev/null || chown -R nginx:nginx /var/cache/nginx/suwayomi 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
-        if ! id -u pineapple >/dev/null 2>&1; then
-            sed "s/user pineapple pineapple;/user $TARGET_USER $TARGET_USER;/g" "$REPO_ROOT/configs/nginx/nginx.conf" > /etc/nginx/nginx.conf
+        if [ "$TARGET_USER" != "pineapple" ] || [ "$REPO_ROOT" != "/home/pineapple/Tinarchy" ]; then
+            sed -e "s/user pineapple pineapple;/user $TARGET_USER $TARGET_USER;/g" \
+                -e "s|/home/pineapple/Tinarchy|$REPO_ROOT|g" \
+                -e "s|/home/pineapple/server-dashboard|$REPO_ROOT|g" \
+                -e "s|/home/pineapple|$USER_HOME|g" \
+                -e "s|pineapple-station.taildb42a2.ts.net|tinarchy.tail3dee69.ts.net|g" \
+                -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.crt|$REPO_ROOT/ssl/server-fullchain.crt|g" \
+                -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.key|$REPO_ROOT/ssl/server.key|g" \
+                "$REPO_ROOT/configs/nginx/nginx.conf" > /etc/nginx/nginx.conf
         else
             cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
         fi
@@ -1104,6 +1111,10 @@ manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-precache.timer" "Suwayomi Thumbnail Pre-Cacher Timer" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
 if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seerr.service ]; then
+    if [ -f "$REPO_ROOT/configs/seerr/seerr.env" ]; then
+        mkdir -p /etc/conf.d
+        cp "$REPO_ROOT/configs/seerr/seerr.env" /etc/conf.d/seerr
+    fi
     manage_service "seerr.service" "Seerr Media Requests" "true"
 fi
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
