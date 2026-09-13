@@ -239,6 +239,23 @@ def test_seerr_live():
         raise Exception(f"Nginx port 5055 HTTP redirect expected 301/307, got {resp.status}")
 run_test("Seerr Media Discovery Live & Nginx Reverse Proxy (200/301 OK)", test_seerr_live)
 
+# 13. qBittorrent Web UI Live & Nginx Reverse Proxy
+def test_qbittorrent_live():
+    req = urllib.request.Request("http://127.0.0.1:8084/api/v2/app/version")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"qBittorrent direct backend returned status {r.status}")
+        v = r.read().decode().strip()
+        if not v.startswith("v"):
+            raise Exception(f"Unexpected qBittorrent version string: {v}")
+
+    # Nginx path proxy check on port 8080
+    req_proxy = urllib.request.Request("http://127.0.0.1:8080/qbittorrent/api/v2/app/version")
+    with urllib.request.urlopen(req_proxy, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Nginx /qbittorrent/ proxy returned status {r.status}")
+run_test("qBittorrent Web UI Live & Nginx Reverse Proxy (200 OK)", test_qbittorrent_live)
+
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
 print(f"  TEST RESULTS: {passed}/{len(tests)} TESTS PASSED")

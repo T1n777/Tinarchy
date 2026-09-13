@@ -1148,6 +1148,12 @@ if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/p
     manage_service "prowlarr.service" "Prowlarr Indexer Manager" "true"
 fi
 if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
+    QBIT_CONF="${USER_HOME}/.config/qBittorrent/qBittorrent.conf"
+    if [ -f "$QBIT_CONF" ]; then
+        grep -q "WebUI\\\\ReverseProxySupportEnabled" "$QBIT_CONF" 2>/dev/null || echo "WebUI\ReverseProxySupportEnabled=true" >> "$QBIT_CONF"
+        grep -q "WebUI\\\\HostHeaderValidation" "$QBIT_CONF" 2>/dev/null || echo "WebUI\HostHeaderValidation=false" >> "$QBIT_CONF"
+        grep -q "WebUI\\\\CSRFProtection" "$QBIT_CONF" 2>/dev/null || echo "WebUI\CSRFProtection=false" >> "$QBIT_CONF"
+    fi
     manage_service "qbittorrent-nox@$TARGET_USER.service" "qBittorrent Daemon" "true"
 fi
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"

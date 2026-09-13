@@ -361,9 +361,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif clean_path in ['/qbittorrent', '/qbit', '/torrents']:
             if 'qbittorrent' not in allowed_services:
                 return self.serve_access_denied('qBittorrent')
-            svc = next((s for s in SERVICES if s.get('id') == 'qbittorrent'), None)
-            port = svc.get('port', 8084) if svc else 8084
-            target_url = f"http://{host}:{port}/"
+            target_url = "/qbittorrent/"
 
         if target_url:
             self.send_response(302)

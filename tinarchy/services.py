@@ -124,8 +124,8 @@ if ENABLE_QBITTORRENT:
         'systemd': f'qbittorrent-nox@{PRIMARY_USER}',
         'icon': '🧲',
         'description': 'High-performance headless BitTorrent download engine',
-        'link': '/qbittorrent',
-        'link_text': f':{qbit_port}'
+        'link': '/qbittorrent/',
+        'link_text': '/qbittorrent'
     })
 
 # Load optional machine-specific services
