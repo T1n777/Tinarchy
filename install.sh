@@ -824,8 +824,8 @@ fi
 # 4. Nginx Reverse Proxy
 if [ "$INSTALL_NGINX" = "true" ]; then
     echo -e "${CYAN}🌐 Deploying Nginx reverse proxy configuration...${NC}"
-    mkdir -p /var/cache/nginx/suwayomi
-    chown -R http:http /var/cache/nginx/suwayomi 2>/dev/null || chown -R www-data:www-data /var/cache/nginx/suwayomi 2>/dev/null || chown -R nginx:nginx /var/cache/nginx/suwayomi 2>/dev/null || true
+    mkdir -p /var/cache/nginx/suwayomi /var/cache/nginx/jellyfin
+    chown -R "$TARGET_USER:$TARGET_USER" /var/cache/nginx/suwayomi /var/cache/nginx/jellyfin 2>/dev/null || chown -R http:http /var/cache/nginx/suwayomi /var/cache/nginx/jellyfin 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
         if [ "$TARGET_USER" != "pineapple" ] || [ "$REPO_ROOT" != "/home/pineapple/Tinarchy" ]; then
