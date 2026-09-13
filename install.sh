@@ -1117,6 +1117,39 @@ if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seer
     fi
     manage_service "seerr.service" "Seerr Media Requests" "true"
 fi
+if [ -f /usr/lib/systemd/system/radarr.service ] || [ -f /etc/systemd/system/radarr.service ]; then
+    mkdir -p /etc/systemd/system/radarr.service.d
+    if [ -f "$REPO_ROOT/configs/systemd/radarr-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/radarr-storage-access.conf" > /etc/systemd/system/radarr.service.d/override.conf
+    fi
+    manage_service "radarr.service" "Radarr Movie Automation" "true"
+fi
+if [ -f /usr/lib/systemd/system/sonarr.service ] || [ -f /etc/systemd/system/sonarr.service ]; then
+    mkdir -p /etc/systemd/system/sonarr.service.d
+    if [ -f "$REPO_ROOT/configs/systemd/sonarr-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/sonarr-storage-access.conf" > /etc/systemd/system/sonarr.service.d/override.conf
+    fi
+    manage_service "sonarr.service" "Sonarr TV Automation" "true"
+fi
+if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/prowlarr.service ]; then
+    mkdir -p /etc/systemd/system/prowlarr.service.d
+    if [ -f "$REPO_ROOT/configs/systemd/prowlarr-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/prowlarr-storage-access.conf" > /etc/systemd/system/prowlarr.service.d/override.conf
+    fi
+    manage_service "prowlarr.service" "Prowlarr Indexer Manager" "true"
+fi
+if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
+    manage_service "qbittorrent-nox@$TARGET_USER.service" "qBittorrent Daemon" "true"
+fi
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
 manage_service "tinarchy-resource-governor.service" "Autonomous Resource Governor" "true"

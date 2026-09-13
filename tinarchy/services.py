@@ -12,7 +12,6 @@ ENABLE_SEERR = os.environ.get('ENABLE_SEERR', 'true').strip().lower() in ('true'
 ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
-ENABLE_SEERR = os.environ.get('ENABLE_SEERR', 'true').strip().lower() in ('true', '1', 'yes')
 
 SERVICES = []
 if ENABLE_SUWAYOMI:
@@ -73,6 +72,62 @@ if ENABLE_COUCHDB:
         'link_text': f':{couchdb_port}'
     })
 
+ENABLE_RADARR = os.environ.get('ENABLE_RADARR', 'true').strip().lower() in ('true', '1', 'yes')
+if ENABLE_RADARR:
+    radarr_port = int(os.environ.get('RADARR_PORT', 7878))
+    SERVICES.append({
+        'id': 'radarr',
+        'name': 'Radarr',
+        'port': radarr_port,
+        'systemd': 'radarr',
+        'icon': '🎬',
+        'description': 'Automated movie collection manager & downloader',
+        'link': '/radarr',
+        'link_text': f':{radarr_port}'
+    })
+
+ENABLE_SONARR = os.environ.get('ENABLE_SONARR', 'true').strip().lower() in ('true', '1', 'yes')
+if ENABLE_SONARR:
+    sonarr_port = int(os.environ.get('SONARR_PORT', 8989))
+    SERVICES.append({
+        'id': 'sonarr',
+        'name': 'Sonarr',
+        'port': sonarr_port,
+        'systemd': 'sonarr',
+        'icon': '📺',
+        'description': 'Automated TV series collection manager & downloader',
+        'link': '/sonarr',
+        'link_text': f':{sonarr_port}'
+    })
+
+ENABLE_PROWLARR = os.environ.get('ENABLE_PROWLARR', 'true').strip().lower() in ('true', '1', 'yes')
+if ENABLE_PROWLARR:
+    prowlarr_port = int(os.environ.get('PROWLARR_PORT', 9696))
+    SERVICES.append({
+        'id': 'prowlarr',
+        'name': 'Prowlarr',
+        'port': prowlarr_port,
+        'systemd': 'prowlarr',
+        'icon': '🔍',
+        'description': 'Torrent tracker & indexer synchronization engine',
+        'link': '/prowlarr',
+        'link_text': f':{prowlarr_port}'
+    })
+
+ENABLE_QBITTORRENT = os.environ.get('ENABLE_QBITTORRENT', 'true').strip().lower() in ('true', '1', 'yes')
+if ENABLE_QBITTORRENT:
+    qbit_port = int(os.environ.get('QBITTORRENT_PORT', 8084))
+    SERVICES.append({
+        'id': 'qbittorrent',
+        'name': 'qBittorrent',
+        'port': qbit_port,
+        'systemd': f'qbittorrent-nox@{PRIMARY_USER}',
+        'icon': '🧲',
+        'description': 'High-performance headless BitTorrent download engine',
+        'link': '/qbittorrent',
+        'link_text': f':{qbit_port}'
+    })
+
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
     try:
@@ -87,7 +142,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent']
 
 def is_tailscale_ssh_active():
     try:

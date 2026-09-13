@@ -340,6 +340,30 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             port = svc.get('port', 4533) if svc else 4533
             scheme = svc.get('scheme') or svc.get('protocol') or 'http' if svc else 'http'
             target_url = f"{scheme}://{host}:{port}/"
+        elif clean_path in ['/radarr']:
+            if 'radarr' not in allowed_services:
+                return self.serve_access_denied('Radarr')
+            svc = next((s for s in SERVICES if s.get('id') == 'radarr'), None)
+            port = svc.get('port', 7878) if svc else 7878
+            target_url = f"http://{host}:{port}/"
+        elif clean_path in ['/sonarr']:
+            if 'sonarr' not in allowed_services:
+                return self.serve_access_denied('Sonarr')
+            svc = next((s for s in SERVICES if s.get('id') == 'sonarr'), None)
+            port = svc.get('port', 8989) if svc else 8989
+            target_url = f"http://{host}:{port}/"
+        elif clean_path in ['/prowlarr']:
+            if 'prowlarr' not in allowed_services:
+                return self.serve_access_denied('Prowlarr')
+            svc = next((s for s in SERVICES if s.get('id') == 'prowlarr'), None)
+            port = svc.get('port', 9696) if svc else 9696
+            target_url = f"http://{host}:{port}/"
+        elif clean_path in ['/qbittorrent', '/qbit', '/torrents']:
+            if 'qbittorrent' not in allowed_services:
+                return self.serve_access_denied('qBittorrent')
+            svc = next((s for s in SERVICES if s.get('id') == 'qbittorrent'), None)
+            port = svc.get('port', 8084) if svc else 8084
+            target_url = f"http://{host}:{port}/"
 
         if target_url:
             self.send_response(302)
