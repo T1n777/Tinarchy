@@ -1118,7 +1118,9 @@ if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seer
     manage_service "seerr.service" "Seerr Media Requests" "true"
 fi
 if [ -f /usr/lib/systemd/system/radarr.service ] || [ -f /etc/systemd/system/radarr.service ]; then
-    mkdir -p /etc/systemd/system/radarr.service.d
+    mkdir -p /etc/systemd/system/radarr.service.d /var/lib/radarr
+    chown -R "${TARGET_USER}:${TARGET_USER}" /var/lib/radarr 2>/dev/null || true
+    chmod -R u+rwX /var/lib/radarr 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/systemd/radarr-storage-access.conf" ]; then
         sed -e "s|User=tin|User=${TARGET_USER}|g" \
             -e "s|Group=tin|Group=${TARGET_USER}|g" \
@@ -1128,7 +1130,9 @@ if [ -f /usr/lib/systemd/system/radarr.service ] || [ -f /etc/systemd/system/rad
     manage_service "radarr.service" "Radarr Movie Automation" "true"
 fi
 if [ -f /usr/lib/systemd/system/sonarr.service ] || [ -f /etc/systemd/system/sonarr.service ]; then
-    mkdir -p /etc/systemd/system/sonarr.service.d
+    mkdir -p /etc/systemd/system/sonarr.service.d /var/lib/sonarr
+    chown -R "${TARGET_USER}:${TARGET_USER}" /var/lib/sonarr 2>/dev/null || true
+    chmod -R u+rwX /var/lib/sonarr 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/systemd/sonarr-storage-access.conf" ]; then
         sed -e "s|User=tin|User=${TARGET_USER}|g" \
             -e "s|Group=tin|Group=${TARGET_USER}|g" \
@@ -1138,7 +1142,9 @@ if [ -f /usr/lib/systemd/system/sonarr.service ] || [ -f /etc/systemd/system/son
     manage_service "sonarr.service" "Sonarr TV Automation" "true"
 fi
 if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/prowlarr.service ]; then
-    mkdir -p /etc/systemd/system/prowlarr.service.d
+    mkdir -p /etc/systemd/system/prowlarr.service.d /var/lib/prowlarr
+    chown -R "${TARGET_USER}:${TARGET_USER}" /var/lib/prowlarr 2>/dev/null || true
+    chmod -R u+rwX /var/lib/prowlarr 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/systemd/prowlarr-storage-access.conf" ]; then
         sed -e "s|User=tin|User=${TARGET_USER}|g" \
             -e "s|Group=tin|Group=${TARGET_USER}|g" \
@@ -1148,7 +1154,9 @@ if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/p
     manage_service "prowlarr.service" "Prowlarr Indexer Manager" "true"
 fi
 if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/bazarr.service ]; then
-    mkdir -p /etc/systemd/system/bazarr.service.d
+    mkdir -p /etc/systemd/system/bazarr.service.d /var/lib/bazarr
+    chown -R "${TARGET_USER}:${TARGET_USER}" /var/lib/bazarr 2>/dev/null || true
+    chmod -R u+rwX /var/lib/bazarr 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" ]; then
         sed -e "s|User=tin|User=${TARGET_USER}|g" \
             -e "s|Group=tin|Group=${TARGET_USER}|g" \
@@ -1157,6 +1165,7 @@ if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/baz
     fi
     manage_service "bazarr.service" "Bazarr Subtitles Manager" "true"
 fi
+
 
 if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
     QBIT_CONF="${USER_HOME}/.config/qBittorrent/qBittorrent.conf"
