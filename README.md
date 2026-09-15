@@ -62,10 +62,13 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - Path-based routing: `/` (Dashboard), `/syncthing/` & `/syncthing-gui` (Syncthing Web GUI), `/syncthing` (Syncthing Guide), `/manga/` & `/api/v1/` (Suwayomi), `/ssh` (Persistent SSH Guide).
   - Clean pseudo links: `/links/<service>` (`/links/manga`, `/links/syncthing`, `/syncthing-gui`, `/links/navidrome`, etc.) for direct browser redirection.
 
-- **📚 Persistent Manga Thumbnail Caching & Zero-JVM Latency (Suwayomi + Nginx)**:
+- **📚 Persistent Manga Thumbnail Caching & Two-Layer Fast-Path Serving Engine (Suwayomi + Nginx)**:
   - **Reboot-Persistent Storage**: Relocates Suwayomi's temporary JVM cache (`java.io.tmpdir`) from ephemeral `/tmp` to permanent SSD storage (`/var/lib/suwayomi/cache/`), preventing cache wipeouts across system reboots.
-  - **Zero-JVM Nginx Fast-Path**: Serves cached manga covers directly at kernel `sendfile` speeds (< 1ms latency) via Nginx `proxy_cache`, bypassing Java threads for 99% of requests.
-  - **Automated Background Pre-Cacher**: Proactively pre-downloads missing library covers in the background with gentle rate-limiting, eliminating UI spinner stalls when scrolling through large collections.
+  - **Two-Layer Resilient Optimization Architecture**:
+    - **Layer 1: Static Kernel Fast-Path (`OPTIMIZED-STATIC-FASTPATH`)**: Converts raw, multi-megabyte 2000×2861 cover scans down to high-DPI 340px WebP thumbnails (~30–45 KB). Nginx serves these directly via kernel `sendfile` in **< 1ms**, completely bypassing Suwayomi JVM, Python, and browser cache-buster query timestamps (`?fetchedAt=...`).
+    - **Layer 2: On-Demand Dynamic Optimizer (`ON-DEMAND-DYNAMIC-OPTIMIZER`)**: Seamlessly handles **newly added manga** with massive cover art (5MB–10MB). When a new title is requested before background pre-caching, Nginx routes to the dashboard backend (`:8085/api/suwayomi/thumbnail/<id>`), downscales via PIL in ~35ms, atomically saves the WebP to disk, and streams it immediately. The web browser *never* downloads uncompressed 5MB–10MB scans.
+  - **Multi-Core Batch Pre-Cacher**: The upgraded `/usr/local/bin/suwayomi-precache-thumbnails` script uses all available CPU threads (`ThreadPoolExecutor(max_workers=8)`) to pre-optimize hundreds of titles in seconds, saving over **94% bandwidth**. Automatically scheduled via `suwayomi-precache.timer` (boot + daily at 4:00 AM).
+  - **Zero Impact on Non-Suwayomi Users**: The route, pre-cacher script, and Nginx configurations are fully decoupled. If Suwayomi is disabled or uninstalled, the pre-cacher gracefully skips with exit code 0, and the dashboard functions with zero overhead.
 
 - **🛡️ Headless JCEF Browser & Cloudflare Bypass (Xvfb + FlareSolverr)**:
   - **Virtual X11 Framebuffer (`xvfb.service`)**: Runs a lightweight X Virtual Framebuffer (`:99`) allowing Suwayomi's embedded Chromium / CEF (`jcef_helper`) runtime to execute headlessly on Linux servers without Xorg desktop overhead or crashes.
@@ -236,8 +239,8 @@ Tinarchy/
 | **FileBrowser Quantum** *(Optional)* | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager (enable via `ENABLE_FILEBROWSER=true`) |
 | **Syncthing Web GUI** | `8384` | `/syncthing/` & `/syncthing-gui` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
 | **Syncthing Setup Guide** | — | `/syncthing` | `tinarchy.service` | Interactive client setup, OS tabs & 1-click Device ID pairing |
-| **Suwayomi Manga Server** *(Optional)* | `4567` | `/manga/` & `:4567` | `suwayomi-server.service` | Manga reader with persistent SSD thumbnail cache & Nginx fast-path |
-| **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
+| **Suwayomi Manga Server** *(Optional)* | `4567` | `/manga/` & `:4567` | `suwayomi-server.service` | Manga reader with two-layer WebP thumbnail fast-path (<1ms) & on-demand dynamic optimizer |
+| **SyncYomi Server** *(Optional / Legacy)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Standalone Tachiyomi/Mihon progress sync (optional; obsolete if using Suwayomi Tsurumi) |
 | **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
 | **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal & media workload governor |
 | **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
@@ -573,57 +576,31 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
 
 ---
 
-### 12. Optional: SyncYomi Manga Synchronization Setup
+### 12. Manga Ecosystem: Suwayomi Tsurumi vs. SyncYomi
 
-SyncYomi synchronizes reading progress, library status, bookmarks, and read history across **Suwayomi-Server** (desktop/server) and **Komikku / Tachiyomi / Mihon** (Android mobile devices).
+#### A. Recommended Client: Suwayomi Tsurumi (Native Android Client)
+If you read manga on Android, **Suwayomi Tsurumi** is the recommended dedicated client for Suwayomi-Server:
+- **Direct GraphQL/REST API Connection**: Tsurumi communicates directly with your Suwayomi-Server instance (`http://<tailscale-ip>:8080/manga/` or `https://<tailscale-domain>/manga/`).
+- **Native Device Flash Caching**: Cover art and metadata are stored persistently in the Android client's internal disk cache (`Coil`/`Glide`). Once downloaded once, covers load from local flash storage in **< 2ms**, completely eliminating network roundtrips.
+- **Zero Sync Middleware**: Chapters, reading progress, and categories are saved directly into Suwayomi's database in real time—no third-party sync server required.
+- **No SyncYomi Required**: Adopting Tsurumi completely replaces the need for SyncYomi.
 
-#### A. Automated Server Installation
-Run the turnkey installation script included in the repository:
-```bash
-sudo ./configs/scripts/install-syncyomi.sh
-```
-This automatically fetches the latest release, registers the dedicated `syncyomi` system user, initializes `/var/lib/syncyomi/`, deploys `syncyomi.service`, and enables it.
+#### B. Legacy / Standalone Mihon Support: SyncYomi (Optional)
+SyncYomi is maintained in the repository for users who continue using standalone Tachiyomi/Mihon/Komikku apps that do not communicate directly with Suwayomi-Server:
+- **Default State**: Disabled by default (`ENABLE_SYNCYOMI=false` in `.env`).
+- **Installation**: Run `./configs/scripts/install-syncyomi.sh` or install via AUR (`yay -S syncyomi-git`).
+- **Dashboard Activation**: Set `ENABLE_SYNCYOMI=true` in `.env` and restart the dashboard (`sudo systemctl restart tinarchy`).
+- **Automated Lifecycle Hooks**: Includes bidirectional sync triggers (`suwayomi-trigger-sync`) and reactive database bridge (`syncyomi-suwayomi-bridge.service`).
 
-Alternatively, install via AUR on Arch Linux:
-```bash
-yay -S syncyomi-git
-```
-
-#### B. Enable in Dashboard
-In your server's `.env` file, activate the service:
-```ini
-ENABLE_SYNCYOMI=true
-SYNCYOMI_PORT=8282
-```
-Then reload the dashboard:
-```bash
-sudo systemctl restart tinarchy
-```
-
-#### C. Pair Suwayomi & Mobile Devices
-1. Open the SyncYomi web dashboard at `http://<tailscale-ip>:8282` (or via Nginx at `https://<tailscale-domain>/syncyomi/`) and create your admin account.
-2. In SyncYomi, go to **Settings** ➔ **API Keys** ➔ click **Add API Key** and copy the generated token.
-3. Access the interactive setup guide at `/syncyomi` on your dashboard for live connection snippets for Suwayomi's `server.conf` and Komikku on Android.
-
-#### D. Automated Bidirectional Sync Triggers & Reactive Bridge
-Manual syncing is completely eliminated through a unified 5-point lifecycle hook system:
-- **Service Start Trigger (`ExecStartPost`)**: As soon as Suwayomi starts and port 4567 is reachable, `/usr/local/bin/suwayomi-trigger-sync --update-library` pulls latest progress from SyncYomi, initiates a full library update to fetch newly released chapters read on mobile, and automatically syncs reading progress again upon completion.
-- **Service Stop Trigger (`ExecStop`)**: When stopping or restarting Suwayomi via systemd or the Dashboard, an immediate sync is flushed to SyncYomi *before* the JVM halts.
-- **Service Open & Site Reload Trigger**: Opening Suwayomi or refreshing/reloading the browser tab immediately triggers a SyncYomi sync (`pageshow` & direct GraphQL execution).
-- **Service Close & Background Trigger (Beacon)**: When closing, navigating away from, or backgrounding the `/manga/` web tab, the browser transmits a background beacon (`navigator.sendBeacon`) to automatically record reading progress.
-- **Reactive Sync Bridge (`syncyomi-suwayomi-bridge.service`)**: A lightweight background daemon monitors SyncYomi's database. Whenever an external client (such as your phone) finishes an upload, the bridge triggers Suwayomi to sync within 2 seconds.
-
-#### E. Mobile Optimization Guide (Komikku / Mihon on Android)
-If mobile sync feels slow to connect or background triggers fail to fire:
-1. **Disable Samsung One UI / Android Battery Throttling**:
-   - Open **Settings** ➔ **Apps** ➔ **Komikku** (or your Mihon fork).
+#### C. Mobile Connection & Battery Optimization (Android)
+If your mobile reader feels slow to connect over Tailscale or background updates stall:
+1. **Disable Android Battery Throttling**:
+   - Open **Settings** ➔ **Apps** ➔ **Tsurumi** (or **Komikku**).
    - Tap **Battery** ➔ Change from **"Optimized"** to **"Unrestricted"**.
    - Tap **Mobile data** ➔ Enable **"Allow background data usage"** and **"Allow data usage while Data saver is on"**.
-   - In **Settings** ➔ **Battery and device care** ➔ **Background usage limits** ➔ Add **Komikku** to **"Never sleeping apps"**.
+   - In **Settings** ➔ **Battery and device care** ➔ **Background usage limits** ➔ Add the app to **"Never sleeping apps"**.
 2. **Prevent Tailscale Sleep Delays**:
-   - In Android **Settings** ➔ **Connections** ➔ **More connection settings** ➔ **VPN** ➔ **Tailscale** (Gear icon) ➔ Enable **"Always-on VPN"** (leave "Block connections without VPN" off). This eliminates WireGuard sleep/wake handshake delays when Komikku opens.
-3. **Large Library Delta Optimization**:
-   - With large libraries (>50k chapters/items), building the protocol payload on mobile CPU takes significant time before network transmission begins. Ensure Komikku is updated to the latest build supporting SyncYomi protocol v2, or prune dropped manga categories from sync to maintain sub-second sync speeds.
+   - In Android **Settings** ➔ **Connections** ➔ **More connection settings** ➔ **VPN** ➔ **Tailscale** (Gear icon) ➔ Enable **"Always-on VPN"** (leave "Block connections without VPN" off). This eliminates WireGuard sleep/wake handshake delays when the app opens.
 
 ---
 

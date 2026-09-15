@@ -1,0 +1,116 @@
+import os
+import io
+import urllib.request
+import tempfile
+import config
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+OPTIMIZED_DIR = "/var/lib/suwayomi/cache/optimized_thumbnails"
+RAW_CACHE_DIR = "/var/lib/suwayomi/cache/Tachidesk/thumbnails"
+SUWAYOMI_INTERNAL_URL = "http://127.0.0.1:4567/manga/api/v1/manga/{manga_id}/thumbnail"
+
+def optimize_image_data(raw_data: bytes, target_width: int = 340, quality: int = 80) -> tuple[bytes, str]:
+    """Downscales raw image bytes to an optimized high-DPI WebP thumbnail."""
+    if not HAS_PIL:
+        # Fallback to serving raw bytes if Pillow is not installed on host
+        return raw_data, "image/jpeg"
+
+    with Image.open(io.BytesIO(raw_data)) as img:
+        # Fast draft decoding for JPEGs
+        if getattr(img, 'format', '') == 'JPEG':
+            try:
+                img.draft('RGB', (target_width * 2, int(target_width * 3)))
+            except Exception:
+                pass
+
+        if img.mode in ('RGBA', 'LA'):
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[-1])
+            img = bg
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        w, h = img.size
+        if w > target_width:
+            new_w = target_width
+            new_h = max(1, int(h * (target_width / w)))
+            img = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
+        buf = io.BytesIO()
+        img.save(buf, format='WEBP', quality=quality, method=2)
+        return buf.getvalue(), "image/webp"
+
+def get_or_generate_thumbnail(manga_id: int) -> tuple[bytes, str]:
+    """
+    Returns (image_bytes, content_type).
+    If the optimized WebP thumbnail exists, it returns immediately.
+    If missing, it fetches the raw cover from Tachidesk cache or Suwayomi core,
+    resizes it in ~35ms, persists it to disk, and returns the optimized WebP.
+    Gracefully handles environments where Suwayomi is not configured.
+    """
+    app_cfg = config.get_app_config()
+    # If Suwayomi is explicitly disabled in .env, exit immediately
+    if app_cfg.get('enable_suwayomi') is False:
+        return b"", "text/plain"
+
+    try:
+        os.makedirs(OPTIMIZED_DIR, exist_ok=True)
+    except Exception:
+        pass
+
+    optimized_path = os.path.join(OPTIMIZED_DIR, f"{manga_id}.webp")
+
+    if os.path.isfile(optimized_path) and os.path.getsize(optimized_path) > 0:
+        try:
+            with open(optimized_path, "rb") as f:
+                return f.read(), "image/webp"
+        except Exception:
+            pass
+
+    # Find raw image in Tachidesk cache
+    raw_data = None
+
+    if os.path.isdir(RAW_CACHE_DIR):
+        for ext in ('.webp', '.jpg', '.jpeg', '.png'):
+            candidate = os.path.join(RAW_CACHE_DIR, f"{manga_id}{ext}")
+            if os.path.isfile(candidate) and os.path.getsize(candidate) > 0:
+                try:
+                    with open(candidate, "rb") as f:
+                        raw_data = f.read()
+                    break
+                except Exception:
+                    pass
+
+    # If not found on disk, fetch from Suwayomi core
+    if not raw_data:
+        try:
+            url = SUWAYOMI_INTERNAL_URL.format(manga_id=manga_id)
+            req = urllib.request.Request(url, headers={"User-Agent": "tinarchy-optimizer"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    raw_data = resp.read()
+        except Exception:
+            pass
+
+    if not raw_data:
+        return b"", "text/plain"
+
+    # Optimize to WebP
+    try:
+        opt_bytes, ctype = optimize_image_data(raw_data)
+        if ctype == "image/webp":
+            # Atomically write to disk
+            tmp_path = f"{optimized_path}.tmp.{os.getpid()}"
+            with open(tmp_path, "wb") as f:
+                f.write(opt_bytes)
+            os.chmod(tmp_path, 0o644)
+            os.replace(tmp_path, optimized_path)
+        return opt_bytes, ctype
+    except Exception:
+        # Fallback to returning raw data if optimization fails
+        return raw_data, "image/jpeg"

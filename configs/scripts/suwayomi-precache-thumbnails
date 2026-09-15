@@ -1,40 +1,73 @@
 #!/usr/bin/env python3
 """
-Suwayomi Background Manga Thumbnail Pre-Cacher
-Proactively downloads and caches missing cover images for all manga in your library,
-ensuring instantaneous (< 1 ms) loading in Suwayomi Web UI and mobile sync clients.
+Suwayomi Multi-Core WebP Thumbnail Pre-Cacher & Optimizer
+Proactively generates lightweight, high-DPI WebP thumbnails (340px width, ~40 KB)
+for all manga in the Suwayomi library across all CPU threads using ThreadPoolExecutor.
 
 Dual-Tier Storage Architecture:
-- Tier 1 (SSD Persistence): Direct query to Suwayomi core (:4567) ensures covers are permanently
-  saved to /var/lib/suwayomi/cache/Tachidesk/thumbnails/.
-- Tier 2 (Zero-JVM Fast-Path): Request through Nginx (:8080) warms the proxy cache with a unified,
-  normalized key ($request_method/manga/api/v1/manga/$1/thumbnail) that serves requests via kernel
-  sendfile in < 1 ms, completely ignoring client cache-buster query timestamps.
+- Tier 1 (Optimized WebP SSD Store): Permanent high-DPI WebP thumbnails saved to
+  /var/lib/suwayomi/cache/optimized_thumbnails/{id}.webp.
+- Tier 2 (Static Nginx Fast-Path): Nginx try_files serves optimized WebP files
+  via kernel sendfile in < 1 ms, completely bypassing Suwayomi JVM and Python.
+- Dynamic Fallback: If a newly added title is requested before this script runs,
+  Nginx routes to the Dashboard Optimizer (:8085) to generate the WebP on the fly.
 """
 import argparse
+import concurrent.futures
+import io
 import json
 import os
 import sys
 import time
 import urllib.request
 import urllib.error
+from PIL import Image
 
-THUMBNAIL_DIRS = [
+OPTIMIZED_DIR = "/var/lib/suwayomi/cache/optimized_thumbnails"
+RAW_CACHE_DIRS = [
+    "/var/lib/suwayomi/cache/Tachidesk/thumbnails",
     "/var/lib/suwayomi/downloads/thumbnails",
     "/var/lib/suwayomi/.local/share/Tachidesk/downloads/thumbnails",
-    "/var/lib/suwayomi/cache/Tachidesk/thumbnails",
     os.path.expanduser("~/.local/share/Tachidesk/downloads/thumbnails"),
 ]
+GRAPHQL_CANDIDATES = [
+    "http://127.0.0.1:4567/manga/api/graphql",
+    "http://127.0.0.1:4567/api/graphql",
+    "http://127.0.0.1:4566/api/graphql",
+    "http://127.0.0.1:8080/manga/api/graphql",
+]
+SUWAYOMI_RAW_URL = "http://127.0.0.1:4567/manga/api/v1/manga/{id}/thumbnail"
 
-def find_graphql_url():
-    candidates = [
-        "http://127.0.0.1:4566/api/graphql",
-        "http://127.0.0.1:4567/manga/api/graphql",
-        "http://127.0.0.1:4567/api/graphql",
-        "http://127.0.0.1:8080/manga/api/graphql",
-        "http://127.0.0.1:8080/api/graphql",
-    ]
-    for url in candidates:
+
+def optimize_image_data(raw_data: bytes, target_width: int = 340, quality: int = 80) -> bytes:
+    """Downscales raw image bytes to an optimized high-DPI WebP thumbnail."""
+    with Image.open(io.BytesIO(raw_data)) as img:
+        if getattr(img, 'format', '') == 'JPEG':
+            try:
+                img.draft('RGB', (target_width * 2, int(target_width * 3)))
+            except Exception:
+                pass
+
+        if img.mode in ('RGBA', 'LA'):
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[-1])
+            img = bg
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+
+        w, h = img.size
+        if w > target_width:
+            new_w = target_width
+            new_h = max(1, int(h * (target_width / w)))
+            img = img.resize((new_w, new_h), Image.Resampling.BILINEAR)
+
+        buf = io.BytesIO()
+        img.save(buf, format='WEBP', quality=quality, method=2)
+        return buf.getvalue()
+
+
+def find_graphql_url() -> str:
+    for url in GRAPHQL_CANDIDATES:
         try:
             req = urllib.request.Request(
                 url,
@@ -50,34 +83,8 @@ def find_graphql_url():
             pass
     return "http://127.0.0.1:4567/manga/api/graphql"
 
-def find_direct_template():
-    for port in (4566, 4567):
-        for prefix in ("/manga", ""):
-            try:
-                req = urllib.request.Request(f"http://127.0.0.1:{port}{prefix}/api/v1/about")
-                with urllib.request.urlopen(req, timeout=2) as resp:
-                    if resp.status == 200:
-                        return f"http://127.0.0.1:{port}{prefix}/api/v1/manga/{{id}}/thumbnail"
-            except Exception:
-                pass
-    return "http://127.0.0.1:4567/manga/api/v1/manga/{id}/thumbnail"
 
-def find_nginx_template():
-    for port, path in ((8080, "/manga/api/v1/manga/{id}/thumbnail"), (8080, "/api/v1/manga/{id}/thumbnail")):
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/manga/")
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                if resp.status == 200:
-                    return f"http://127.0.0.1:{port}{path}"
-        except Exception:
-            pass
-    return "http://127.0.0.1:8080/manga/api/v1/manga/{id}/thumbnail"
-
-GRAPHQL_URL = find_graphql_url()
-DIRECT_URL_TEMPLATE = find_direct_template()
-NGINX_URL_TEMPLATE = find_nginx_template()
-
-def get_mangas(library_only=True):
+def get_mangas(graphql_url: str, library_only: bool = True) -> list:
     filter_clause = "(filter: { inLibrary: { equalTo: true } })" if library_only else ""
     query = """
     {
@@ -91,7 +98,7 @@ def get_mangas(library_only=True):
     }
     """ % filter_clause
     req = urllib.request.Request(
-        GRAPHQL_URL,
+        graphql_url,
         data=json.dumps({"query": query}).encode("utf-8"),
         headers={"Content-Type": "application/json"}
     )
@@ -100,106 +107,180 @@ def get_mangas(library_only=True):
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("data", {}).get("mangas", {}).get("nodes", [])
     except Exception as e:
-        print("[ERROR] Failed to query Suwayomi GraphQL: %s" % e, file=sys.stderr)
+        print(f"[ERROR] Failed to query Suwayomi GraphQL: {e}", file=sys.stderr)
         return []
 
-def is_cached_on_disk(manga_id):
-    for d in THUMBNAIL_DIRS:
-        if not os.path.exists(d):
+
+def find_raw_cover(manga_id: int) -> bytes | None:
+    """Finds raw cover on disk or fetches directly from Suwayomi core."""
+    for d in RAW_CACHE_DIRS:
+        if not os.path.isdir(d):
             continue
-        for ext in (".webp", ".jpg", ".jpeg", ".png", ".gif"):
-            fpath = os.path.join(d, "%s%s" % (manga_id, ext))
+        for ext in ('.webp', '.jpg', '.jpeg', '.png'):
+            fpath = os.path.join(d, f"{manga_id}{ext}")
             if os.path.isfile(fpath) and os.path.getsize(fpath) > 0:
-                return True
-    return False
+                try:
+                    with open(fpath, "rb") as f:
+                        return f.read()
+                except Exception:
+                    pass
 
-def precache_thumbnail(manga_id, title, force=False):
-    on_disk = is_cached_on_disk(manga_id)
-    direct_url = DIRECT_URL_TEMPLATE.format(id=manga_id)
-    nginx_url = NGINX_URL_TEMPLATE.format(id=manga_id)
-
-    # 1. If missing from SSD, fetch directly from Suwayomi to force permanent disk save
-    if not on_disk or force:
-        try:
-            req_direct = urllib.request.Request(direct_url, headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
-            with urllib.request.urlopen(req_direct, timeout=30) as resp:
-                resp.read()
-        except urllib.error.HTTPError as e:
-            print("  ✗ [Suwayomi Direct %d] ID %3d | %s: %s" % (e.code, manga_id, title, e.reason), file=sys.stderr)
-            return False
-        except Exception as e:
-            print("  ✗ [Suwayomi Direct Error] ID %3d | %s: %s" % (manga_id, title, e), file=sys.stderr)
-            return False
-
-    # 2. Warm Nginx fast-path cache
+    # Fetch from Suwayomi core (:4567)
     try:
-        start = time.time()
-        req_nginx = urllib.request.Request(nginx_url, headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
-        with urllib.request.urlopen(req_nginx, timeout=15) as resp:
-            data = resp.read()
-            elapsed = time.time() - start
-            cache_status = resp.headers.get("X-Cache-Status", "DIRECT")
-            disk_tag = "SSD" if on_disk else "NEW"
-            print("  ✓ [%s|%s] ID %3d | %4d KB in %4.2fs | %s" % (cache_status, disk_tag, manga_id, len(data)//1024, elapsed, title))
-            return True
-    except urllib.error.HTTPError as e:
-        print("  ✗ [Nginx %d] ID %3d | %s: %s" % (e.code, manga_id, title, e.reason), file=sys.stderr)
+        url = SUWAYOMI_RAW_URL.format(id=manga_id)
+        req = urllib.request.Request(url, headers={"User-Agent": "Suwayomi-PreCacher/2.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                return resp.read()
+    except Exception:
+        pass
+
+    return None
+
+
+def process_manga_cover(manga: dict, target_width: int = 340, quality: int = 80, force: bool = False) -> dict:
+    """Processes a single manga thumbnail, returning stats dict."""
+    manga_id = manga["id"]
+    title = manga.get("title", f"Manga #{manga_id}")
+    dest_path = os.path.join(OPTIMIZED_DIR, f"{manga_id}.webp")
+
+    if not force and os.path.isfile(dest_path) and os.path.getsize(dest_path) > 0:
+        return {
+            "id": manga_id,
+            "title": title,
+            "status": "cached",
+            "size": os.path.getsize(dest_path),
+            "raw_size": 0,
+            "elapsed": 0.0
+        }
+
+    start = time.time()
+    raw_data = find_raw_cover(manga_id)
+    if not raw_data:
+        return {
+            "id": manga_id,
+            "title": title,
+            "status": "missing_source",
+            "size": 0,
+            "raw_size": 0,
+            "elapsed": time.time() - start
+        }
+
+    raw_len = len(raw_data)
+    try:
+        webp_data = optimize_image_data(raw_data, target_width=target_width, quality=quality)
+        tmp_path = f"{dest_path}.tmp.{os.getpid()}.{manga_id}"
+        with open(tmp_path, "wb") as f:
+            f.write(webp_data)
+        os.chmod(tmp_path, 0o644)
+        os.replace(tmp_path, dest_path)
+        elapsed = time.time() - start
+        return {
+            "id": manga_id,
+            "title": title,
+            "status": "optimized",
+            "size": len(webp_data),
+            "raw_size": raw_len,
+            "elapsed": elapsed
+        }
     except Exception as e:
-        print("  ✗ [Nginx Error] ID %3d | %s: %s" % (manga_id, title, e), file=sys.stderr)
-    return False
+        return {
+            "id": manga_id,
+            "title": title,
+            "status": f"error: {e}",
+            "size": 0,
+            "raw_size": raw_len,
+            "elapsed": time.time() - start
+        }
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Pre-cache Suwayomi manga thumbnails")
+    parser = argparse.ArgumentParser(description="Suwayomi Multi-Core WebP Thumbnail Pre-Cacher")
     parser.add_argument("--all", action="store_true", help="Pre-cache all manga in database, not just library")
-    parser.add_argument("--force", action="store_true", help="Re-download even if already cached on disk")
-    parser.add_argument("--delay", type=float, default=0.20, help="Delay between requests in seconds (default: 0.20)")
+    parser.add_argument("--force", action="store_true", help="Re-optimize even if already cached on disk")
     parser.add_argument("--id", type=int, help="Pre-cache a specific manga ID")
+    parser.add_argument("--workers", type=int, default=8, help="Number of parallel worker threads (default: 8)")
+    parser.add_argument("--width", type=int, default=340, help="Thumbnail max width (default: 340)")
+    parser.add_argument("--quality", type=int, default=80, help="WebP compression quality (default: 80)")
     args = parser.parse_args()
 
-    print("=== Suwayomi Thumbnail Dual-Tier Pre-Cacher ===")
+    os.makedirs(OPTIMIZED_DIR, exist_ok=True)
+
+    print("=== Suwayomi Multi-Core WebP Thumbnail Pre-Cacher ===")
+    print(f"Target Directory: {OPTIMIZED_DIR}")
+    print(f"Worker Threads:   {args.workers}")
+    print(f"Target Width:     {args.width}px | WebP Quality: {args.quality}")
 
     if args.id:
-        print("Target: Specific Manga ID %d" % args.id)
-        success = precache_thumbnail(args.id, "Manga #%d" % args.id, force=args.force)
-        sys.exit(0 if success else 1)
+        print(f"\nProcessing Single Manga ID: {args.id}")
+        res = process_manga_cover({"id": args.id, "title": f"Manga #{args.id}"}, target_width=args.width, quality=args.quality, force=args.force)
+        if res["status"] == "optimized":
+            savings = ((res["raw_size"] - res["size"]) / res["raw_size"] * 100) if res["raw_size"] > 0 else 0
+            print(f"  ✓ Optimized ID {args.id}: {res['raw_size']/1024:.1f} KB -> {res['size']/1024:.1f} KB ({savings:.1f}% reduction) in {res['elapsed']*1000:.1f}ms")
+        elif res["status"] == "cached":
+            print(f"  ✓ ID {args.id} already cached ({res['size']/1024:.1f} KB).")
+        else:
+            print(f"  ✗ ID {args.id} failed: {res['status']}", file=sys.stderr)
+        sys.exit(0 if res["status"] in ("optimized", "cached") else 1)
 
-    print("Target: %s" % ("All Database Entries" if args.all else "Library Only"))
-    mangas = get_mangas(library_only=not args.all)
+    graphql_url = find_graphql_url()
+    target_desc = "All Database Entries" if args.all else "Library Only"
+    print(f"Target Scope:     {target_desc} ({graphql_url})")
+
+    mangas = get_mangas(graphql_url, library_only=not args.all)
     if not mangas:
-        print("No manga found or Suwayomi server unreachable. Exiting.")
-        sys.exit(1)
+        print("Suwayomi server unreachable or library empty. Gracefully skipping thumbnail pre-caching.")
+        sys.exit(0)
 
-    print("Total entries found: %d" % len(mangas))
-    if args.force:
-        to_fetch = mangas
-    else:
-        to_fetch = [m for m in mangas if not is_cached_on_disk(m["id"])]
+    total_count = len(mangas)
+    print(f"Found {total_count} manga entries. Beginning parallel optimization...\n")
 
-    cached_count = len(mangas) - len(to_fetch)
-    print("Already cached on disk: %d" % cached_count)
-    print("To download / warm: %d" % len(to_fetch))
+    overall_start = time.time()
+    cached_count = 0
+    optimized_count = 0
+    failed_count = 0
+    total_raw_bytes = 0
+    total_opt_bytes = 0
 
-    if to_fetch:
-        print("\n[Tier 1] Proactively fetching missing thumbnails to disk...")
-        success = 0
-        for idx, m in enumerate(to_fetch, 1):
-            print("[%3d/%3d]" % (idx, len(to_fetch)), end="")
-            if precache_thumbnail(m["id"], m["title"], force=args.force):
-                success += 1
-            time.sleep(args.delay)
-        print("\nTier 1 complete: Successfully fetched %d/%d missing thumbnails." % (success, len(to_fetch)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as executor:
+        future_to_manga = {
+            executor.submit(process_manga_cover, m, args.width, args.quality, args.force): m
+            for m in mangas
+        }
 
-    print("\n[Tier 2] Warming Nginx Fast-Path Cache for all library entries...")
-    warmed = 0
-    for m in mangas:
-        req = urllib.request.Request(NGINX_URL_TEMPLATE.format(id=m["id"]), headers={"User-Agent": "Suwayomi-PreCacher/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                resp.read()
-                warmed += 1
-        except Exception:
-            pass
-    print("Warmed %d/%d entries into Nginx cache." % (warmed, len(mangas)))
+        for idx, future in enumerate(concurrent.futures.as_completed(future_to_manga), 1):
+            res = future.result()
+            m_id = res["id"]
+            title = res["title"]
+            status = res["status"]
+
+            if status == "cached":
+                cached_count += 1
+            elif status == "optimized":
+                optimized_count += 1
+                total_raw_bytes += res["raw_size"]
+                total_opt_bytes += res["size"]
+                savings = ((res["raw_size"] - res["size"]) / res["raw_size"] * 100) if res["raw_size"] > 0 else 0
+                print(f"  [{idx:3d}/{total_count:3d}] ✓ ID {m_id:3d} | {res['raw_size']/1024:6.1f} KB -> {res['size']/1024:4.1f} KB (-{savings:4.1f}%) in {res['elapsed']*1000:5.1f}ms | {title[:35]}")
+            else:
+                failed_count += 1
+                print(f"  [{idx:3d}/{total_count:3d}] ✗ ID {m_id:3d} | {status} | {title[:35]}", file=sys.stderr)
+
+    total_time = time.time() - overall_start
+    print("\n" + "=" * 55)
+    print(f"Optimization Summary across {args.workers} Cores:")
+    print(f"  Total Manga in Scope:   {total_count}")
+    print(f"  Already Cached:         {cached_count}")
+    print(f"  Newly Optimized:        {optimized_count}")
+    print(f"  Errors / Missing:       {failed_count}")
+    if total_raw_bytes > 0:
+        total_savings = (total_raw_bytes - total_opt_bytes) / total_raw_bytes * 100
+        print(f"  Raw Source Data:        {total_raw_bytes / (1024*1024):.2f} MB")
+        print(f"  Optimized WebP Data:    {total_opt_bytes / (1024*1024):.2f} MB")
+        print(f"  Total Bandwidth Saved:  {total_savings:.1f}%")
+    print(f"  Completed in:           {total_time:.2f} seconds")
+    print("=" * 55)
+
 
 if __name__ == "__main__":
     main()

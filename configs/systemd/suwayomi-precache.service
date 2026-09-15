@@ -1,6 +1,7 @@
 [Unit]
 Description=Suwayomi Thumbnail Background Pre-Cacher
 After=suwayomi-server.service nginx.service network.target
+ConditionPathExists=/usr/local/bin/suwayomi-precache-thumbnails
 
 [Service]
 Type=oneshot

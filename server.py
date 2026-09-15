@@ -380,6 +380,30 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     handle_pseudo_links = handle_service_routes
 
     def do_HEAD(self):
+        clean_path = self.path.split('?')[0]
+        if clean_path.startswith('/api/suwayomi/thumbnail/'):
+            try:
+                parts = clean_path.rstrip('/').split('/')
+                manga_id = int(parts[-1])
+                from tinarchy.thumbnails import get_or_generate_thumbnail
+                data, ctype = get_or_generate_thumbnail(manga_id)
+                if data:
+                    self.send_response(200)
+                    self.send_header('Content-Type', ctype)
+                    self.send_header('Content-Length', str(len(data)))
+                    self.send_header('Cache-Control', 'public, max-age=5184000, immutable')
+                    self.send_header('X-Thumbnail-Engine', 'ON-DEMAND-DYNAMIC-OPTIMIZER')
+                    self.end_headers()
+                    return
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+            except Exception:
+                self.send_response(500)
+                self.end_headers()
+                return
+
         if self.handle_service_routes():
             return
         super().do_HEAD()
@@ -449,6 +473,31 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         if self.path.startswith('/Wallpapers/') or self.path.startswith('/thumbnails/') or self.path.endswith(('.css', '.js', '.png', '.jpg', '.ico', '.woff', '.woff2', '.mp4', '.crt', '.svg', '.webp', '.sh')):
             super().do_GET()
             return
+
+        # On-demand Suwayomi thumbnail optimization fast-path
+        if clean_path.startswith('/api/suwayomi/thumbnail/'):
+            try:
+                parts = clean_path.rstrip('/').split('/')
+                manga_id = int(parts[-1])
+                from tinarchy.thumbnails import get_or_generate_thumbnail
+                data, ctype = get_or_generate_thumbnail(manga_id)
+                if data:
+                    self.send_response(200)
+                    self.send_header('Content-Type', ctype)
+                    self.send_header('Content-Length', str(len(data)))
+                    self.send_header('Cache-Control', 'public, max-age=5184000, immutable')
+                    self.send_header('X-Thumbnail-Engine', 'ON-DEMAND-DYNAMIC-OPTIMIZER')
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+            except Exception:
+                self.send_response(500)
+                self.end_headers()
+                return
 
         if self.handle_service_routes():
             return
