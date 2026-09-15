@@ -1160,6 +1160,7 @@ if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/baz
     if [ -f "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" ]; then
         sed -e "s|User=tin|User=${TARGET_USER}|g" \
             -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|tin:tin|${TARGET_USER}:${TARGET_USER}|g" \
             -e "s|/home/tin|${USER_HOME}|g" \
             "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" > /etc/systemd/system/bazarr.service.d/override.conf
     fi
@@ -1168,8 +1169,18 @@ fi
 
 
 if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
-    QBIT_CONF="${USER_HOME}/.config/qBittorrent/qBittorrent.conf"
-    if [ -f "$QBIT_CONF" ]; then
+    QBIT_DIR="${USER_HOME}/.config/qBittorrent"
+    QBIT_CONF="${QBIT_DIR}/qBittorrent.conf"
+    mkdir -p "$QBIT_DIR"
+    if [ ! -f "$QBIT_CONF" ] && [ -f "$REPO_ROOT/configs/qbittorrent/qBittorrent.conf" ]; then
+        sed -e "s|/home/pineapple|${USER_HOME}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/qbittorrent/qBittorrent.conf" > "$QBIT_CONF"
+        chown -R "${TARGET_USER}:${TARGET_USER}" "$QBIT_DIR" 2>/dev/null || true
+    elif [ -f "$QBIT_CONF" ]; then
+        grep -q "Session\\\\HashingThreadsCount" "$QBIT_CONF" 2>/dev/null || echo "Session\HashingThreadsCount=8" >> "$QBIT_CONF"
+        grep -q "Session\\\\DiskCacheSize" "$QBIT_CONF" 2>/dev/null || echo "Session\DiskCacheSize=256" >> "$QBIT_CONF"
+        grep -q "Session\\\\AsyncIOThreads" "$QBIT_CONF" 2>/dev/null || echo "Session\AsyncIOThreads=10" >> "$QBIT_CONF"
         grep -q "WebUI\\\\ReverseProxySupportEnabled" "$QBIT_CONF" 2>/dev/null || echo "WebUI\ReverseProxySupportEnabled=true" >> "$QBIT_CONF"
         grep -q "WebUI\\\\HostHeaderValidation" "$QBIT_CONF" 2>/dev/null || echo "WebUI\HostHeaderValidation=false" >> "$QBIT_CONF"
         grep -q "WebUI\\\\CSRFProtection" "$QBIT_CONF" 2>/dev/null || echo "WebUI\CSRFProtection=false" >> "$QBIT_CONF"

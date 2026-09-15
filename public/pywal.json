@@ -1,27 +1,27 @@
 {
-  "wallpaper": "public/Wallpapers/cyber_aesthetic_girl_16x10.png",
+  "wallpaper": "public/Wallpapers/lupine--03-pastel-clouds.jpg",
   "alpha": "100",
   "special": {
-    "background": "#151810",
+    "background": "#151017",
     "foreground": "#ffffff",
     "cursor": "#ffffff"
   },
   "colors": {
-    "color0": "#151810",
-    "color1": "#b3dac0",
-    "color2": "#aed8b3",
-    "color3": "#a4d3aa",
-    "color4": "#badfc7",
-    "color5": "#b3dac0",
-    "color6": "#aed8b3",
+    "color0": "#151017",
+    "color1": "#e6cce6",
+    "color2": "#ddaec3",
+    "color3": "#e1b5c0",
+    "color4": "#f2e4ec",
+    "color5": "#e6cce6",
+    "color6": "#ddaec3",
     "color7": "#ffffff",
     "color8": "#c5d1de",
-    "color9": "#b3dac0",
-    "color10": "#aed8b3",
-    "color11": "#a4d3aa",
-    "color12": "#badfc7",
-    "color13": "#b3dac0",
-    "color14": "#aed8b3",
+    "color9": "#e6cce6",
+    "color10": "#ddaec3",
+    "color11": "#e1b5c0",
+    "color12": "#f2e4ec",
+    "color13": "#e6cce6",
+    "color14": "#ddaec3",
     "color15": "#ffffff"
   }
 }

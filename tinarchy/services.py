@@ -72,7 +72,26 @@ if ENABLE_COUCHDB:
         'link_text': f':{couchdb_port}'
     })
 
-ENABLE_RADARR = os.environ.get('ENABLE_RADARR', 'true').strip().lower() in ('true', '1', 'yes')
+def _is_unit_present(unit_name: str) -> bool:
+    """Check if a systemd unit file exists on the system."""
+    for base in ['/etc/systemd/system', '/usr/lib/systemd/system', '/lib/systemd/system']:
+        if os.path.exists(os.path.join(base, unit_name)):
+            return True
+        if '@' in unit_name:
+            template = unit_name.split('@')[0] + '@.service'
+            if os.path.exists(os.path.join(base, template)):
+                return True
+    return False
+
+def _resolve_service_toggle(env_var: str, default: str, unit_name: str) -> bool:
+    val = os.environ.get(env_var, default).strip().lower()
+    if val in ('true', '1', 'yes'):
+        return True
+    if val in ('false', '0', 'no'):
+        return False
+    return _is_unit_present(unit_name)
+
+ENABLE_RADARR = _resolve_service_toggle('ENABLE_RADARR', 'auto', 'radarr.service')
 if ENABLE_RADARR:
     radarr_port = int(os.environ.get('RADARR_PORT', 7878))
     SERVICES.append({
@@ -86,7 +105,7 @@ if ENABLE_RADARR:
         'link_text': f':{radarr_port}'
     })
 
-ENABLE_SONARR = os.environ.get('ENABLE_SONARR', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_SONARR = _resolve_service_toggle('ENABLE_SONARR', 'auto', 'sonarr.service')
 if ENABLE_SONARR:
     sonarr_port = int(os.environ.get('SONARR_PORT', 8989))
     SERVICES.append({
@@ -100,7 +119,7 @@ if ENABLE_SONARR:
         'link_text': f':{sonarr_port}'
     })
 
-ENABLE_PROWLARR = os.environ.get('ENABLE_PROWLARR', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_PROWLARR = _resolve_service_toggle('ENABLE_PROWLARR', 'auto', 'prowlarr.service')
 if ENABLE_PROWLARR:
     prowlarr_port = int(os.environ.get('PROWLARR_PORT', 9696))
     SERVICES.append({
@@ -114,7 +133,8 @@ if ENABLE_PROWLARR:
         'link_text': f':{prowlarr_port}'
     })
 
-ENABLE_QBITTORRENT = os.environ.get('ENABLE_QBITTORRENT', 'true').strip().lower() in ('true', '1', 'yes')
+qbit_unit = f'qbittorrent-nox@{PRIMARY_USER}.service'
+ENABLE_QBITTORRENT = _resolve_service_toggle('ENABLE_QBITTORRENT', 'auto', qbit_unit)
 if ENABLE_QBITTORRENT:
     qbit_port = int(os.environ.get('QBITTORRENT_PORT', 8084))
     SERVICES.append({
@@ -128,7 +148,7 @@ if ENABLE_QBITTORRENT:
         'link_text': '/qbittorrent'
     })
 
-ENABLE_BAZARR = os.environ.get('ENABLE_BAZARR', 'true').strip().lower() in ('true', '1', 'yes')
+ENABLE_BAZARR = _resolve_service_toggle('ENABLE_BAZARR', 'auto', 'bazarr.service')
 if ENABLE_BAZARR:
     bazarr_port = int(os.environ.get('BAZARR_PORT', 6767))
     SERVICES.append({
@@ -157,7 +177,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr']
 
 def is_tailscale_ssh_active():
     try:

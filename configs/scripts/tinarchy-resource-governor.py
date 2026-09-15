@@ -198,6 +198,20 @@ def get_streaming_and_media_activity():
     except Exception:
         pass
 
+    # Check for active qBittorrent downloads or hashing
+    try:
+        import urllib.request
+        req = urllib.request.Request("http://127.0.0.1:8084/api/v2/transfer/info", headers={"User-Agent": "tinarchy-governor"})
+        with urllib.request.urlopen(req, timeout=0.5) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode())
+                dl_speed = int(data.get("dl_info_speed", 0))
+                if dl_speed > 300000:
+                    active = True
+                    reasons.append(f"qBittorrent active downloads: {dl_speed / 1048576:.2f} MB/s")
+    except Exception:
+        pass
+
     # Check established incoming sockets on interactive server ports
     ports_filter = "( sport = :8096 or sport = :8095 or sport = :443 or sport = :80 or sport = :8085 )"
     try:
@@ -239,6 +253,39 @@ def get_suwayomi_demand() -> dict:
                             stat[parts[0]] = int(parts[1])
         except Exception:
             pass
+    return stat
+
+def get_qbittorrent_demand() -> dict:
+    """Read qBittorrent cgroup cpu.stat to measure CPU and hashing utilization."""
+    stat = {"usage_usec": 0}
+    qbit_paths = [
+        "/sys/fs/cgroup/system.slice/system-qbittorrent\\x2dnox.slice/cpu.stat",
+    ]
+    # Check for any specific user instance under the slice
+    slice_dir = "/sys/fs/cgroup/system.slice/system-qbittorrent\\x2dnox.slice"
+    if os.path.isdir(slice_dir):
+        try:
+            for entry in os.listdir(slice_dir):
+                if entry.startswith("qbittorrent-nox@") and entry.endswith(".service"):
+                    p = os.path.join(slice_dir, entry, "cpu.stat")
+                    if os.path.isfile(p):
+                        qbit_paths.insert(0, p)
+        except Exception:
+            pass
+
+    for p in qbit_paths:
+        if os.path.exists(p):
+            try:
+                with open(p) as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) == 2 and parts[0] == "usage_usec" and parts[1].isdigit():
+                            stat["usage_usec"] = int(parts[1])
+                            break
+                if stat["usage_usec"] > 0:
+                    break
+            except Exception:
+                pass
     return stat
 
 def protect_agy_process(pid: int):
@@ -418,6 +465,10 @@ def setup_cgroup_weights():
         if os.path.exists(suw_weight_path):
             with open(suw_weight_path, "w") as f:
                 f.write("100\n")
+        qbit_weight_path = "/sys/fs/cgroup/system.slice/system-qbittorrent\\x2dnox.slice/cpu.weight"
+        if os.path.exists(qbit_weight_path):
+            with open(qbit_weight_path, "w") as f:
+                f.write("200\n")
     except Exception:
         pass
 
@@ -525,9 +576,12 @@ class AdaptiveGovernor:
 
         # Workload demand tracking
         self.last_suw_stat = get_suwayomi_demand()
+        self.last_qbit_stat = get_qbittorrent_demand()
         self.last_agy_pid, self.last_agy_ticks = get_agy_demand()
         self.last_demand_time = time.time()
         self.suw_cores_demanded = 0.0
+        self.qbit_cores_demanded = 0.0
+        self.qbit_dl_speed = 0
         self.agy_cores_demanded = 0.0
 
         setup_cgroup_weights()
@@ -554,12 +608,18 @@ class AdaptiveGovernor:
     def update_demand_telemetry(self, now: float):
         dt = max(1.0, now - self.last_demand_time)
         cur_suw = get_suwayomi_demand()
+        cur_qbit = get_qbittorrent_demand()
         cur_agy_pid, cur_agy_ticks = get_agy_demand()
 
         # Suwayomi usage & throttling rate
         delta_usage = (cur_suw.get("usage_usec", 0) - self.last_suw_stat.get("usage_usec", 0)) / (dt * 1e6)
         delta_throttle = (cur_suw.get("throttled_usec", 0) - self.last_suw_stat.get("throttled_usec", 0)) / (dt * 1e6)
         self.suw_cores_demanded = max(0.0, delta_usage + delta_throttle)
+
+        # qBittorrent usage rate & download speed
+        delta_qbit = (cur_qbit.get("usage_usec", 0) - self.last_qbit_stat.get("usage_usec", 0)) / (dt * 1e6)
+        self.qbit_cores_demanded = max(0.0, delta_qbit)
+        self.qbit_dl_speed = cur_qbit.get("dl_speed", 0)
 
         # agy CPU rate
         if cur_agy_pid and self.last_agy_pid == cur_agy_pid:
@@ -569,6 +629,7 @@ class AdaptiveGovernor:
             self.agy_cores_demanded = 0.0
 
         self.last_suw_stat = cur_suw
+        self.last_qbit_stat = cur_qbit
         self.last_agy_pid = cur_agy_pid
         self.last_agy_ticks = cur_agy_ticks
         self.last_demand_time = now
@@ -642,7 +703,7 @@ class AdaptiveGovernor:
         if latest_input > self.last_activity_time:
             self.last_activity_time = latest_input
 
-        if is_streaming:
+        if is_streaming or self.qbit_dl_speed > 300000 or self.qbit_cores_demanded > 0.4:
             self.last_activity_time = now
 
         idle_seconds = now - self.last_activity_time
@@ -677,32 +738,40 @@ class AdaptiveGovernor:
         target_freq = self.current_freq_khz
         target_quota = self.current_quota_pct
 
+        has_download_demand = (self.qbit_dl_speed > 300000 or self.qbit_cores_demanded > 0.4)
+
         if self.current_tier == 0:
             # Active Interactive Tier
             target_turbo = False
-            # Modulate frequency within 1.8 GHz - 2.2 GHz base
+            # Modulate frequency within 1.8 GHz - 2.2 GHz base (up to 2.5 GHz during active torrent downloads/hashing)
             if emergency_brake or u < -2.0:
                 target_freq = max(1600000, self.current_freq_khz - 100000)
                 target_quota = max(100, self.current_quota_pct - 20)
             elif u > 2.0 and not emergency_brake:
-                target_freq = min(2200000, self.current_freq_khz + 100000)
+                ceiling = 2500000 if has_download_demand else 2200000
+                target_freq = min(ceiling, self.current_freq_khz + 100000)
                 target_quota = min(250, self.current_quota_pct + 20)
+                if has_download_demand and current_temp < 77.0 and slew_rate < 0.3:
+                    target_turbo = True
             else:
-                target_freq = max(1800000, min(2200000, self.current_freq_khz))
+                target_freq = max(1800000, min(2500000 if has_download_demand else 2200000, self.current_freq_khz))
                 target_quota = max(180, min(240, self.current_quota_pct))
 
         elif self.current_tier == 1:
             # Short Idle (15m - 30m)
             target_turbo = False
-            # Modulate frequency within 2.2 GHz - 2.5 GHz base
+            # Modulate frequency within 2.2 GHz - 2.5 GHz base (up to 2.7 GHz during active torrent downloads)
             if emergency_brake or u < -2.0:
                 target_freq = max(2000000, self.current_freq_khz - 100000)
                 target_quota = max(150, self.current_quota_pct - 20)
             elif u > 1.5:
-                target_freq = min(2500000, self.current_freq_khz + 100000)
+                ceiling = 2700000 if has_download_demand else 2500000
+                target_freq = min(ceiling, self.current_freq_khz + 100000)
                 target_quota = min(280, self.current_quota_pct + 20)
+                if has_download_demand and current_temp < 79.0 and slew_rate < 0.4:
+                    target_turbo = True
             else:
-                target_freq = max(2200000, min(2500000, self.current_freq_khz))
+                target_freq = max(2200000, min(2700000 if has_download_demand else 2500000, self.current_freq_khz))
                 target_quota = max(200, min(260, self.current_quota_pct))
 
         elif self.current_tier == 2:
@@ -823,6 +892,7 @@ def get_status_payload(gov=None):
         f"• Dynamic Frequency Ceiling:{freq_mhz} MHz",
         f"• Suwayomi CPU Quota:       {state['suwayomi_quota']}",
         f"• Suwayomi Demand:          throttled_usec={suw_stat.get('throttled_usec', 0)}",
+        f"• Media Torrent Demand:     qbit_usage={get_qbittorrent_demand().get('usage_usec', 0)} (Libtorrent Hashing: 8 threads)",
         f"• agy Daemon (PID {agy_pid}):   Active process registered (Immune: oom_score_adj=-500)" if agy_pid else "• agy Daemon:                Idle / Not active",
         f"• Active Media Streaming:   {'YES' if is_streaming else 'NO'}",
     ]
@@ -842,6 +912,7 @@ def get_status_payload(gov=None):
             "suwayomi_quota": str(state['suwayomi_quota']),
             "inactivity": f"{int(idle_secs)}s",
             "demand": f"throttled_usec={suw_stat.get('throttled_usec', 0)}",
+            "media_demand": f"qbit_usage={get_qbittorrent_demand().get('usage_usec', 0)}",
             "agy_status": f"Active process registered (PID {agy_pid})" if agy_pid else "Idle"
         },
         "governor_raw": "\n".join(lines),

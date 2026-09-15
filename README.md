@@ -106,6 +106,13 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - Standalone SOCKS5 proxy on `127.0.0.1:9050` with per-service toggling.
   - Global Exit Node routing: routes all Tailscale client traffic through Tor via `iptables` NAT tables, with intelligent auto-start when toggled.
 
+- **🍿 Automated High-Throughput Media Server & *Arr Pipeline (`Jellyfin` + `Seerr` + `Sonarr` + `Radarr` + `Prowlarr` + `Bazarr` + `qBittorrent`)**:
+  - **End-to-End Automated Media Lifecycle**: Complete discovery-to-streaming pipeline. Request anime and movies via **Seerr** (`:5055`), monitor airing seasons and release qualities via **Sonarr** (`:8989`) and **Radarr** (`:7878`), synchronize torrent trackers via **Prowlarr** (`:9696`), download via multi-threaded **qBittorrent** (`:8084`), auto-fetch subtitles via **Bazarr** (`:6767`), and stream in **Jellyfin** (`:8096`).
+  - **8-Thread Parallel Hashing & Multicore Libtorrent Engine**: Breaks the traditional single-threaded libtorrent bottleneck by dedicating all 8 CPU threads (`HashingThreadsCount=8`) to parallel SHA-1 piece verification, paired with 10 asynchronous disk I/O worker threads and an expanded 256MB RAM cache.
+  - **Dynamic Governor Throttle & Boost Integration**: The Autonomous Resource Governor actively detects qBittorrent cgroup load and transfer speed in real time, dynamically lifting CPU frequency ceilings (up to 2.5–2.7 GHz with Intel Turbo Boost) to accelerate torrent hashing and ingestion, while granting high scheduling priority (`cpu.weight = 200`) and preventing sleep.
+  - **Instant Zero-Copy Atomic Hardlinking**: Unified storage layout in `$HOME/storage/` links completed torrents into Jellyfin media folders instantaneously (<1ms) without consuming extra disk space or duplicating files, preserving continuous seeding.
+  - **Zero-Interference Dynamic Auto-Detection**: Services and dashboard tiles are dynamically auto-detected based on installed systemd units (`_resolve_service_toggle`). If a user does not run the *Arr media stack, it remains completely dormant with zero overhead or dashboard clutter.
+
 - **👥 Role-Based Access Control (RBAC) & Tailscale Identity**:
   - Dynamic user and device identification via Tailscale Whois (no manual credentials required).
   - Tiers configured in `roles_config.json`:
@@ -126,6 +133,7 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 flowchart TD
     subgraph Clients ["Client Access (Tailscale Mesh / LAN)"]
         Browser["🌐 Web Browser (HTTP/HTTPS)"]
+        JellyfinClient["🍿 Jellyfin Media Clients (TV / Mobile / Desktop)"]
         SyncDesktop["💻 Syncthing Desktop (Linux/Win/Mac)"]
         SyncMobile["📱 Syncthing Mobile (Android/iOS)"]
         SSHClient["💻 SSH / Tailscale Terminal"]
@@ -145,22 +153,35 @@ flowchart TD
         Dashboard["🍍 Dashboard Backend (:8085)"]
         Suwayomi["📚 Suwayomi Manga (:4567)"]
         Jellyfin["🍿 Jellyfin Media (:8096)"]
+        Seerr["🎬 Seerr Requests (:5055)"]
+        Sonarr["📺 Sonarr TV/Anime (:8989)"]
+        Radarr["🎬 Radarr Movies (:7878)"]
+        Prowlarr["🔍 Prowlarr Indexers (:9696)"]
+        Bazarr["📝 Bazarr Subtitles (:6767)"]
+        QBit["🧲 qBittorrent 8-Core Engine (:8084)"]
         Tor["🧅 Tor SOCKS5 (:9050) / Exit (:9040)"]
         Syncthing["🔄 Syncthing (:8384 / :22000)"]
     end
 
-    subgraph Storage ["Unified Drive Engine ($HOME/drive/)"]
-        DriveRoot["$HOME/drive/ (shared)"]
+    subgraph Storage ["Unified Storage & Drive Engine"]
+        DriveRoot["$HOME/drive/ (shared sync)"]
+        MediaRoot["$HOME/storage/ (atomic hardlinks)"]
+        Downloads["Downloads/ (qBittorrent incomplete & complete)"]
+        Shows["Shows/ -> Jellyfin TV/Anime"]
+        Movies["Movies/ -> Jellyfin Movies"]
         Wallpapers["Wallpapers/ -> $HOME/Wall"]
         Manga["Media/Manga/ -> Suwayomi downloads"]
         Notes["notes/ (Obsidian Markdown Vaults)"]
-        Backups["backups/ (System & App Backups)"]
     end
 
     Browser -->|HTTP: 80, 8080 / HTTPS: 443| Nginx
+    JellyfinClient -->|Direct / HTTPS: 8096| Nginx
     Nginx -->|Proxy /| Dashboard
     Nginx -->|Proxy /syncthing/| Syncthing
     Nginx -->|Proxy /manga/| Suwayomi
+    Nginx -->|Proxy /qbittorrent/| QBit
+    Nginx -->|Proxy /bazarr/| Bazarr
+    Nginx -->|Proxy /seerr/| Seerr
 
     SSHClient -->|Tailscale SSH / Port 22| Tmux --> Zsh --> Fastfetch
 
@@ -171,8 +192,14 @@ flowchart TD
     DriveRoot --> Wallpapers
     DriveRoot --> Manga
     DriveRoot --> Notes
-    DriveRoot --> Shared
-    Dashboard -->|Manual Sync Trigger| DriveRoot
+
+    Seerr -->|Automated Media Requests| Sonarr & Radarr
+    Sonarr & Radarr <-->|Sync Indexers| Prowlarr
+    Sonarr & Radarr -->|Push Torrents| QBit
+    QBit -->|Download Payloads| Downloads
+    Downloads -->|Instant Atomic Hardlink| Shows & Movies
+    Shows & Movies --> Jellyfin
+    Shows & Movies <--> Bazarr
 ```
 
 ### 🧩 Modular Backend Core (`tinarchy/`)
@@ -199,18 +226,23 @@ Tinarchy/
 | Service | Internal Port | External Path / Port | Systemd Service | Description |
 | :--- | :---: | :---: | :--- | :--- |
 | **Dashboard Backend** | `8085` | `/` (80, 8080, 443) | `tinarchy.service` (alias: `server-dashboard.service`) | Glassmorphic telemetry & control center |
+| **Jellyfin Media Server** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & anime streaming with hardware transcoding |
+| **Seerr Media Discovery** | `5055` | `/seerr` & `:5055` | `seerr.service` | Media discovery & automated request manager for Jellyfin |
+| **Sonarr TV & Anime Automation** | `8989` | `/sonarr` & `:8989` | `sonarr.service` | TV & anime season monitoring, renaming & hardlink importing |
+| **Radarr Movie Automation** | `7878` | `/radarr` & `:7878` | `radarr.service` | Movie collection manager, quality profiles & hardlink importing |
+| **Prowlarr Tracker Manager** | `9696` | `/prowlarr` & `:9696` | `prowlarr.service` | Torrent tracker & indexer synchronization engine |
+| **qBittorrent Multicore Engine** | `8084` | `/qbittorrent/` & `:8084` | `qbittorrent-nox@<user>.service` | 8-thread parallel SHA-1 hashing, async disk I/O & 256MB cache |
+| **Bazarr Subtitles Manager** | `6767` | `/bazarr/` & `:6767` | `bazarr.service` | Companion subtitle downloader for Radarr and Sonarr |
+| **FileBrowser Quantum** *(Optional)* | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager (enable via `ENABLE_FILEBROWSER=true`) |
 | **Syncthing Web GUI** | `8384` | `/syncthing/` & `/syncthing-gui` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
 | **Syncthing Setup Guide** | — | `/syncthing` | `tinarchy.service` | Interactive client setup, OS tabs & 1-click Device ID pairing |
-| **FileBrowser Quantum** *(Optional)* | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager (enable via `ENABLE_FILEBROWSER=true`) |
-| **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
-| **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
 | **Suwayomi Manga Server** *(Optional)* | `4567` | `/manga/` & `:4567` | `suwayomi-server.service` | Manga reader with persistent SSD thumbnail cache & Nginx fast-path |
+| **SyncYomi Server** *(Optional)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Tachiyomi, Mihon & Suwayomi reading progress sync (enable via `ENABLE_SYNCYOMI=true`) |
+| **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
+| **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal & media workload governor |
+| **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
 | **X Virtual Framebuffer (Xvfb)** | — | Display `:99` | `xvfb.service` | Headless X11 display for Suwayomi JCEF/Chromium extension engine |
 | **FlareSolverr Proxy** *(Optional)* | `8191` | `:8191` | `docker-compose.flaresolverr.yml` | Cloudflare Turnstile & challenge bypass proxy for manga scrapers |
-| **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal budget & workload governor |
-| **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
-| **Jellyfin Media** | `8096` | `:8096` | `jellyfin.service` | Movies, TV shows & media streaming |
-| **Seerr (Overseerr)** | `5055` | `/seerr` & `:5055` | `seerr.service` | Media discovery & request management for Jellyfin and Plex |
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
 | **SSH & tmux Persistence** | `22` | `:22` | `sshd.service` / `tmux` | Resilient remote sessions with auto-attach |
@@ -620,11 +652,13 @@ Home servers and repurposed laptops running heavy background workloads (like dow
 
 #### A. Closed-Loop PID Thermal Governor (`tinarchy-resource-governor.service`)
 - **Dynamic Sampling**: Samples CPU package temperature, thermal ascent velocity ($dT/dt$), and user inactivity every 4 seconds.
+- **Media Download & Multicore Hashing Demand**: Continuously reads the qBittorrent systemd cgroup CPU stats (`system-qbittorrent-nox.slice/cpu.stat`) and transfer rate (`/api/v2/transfer/info`), actively boosting frequency ceilings when downloads exceed 300 KB/s or hashing cores demand exceeds 0.4.
 - **Operational Tiers**:
-  - **Tier 0: Active / Interactive (<15m idle)**: Thermal target 76°C, Intel Turbo Boost disabled, Suwayomi CPU capped at 60-120% for whisper-quiet fans.
-  - **Tier 1: Short Idle (15-30m)**: Thermal target 79°C, CPU clock ceiling 2.2-2.5GHz, Suwayomi quota 140-220%.
+  - **Tier 0: Active / Interactive (<15m idle)**: Thermal target 76°C, Intel Turbo Boost disabled, base clock 1.8-2.2 GHz (boosts to **2.5 GHz** during active torrent hashing). Suwayomi CPU capped at 60-120% for whisper-quiet fans.
+  - **Tier 1: Short Idle (15-30m)**: Thermal target 79°C, CPU clock ceiling 2.2-2.5GHz (boosts to **2.7 GHz** with Turbo during torrent downloads), Suwayomi quota 140-220%.
   - **Tier 2: Idle Acceleration (30-60m)**: Thermal target 82°C, Suwayomi quota 220-320%, background queues accelerated.
   - **Tier 3: Unconstrained Sprint (>60m)**: Thermal target 84°C, Intel Turbo Boost unlocked, Suwayomi quota 400% (max hardware throughput).
+- **Cgroup Scheduling Priority**: Grants `system-qbittorrent-nox.slice` high scheduling priority (`cpu.weight = 200`) without starving interactive SSH or Jellyfin playback.
 - **Instant Snap-Back (<3s)**: Snaps back to Tier 0 the instant any SSH keystroke or media stream is detected.
 
 #### B. Multicore Dynamic Network Autotuner (`tinarchy-net-autotune.service`)
@@ -639,6 +673,119 @@ curl -s http://127.0.0.1:8085/api/reports/daily | jq .
 
 ---
 
+### 15. Automated High-Throughput Media Server & *Arr Pipeline
+
+The server features a fully automated, end-to-end media acquisition and streaming ecosystem consisting of **Jellyfin**, **Seerr**, **Sonarr**, **Radarr**, **Prowlarr**, **Bazarr**, and **qBittorrent**. The entire pipeline is engineered for multi-core hardware utilization, zero-copy atomic storage, and non-intrusive modular deployment.
+
+#### A. Architecture & Request-to-Stream Workflow
+
+```mermaid
+flowchart LR
+    User["👤 User Request"] -->|Browse & Request| Seerr["🎬 Seerr (:5055)"]
+    Seerr -->|Anime / TV Shows| Sonarr["📺 Sonarr (:8989)"]
+    Seerr -->|Movies| Radarr["🎬 Radarr (:7878)"]
+    Sonarr & Radarr <-->|Sync Verified Trackers| Prowlarr["🔍 Prowlarr (:9696)"]
+    Sonarr & Radarr -->|Push Torrents| QBit["🧲 qBittorrent (:8084)"]
+    QBit -->|Multi-Core Download & Hash| Storage["💾 /home/user/storage/"]
+    Storage -->|Instant Atomic Hardlink| Library["🍿 Jellyfin Media Library"]
+    Library -->|Auto-Fetch Subtitles| Bazarr["📝 Bazarr (:6767)"]
+    Library -->|Stream 1080p/4K| Clients["📱 TV, Mobile & Web Clients"]
+```
+
+1. **Media Discovery & Requests (Seerr `:5055`)**:
+   - Modern, responsive web interface connected directly to Jellyfin libraries.
+   - Users and guests can search and request movies and TV/anime series with 1 click.
+   - Automatically passes approved requests to Sonarr or Radarr with preconfigured quality profiles.
+2. **Automated TV & Anime Monitoring (Sonarr `:8989`)**:
+   - Continuously monitors active and upcoming releases (e.g. actively airing anime like *That Time I Got Reincarnated as a Slime*).
+   - Automatically tracks episode calendars, parses release group naming (Erai-raws, SubsPlease, etc.), and triggers automated downloads.
+3. **Movie Collection Management (Radarr `:7878`)**:
+   - Tracks movie release dates, digital releases, and physical disc releases.
+   - Automatically upgrades movie files as higher quality tiers become available (e.g. 1080p WEB-DL ➔ 1080p/4K Remux).
+4. **Centralized Indexer Engine (Prowlarr `:9696`)**:
+   - Single point of configuration for torrent trackers and indexers, automatically synced to Sonarr and Radarr via API.
+   - Configured with high-reliability mirrors (`https://nyaa.iss.ink/`, Tokyo Toshokan, etc.) that eliminate Cloudflare 429 rate-limiting while preserving local Tor SOCKS5 routing for privacy-sensitive or geoblocked sources.
+5. **Multi-Threaded Download Engine (qBittorrent `:8084`)**:
+   - Headless BitTorrent client tuned for parallel execution, zero-copy atomic hardlinks, and WebUI reverse-proxy security.
+6. **Companion Subtitle Downloader (Bazarr `:6767`)**:
+   - Listens to Sonarr and Radarr file import events to automatically search, verify, and embed or save matching subtitles (SRT/ASS).
+7. **Media Streaming & Transcoding (Jellyfin `:8096`)**:
+   - Direct-stream playback across web, Apple TV, Android TV, and mobile apps.
+   - Nginx proxy caching for media artwork and backdrops, serving image assets directly at kernel `sendfile` speeds.
+
+---
+
+#### B. 8-Thread Parallel Hashing & Libtorrent Multicore Tuning
+
+Default BitTorrent setups often suffer from severe single-core bottlenecks: libtorrent defaults to `hashing_threads: 1`, leaving available CPU threads idle while a single core maxes out verifying multi-gigabyte files. 
+
+The pipeline tunes qBittorrent and libtorrent to utilize all hardware threads (Intel Core i5-8265U: 4 cores / 8 threads):
+
+* **Parallel SHA-1 Piece Verification (`Session\HashingThreadsCount=8`)**:
+  - Distributes piece validation across all 8 CPU threads simultaneously.
+  - Large batches (e.g. 30GB+ anime seasons) verify in seconds instead of stalling the disk queue.
+* **Asynchronous Disk I/O Worker Threads (`Session\AsyncIOThreads=10`)**:
+  - Multiple dedicated threads handle concurrent file reads and writes, preventing slow disk writes from choking high-speed network sockets.
+* **Expanded RAM Disk Cache (`Session\DiskCacheSize=256`)**:
+  - Boosted from the default 64MB buffer to 256MB RAM cache.
+  - Absorbs multi-megabyte burst throughput from fast peers and flushes to SSD sequentially.
+
+---
+
+#### C. Autonomous Resource Governor Dynamic Scaling
+
+The media server pipeline is tightly integrated with the system's **Autonomous Resource Governor** (`tinarchy-resource-governor.py`):
+
+* **Real-Time Download & Hashing Telemetry**:
+  - Continuously reads the qBittorrent systemd cgroup CPU stats (`system-qbittorrent-nox.slice/cpu.stat`).
+  - Queries live download bandwidth via the qBittorrent Web API (`/api/v2/transfer/info`).
+* **Dynamic Frequency Ceiling Boost**:
+  - When torrent downloads exceed **300 KB/s** or libtorrent hashing demand exceeds **0.4 CPU cores**, the governor automatically lifts the CPU clock ceiling:
+    - **Tier 0 (Active)**: Boosts frequency ceiling from 2.2 GHz to **2.5 GHz**, unlocking Intel Turbo Boost when thermal conditions allow ($T < 77^\circ\text{C}$).
+    - **Tier 1 (Short Idle)**: Boosts frequency ceiling from 2.5 GHz to **2.7 GHz**, unlocking Turbo when cool ($T < 79^\circ\text{C}$).
+* **Sleep & Idling Inhibition**:
+  - Active torrent downloads are registered as active system workloads, preventing the machine from transitioning into deep idle or low-frequency sleep states while downloads are in flight.
+* **Cgroup CPU Scheduling Priority**:
+  - `system-qbittorrent-nox.slice` is assigned a high `cpu.weight` of **200**, ensuring torrent downloads and piece hashing receive immediate CPU time without starving interactive SSH or Jellyfin playback.
+
+---
+
+#### D. Unified Storage Architecture & Zero-Copy Atomic Hardlinks
+
+All media downloads and completed series reside on the same filesystem partition under `/home/<user>/storage/`:
+
+```
+/home/<user>/storage/
+├── Downloads/
+│   ├── complete/      # Finished downloads seeding in qBittorrent
+│   └── incomplete/    # Active chunk downloads
+├── Shows/             # Sonarr TV series & anime (Jellyfin TV Library)
+└── Movies/            # Radarr movie collection (Jellyfin Movie Library)
+```
+
+* **Atomic Hardlinks**: When a torrent finishes downloading, Sonarr and Radarr create an **inode hardlink** into `Shows/` or `Movies/`:
+  - **Instant Import (< 1ms)**: No copying or moving multi-gigabyte video files across directories.
+  - **Zero Disk Space Overhead**: Both the torrent seeding file and the Jellyfin playback file point to the exact same disk sectors.
+  - **Seeding Continuity**: You can seed files indefinitely in qBittorrent without duplicating 30GB+ of storage.
+
+---
+
+#### E. Zero-Interference System Design
+
+For users and installations that do not require the media server or *Arr suite, the codebase is engineered with strict non-interference principles:
+
+1. **Dynamic Unit Presence Auto-Detection (`_resolve_service_toggle`)**:
+   - `ENABLE_RADARR`, `ENABLE_SONARR`, `ENABLE_PROWLARR`, `ENABLE_QBITTORRENT`, and `ENABLE_BAZARR` default to `auto`.
+   - If the corresponding systemd unit is not installed on the host, the service is completely skipped—no offline warning tiles, no port conflicts, and no background polling.
+   - If a user installs the packages, the dashboard discovers them automatically without manual configuration.
+2. **Explicit Override Support**:
+   - You can explicitly force-enable or force-disable any service in `.env` (e.g. `ENABLE_RADARR=false`).
+3. **Automated Security Sandboxing & Self-Healing**:
+   - Systemd drop-in units (`configs/systemd/*-storage-access.conf`) grant targeted access to `/home/<user>/storage` without opening the entire `/home` directory (`ProtectHome=false`, `ReadWritePaths`).
+   - Self-healing startup triggers (`ExecStartPre=+/usr/bin/chown -R <user>:<user> /var/lib/bazarr`) ensure database and state directories maintain correct ownership across system updates and reboots.
+
+---
+
 ## 🛠️ Management & Useful Commands
 
 | Task | Command |
@@ -646,6 +793,10 @@ curl -s http://127.0.0.1:8085/api/reports/daily | jq .
 | **Check Dashboard Status** | `systemctl status tinarchy` (or `server-dashboard`) |
 | **View Live Dashboard Logs** | `journalctl -u tinarchy -f` |
 | **Restart Dashboard Service** | `sudo systemctl restart tinarchy` |
+| **Check Media Stack Status** | `systemctl status jellyfin seerr sonarr radarr prowlarr bazarr qbittorrent-nox@$USER` |
+| **Restart qBittorrent** | `sudo systemctl restart qbittorrent-nox@$USER` |
+| **Restart Sonarr / Radarr** | `sudo systemctl restart sonarr radarr` |
+| **Check Governor & Telemetry** | `cat /run/tinarchy/governor-status.json \| jq .` |
 | **Check Syncthing Status** | `systemctl status syncthing@<user>` (server) / `systemctl --user status syncthing` (client) |
 | **View Syncthing Logs** | `journalctl -u syncthing@<user> -f` |
 | **Check SyncYomi Status** | `systemctl status syncyomi` |

@@ -7,6 +7,7 @@ Type=simple
 User=pineapple
 Group=pineapple
 WorkingDirectory=/home/pineapple
+ExecStartPre=+/usr/bin/sh -c 'if [ -x /home/pineapple/.local/bin/filebrowser-quantum ] && [ ! -x /usr/local/bin/filebrowser-quantum ]; then ln -sfn /home/pineapple/.local/bin/filebrowser-quantum /usr/local/bin/filebrowser-quantum; fi'
 ExecStartPre=/usr/local/bin/tinarchy-drive-sync
 ExecStart=/usr/local/bin/filebrowser-quantum -c /etc/filebrowser/config.yaml
 Restart=always
