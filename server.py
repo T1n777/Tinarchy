@@ -12,6 +12,8 @@ import threading
 import queue
 import time
 import http.server
+import sys
+import traceback
 
 # ─── Modular Tinarchy Core Imports ───
 import pywal_generator
@@ -385,8 +387,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 parts = clean_path.rstrip('/').split('/')
                 manga_id = int(parts[-1])
+                query_string = self.path.split('?')[1] if '?' in self.path else ''
                 from tinarchy.thumbnails import get_or_generate_thumbnail
-                data, ctype = get_or_generate_thumbnail(manga_id)
+                data, ctype = get_or_generate_thumbnail(manga_id, query_string=query_string)
                 if data:
                     self.send_response(200)
                     self.send_header('Content-Type', ctype)
@@ -399,7 +402,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(404)
                     self.end_headers()
                     return
-            except Exception:
+            except Exception as e:
+                print(f"[ERROR] Thumbnail HEAD generation failed for {clean_path}: {e}", file=sys.stderr)
+                traceback.print_exc()
                 self.send_response(500)
                 self.end_headers()
                 return
@@ -479,8 +484,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 parts = clean_path.rstrip('/').split('/')
                 manga_id = int(parts[-1])
+                query_string = self.path.split('?')[1] if '?' in self.path else ''
                 from tinarchy.thumbnails import get_or_generate_thumbnail
-                data, ctype = get_or_generate_thumbnail(manga_id)
+                data, ctype = get_or_generate_thumbnail(manga_id, query_string=query_string)
                 if data:
                     self.send_response(200)
                     self.send_header('Content-Type', ctype)
@@ -494,7 +500,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(404)
                     self.end_headers()
                     return
-            except Exception:
+            except Exception as e:
+                print(f"[ERROR] Thumbnail GET generation failed for {clean_path}: {e}", file=sys.stderr)
+                traceback.print_exc()
                 self.send_response(500)
                 self.end_headers()
                 return

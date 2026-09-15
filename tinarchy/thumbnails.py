@@ -2,7 +2,11 @@ import os
 import io
 import urllib.request
 import tempfile
-import config
+
+try:
+    from tinarchy import config
+except ImportError:
+    import config
 
 try:
     from PIL import Image
@@ -45,7 +49,7 @@ def optimize_image_data(raw_data: bytes, target_width: int = 340, quality: int =
         img.save(buf, format='WEBP', quality=quality, method=2)
         return buf.getvalue(), "image/webp"
 
-def get_or_generate_thumbnail(manga_id: int) -> tuple[bytes, str]:
+def get_or_generate_thumbnail(manga_id: int, query_string: str = "") -> tuple[bytes, str]:
     """
     Returns (image_bytes, content_type).
     If the optimized WebP thumbnail exists, it returns immediately.
@@ -90,8 +94,14 @@ def get_or_generate_thumbnail(manga_id: int) -> tuple[bytes, str]:
     if not raw_data:
         try:
             url = SUWAYOMI_INTERNAL_URL.format(manga_id=manga_id)
-            req = urllib.request.Request(url, headers={"User-Agent": "tinarchy-optimizer"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            if query_string:
+                url = f"{url}?{query_string}"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+            }
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as resp:
                 if resp.status == 200:
                     raw_data = resp.read()
         except Exception:
