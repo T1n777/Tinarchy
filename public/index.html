@@ -1186,6 +1186,437 @@
                 min-height: 90px !important;
             }
         }
+
+        /* ─── Homarr Search & Command Bar ─── */
+        .homarr-search-card {
+            border-radius: 14px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+        .homarr-search-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 8px 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .homarr-search-input-wrap:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 14px var(--primary-glow);
+        }
+        .homarr-search-icon {
+            font-size: 1.05rem;
+            opacity: 0.75;
+        }
+        #homarr-search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+        #homarr-search-input::placeholder {
+            color: var(--text-muted);
+            opacity: 0.75;
+        }
+        .homarr-search-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .homarr-search-kbd {
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            pointer-events: none;
+        }
+        .homarr-clear-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .homarr-clear-btn:hover { color: var(--text); }
+        .homarr-filter-pills {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding-bottom: 2px;
+        }
+        .homarr-filter-pills::-webkit-scrollbar { display: none; }
+        .filter-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .filter-pill:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text);
+            border-color: var(--primary);
+        }
+        .filter-pill.active {
+            background: var(--primary);
+            color: #0b0f14;
+            border-color: var(--primary);
+            font-weight: 700;
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        /* ─── Homarr Live Widgets ─── */
+        .homarr-widgets-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .homarr-widget-card {
+            border-radius: 14px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .homarr-widget-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .homarr-widget-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .homarr-widget-title h3 {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 0;
+        }
+        .widget-icon { font-size: 1.15rem; }
+        .widget-link {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .widget-link:hover { text-decoration: underline; }
+        .qbit-body {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 8px 12px;
+            border: 1px solid var(--glass-border);
+        }
+        .qbit-metric {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .qbit-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+        .qbit-val {
+            font-size: 0.9rem;
+            font-weight: 800;
+            font-family: var(--font-mono);
+            color: var(--text);
+        }
+        .homarr-shelf-scroll {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            padding: 4px 2px 6px;
+        }
+        .shelf-item {
+            flex: 0 0 85px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.2s;
+        }
+        .shelf-item:hover { transform: translateY(-2px); }
+        .shelf-thumb {
+            width: 85px;
+            height: 120px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .shelf-item:hover .shelf-thumb {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+        .shelf-title {
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-muted);
+        }
+
+        /* ─── Homarr Board Sections ─── */
+        .homarr-board-section {
+            margin-bottom: 18px;
+            transition: all 0.3s ease;
+        }
+        .homarr-board-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .homarr-board-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .homarr-board-title h2 {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text);
+            margin: 0;
+            letter-spacing: -0.01em;
+        }
+        .board-icon { font-size: 1.2rem; }
+        .board-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            color: var(--text-muted);
+            border: 1px solid var(--glass-border);
+        }
+        .board-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .board-add-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: none;
+        }
+        .board-add-btn:hover {
+            background: var(--primary);
+            color: #0b0f14;
+            border-color: var(--primary);
+        }
+        .board-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 2px 6px;
+            transition: transform 0.2s;
+        }
+        .board-toggle-btn.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        /* ─── Edit Mode & Bookmarks ─── */
+        .homarr-edit-banner {
+            border-radius: 14px;
+            padding: 12px 18px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(var(--glass-rgb), 0.85) !important;
+            border: 1px solid var(--primary) !important;
+            box-shadow: 0 0 16px var(--primary-glow);
+        }
+        .homarr-edit-banner-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .homarr-edit-icon { font-size: 1.35rem; }
+        .homarr-edit-banner-content strong {
+            color: var(--text);
+            font-size: 0.92rem;
+        }
+        .homarr-edit-banner-content p {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            margin: 2px 0 0;
+        }
+        .homarr-edit-banner-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .homarr-btn-primary {
+            background: var(--primary);
+            color: #0b0f14;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .homarr-btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-btn-edit.active {
+            background: var(--primary) !important;
+            color: #0b0f14 !important;
+            box-shadow: 0 0 14px var(--primary-glow) !important;
+        }
+        .bookmark-card { position: relative; }
+        .bookmark-delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 60, 60, 0.85);
+            border: none;
+            color: #fff;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+        .bookmark-delete-btn:hover { transform: scale(1.15); }
+        .status-badge.bookmark {
+            color: var(--primary);
+            background: rgba(255,255,255,0.06);
+            border: 1px solid var(--glass-border);
+        }
+
+        /* ─── Modal Dialog ─── */
+        .homarr-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .homarr-modal {
+            width: 100%;
+            max-width: 420px;
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            border: 1px solid var(--primary);
+        }
+        .homarr-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .homarr-modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+        .homarr-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+        .homarr-modal .form-group { margin-bottom: 12px; }
+        .homarr-modal label {
+            display: block;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+        .homarr-modal input, .homarr-modal select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 9px 12px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.88rem;
+            outline: none;
+            box-sizing: border-box;
+        }
+        .homarr-modal input:focus, .homarr-modal select:focus {
+            border-color: var(--primary);
+        }
+        .homarr-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 18px;
+        }
     </style>
 </head>
 <body>
@@ -1213,6 +1644,9 @@
                         <span id="nav-user-name" style="display:none;">Owner</span>
                         <span id="nav-user-role" style="display:none;">👑 Owner</span>
                     </div>
+                    <button class="nav-btn nav-btn-edit" id="btn-edit-mode" onclick="toggleEditMode()" title="Customize Dashboard (Homarr Edit Mode)" aria-label="Edit Mode">
+                        <span class="nav-btn-icon">✏️</span>
+                    </button>
                     <a href="/settings" class="nav-btn nav-btn-settings" title="Settings" aria-label="Settings">
                         <span class="nav-btn-icon">⚙️</span>
                     </a>
@@ -1260,6 +1694,15 @@
                     <div class="progress-fill" id="disk-bar" style="width: 0%"></div>
                 </div>
             </div>
+
+            <!-- Network Speed -->
+            <div class="stat-card glass" id="stat-net">
+                <div class="stat-label">Network Speed</div>
+                <div class="stat-value" id="net-text">...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="net-bar" style="width: 0%"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Tor Exit Banner -->
@@ -1275,9 +1718,208 @@
             </button>
         </div>
 
-        <!-- Services Grid -->
-        <h2 class="section-title">Server Applications</h2>
-        <div class="grid" id="services-container"></div>
+        <!-- Homarr Edit Mode Banner -->
+        <div class="homarr-edit-banner glass" id="homarr-edit-banner" style="display:none;">
+            <div class="homarr-edit-banner-content">
+                <span class="homarr-edit-icon">🎨</span>
+                <div>
+                    <strong>Homarr Dashboard Customization Mode</strong>
+                    <p>Add custom bookmarks to your boards or click Done to save.</p>
+                </div>
+            </div>
+            <div class="homarr-edit-banner-actions">
+                <button class="homarr-btn-secondary" onclick="openAddBookmarkModal()">+ Add Bookmark</button>
+                <button class="homarr-btn-primary" onclick="toggleEditMode()">Done</button>
+            </div>
+        </div>
+
+        <!-- Homarr Universal Search & Quick Filter Bar -->
+        <div class="homarr-search-card glass" id="homarr-search-card">
+            <div class="homarr-search-input-wrap">
+                <span class="homarr-search-icon">🔍</span>
+                <input type="text" id="homarr-search-input" placeholder="Search apps, bookmarks, or web... (Press / or Ctrl+K)" autocomplete="off" spellcheck="false" oninput="handleSearchInput(event)">
+                <div class="homarr-search-actions">
+                    <span class="homarr-search-kbd" id="homarr-search-kbd">/</span>
+                    <button class="homarr-clear-btn" id="homarr-clear-btn" onclick="clearSearch()" style="display:none;" title="Clear search">✕</button>
+                </div>
+            </div>
+            <div class="homarr-filter-pills" id="homarr-filter-pills">
+                <button class="filter-pill active" data-filter="all" onclick="setCategoryFilter('all')">All (<span id="count-all">0</span>)</button>
+                <button class="filter-pill" data-filter="media" onclick="setCategoryFilter('media')">🎬 Media (<span id="count-media">0</span>)</button>
+                <button class="filter-pill" data-filter="automation" onclick="setCategoryFilter('automation')">⚡ Automation (<span id="count-automation">0</span>)</button>
+                <button class="filter-pill" data-filter="storage" onclick="setCategoryFilter('storage')">📂 Storage (<span id="count-storage">0</span>)</button>
+                <button class="filter-pill" data-filter="network" onclick="setCategoryFilter('network')">🌐 Network (<span id="count-network">0</span>)</button>
+                <button class="filter-pill" data-filter="bookmarks" onclick="setCategoryFilter('bookmarks')">⭐ Bookmarks (<span id="count-bookmarks">0</span>)</button>
+            </div>
+        </div>
+
+        <!-- Homarr Live Widgets Row -->
+        <div class="homarr-widgets-row" id="homarr-widgets-row">
+            <!-- qBittorrent Widget -->
+            <div class="homarr-widget-card glass" id="widget-qbittorrent" style="display:none;">
+                <div class="homarr-widget-header">
+                    <div class="homarr-widget-title">
+                        <span class="widget-icon">🧲</span>
+                        <h3>qBittorrent Active Transfers</h3>
+                    </div>
+                    <a href="/qbittorrent/" target="_blank" class="widget-link">Open WebUI ↗</a>
+                </div>
+                <div class="qbit-body">
+                    <div class="qbit-metric">
+                        <span class="qbit-label">Download Speed</span>
+                        <span class="qbit-val" id="qbit-dl-spd">0 B/s</span>
+                    </div>
+                    <div class="qbit-metric">
+                        <span class="qbit-label">Upload Speed</span>
+                        <span class="qbit-val" id="qbit-up-spd">0 B/s</span>
+                    </div>
+                    <div class="qbit-metric">
+                        <span class="qbit-label">Active Transfers</span>
+                        <span class="qbit-val" id="qbit-active-transfers">0 / 0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Suwayomi Manga Shelf Widget -->
+            <div class="homarr-widget-card glass" id="widget-manga-shelf" style="display:none;">
+                <div class="homarr-widget-header">
+                    <div class="homarr-widget-title">
+                        <span class="widget-icon">📚</span>
+                        <h3>Suwayomi Library Shelf</h3>
+                    </div>
+                    <a href="/manga" target="_blank" class="widget-link">Library ↗</a>
+                </div>
+                <div class="homarr-shelf-scroll" id="manga-shelf-scroll">
+                </div>
+            </div>
+        </div>
+
+        <!-- Homarr Categorized Boards -->
+        <div id="homarr-boards">
+            <!-- Media Section -->
+            <section class="homarr-board-section" id="section-media" data-category="media">
+                <div class="homarr-board-header">
+                    <div class="homarr-board-title">
+                        <span class="board-icon">🎬</span>
+                        <h2>Media & Streaming</h2>
+                        <span class="board-badge" id="badge-media">0 Online</span>
+                    </div>
+                    <div class="board-actions">
+                        <button class="board-add-btn" onclick="openAddBookmarkModal('media')" title="Add bookmark to Media">+ Bookmark</button>
+                        <button class="board-toggle-btn" onclick="toggleBoard('media')" aria-label="Toggle Section">▾</button>
+                    </div>
+                </div>
+                <div class="grid homarr-grid" id="grid-media"></div>
+            </section>
+
+            <!-- Automation Section -->
+            <section class="homarr-board-section" id="section-automation" data-category="automation">
+                <div class="homarr-board-header">
+                    <div class="homarr-board-title">
+                        <span class="board-icon">⚡</span>
+                        <h2>Automation & Downloads</h2>
+                        <span class="board-badge" id="badge-automation">0 Online</span>
+                    </div>
+                    <div class="board-actions">
+                        <button class="board-add-btn" onclick="openAddBookmarkModal('automation')" title="Add bookmark to Automation">+ Bookmark</button>
+                        <button class="board-toggle-btn" onclick="toggleBoard('automation')" aria-label="Toggle Section">▾</button>
+                    </div>
+                </div>
+                <div class="grid homarr-grid" id="grid-automation"></div>
+            </section>
+
+            <!-- Storage Section -->
+            <section class="homarr-board-section" id="section-storage" data-category="storage">
+                <div class="homarr-board-header">
+                    <div class="homarr-board-title">
+                        <span class="board-icon">📂</span>
+                        <h2>Cloud & Storage Sync</h2>
+                        <span class="board-badge" id="badge-storage">0 Online</span>
+                    </div>
+                    <div class="board-actions">
+                        <button class="board-add-btn" onclick="openAddBookmarkModal('storage')" title="Add bookmark to Storage">+ Bookmark</button>
+                        <button class="board-toggle-btn" onclick="toggleBoard('storage')" aria-label="Toggle Section">▾</button>
+                    </div>
+                </div>
+                <div class="grid homarr-grid" id="grid-storage"></div>
+            </section>
+
+            <!-- Network Section -->
+            <section class="homarr-board-section" id="section-network" data-category="network">
+                <div class="homarr-board-header">
+                    <div class="homarr-board-title">
+                        <span class="board-icon">🌐</span>
+                        <h2>Network & Remote Access</h2>
+                        <span class="board-badge" id="badge-network">0 Online</span>
+                    </div>
+                    <div class="board-actions">
+                        <button class="board-add-btn" onclick="openAddBookmarkModal('network')" title="Add bookmark to Network">+ Bookmark</button>
+                        <button class="board-toggle-btn" onclick="toggleBoard('network')" aria-label="Toggle Section">▾</button>
+                    </div>
+                </div>
+                <div class="grid homarr-grid" id="grid-network"></div>
+            </section>
+
+            <!-- Custom Bookmarks Section -->
+            <section class="homarr-board-section" id="section-bookmarks" data-category="bookmarks" style="display:none;">
+                <div class="homarr-board-header">
+                    <div class="homarr-board-title">
+                        <span class="board-icon">⭐</span>
+                        <h2>Custom Bookmarks</h2>
+                        <span class="board-badge" id="badge-bookmarks">0 Links</span>
+                    </div>
+                    <div class="board-actions">
+                        <button class="board-add-btn" onclick="openAddBookmarkModal('bookmarks')">+ Bookmark</button>
+                        <button class="board-toggle-btn" onclick="toggleBoard('bookmarks')" aria-label="Toggle Section">▾</button>
+                    </div>
+                </div>
+                <div class="grid homarr-grid" id="grid-bookmarks"></div>
+            </section>
+        </div>
+
+        <div class="grid" id="services-container" style="display:none;"></div>
+    </div>
+
+    <!-- Homarr Add Bookmark Modal -->
+    <div class="homarr-modal-backdrop" id="bookmark-modal" style="display:none;" onclick="if(event.target === this) closeBookmarkModal()">
+        <div class="homarr-modal glass">
+            <div class="homarr-modal-header">
+                <h3 id="modal-title">Add Custom Bookmark</h3>
+                <button class="homarr-modal-close" onclick="closeBookmarkModal()">✕</button>
+            </div>
+            <form id="bookmark-form" onsubmit="saveBookmark(event)">
+                <div class="form-group">
+                    <label for="bm-name">Title / Service Name</label>
+                    <input type="text" id="bm-name" placeholder="e.g. Proxmox, Router, GitHub, Home Assistant" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="bm-url">URL / Destination</label>
+                    <input type="url" id="bm-url" placeholder="https://..." required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="bm-category">Board Category</label>
+                    <select id="bm-category">
+                        <option value="bookmarks">⭐ Custom Bookmarks</option>
+                        <option value="media">🎬 Media & Streaming</option>
+                        <option value="automation">⚡ Automation & Downloads</option>
+                        <option value="storage">📂 Cloud & Storage Sync</option>
+                        <option value="network">🌐 Network & Remote Access</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bm-icon">Icon / Emoji</label>
+                    <input type="text" id="bm-icon" placeholder="e.g. 🖥️, 📡, 💾, 🔗" value="🔗" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="bm-desc">Description (Optional)</label>
+                    <input type="text" id="bm-desc" placeholder="External service or homelab tool" autocomplete="off">
+                </div>
+                <div class="homarr-modal-actions">
+                    <button type="button" class="homarr-btn-secondary" onclick="closeBookmarkModal()">Cancel</button>
+                    <button type="submit" class="homarr-btn-primary">Save Bookmark</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
@@ -1394,6 +2036,22 @@
                     }
                 }
             }
+
+            // Network Speed
+            if (current.net_text) {
+                if (current._lastRenderedNetTxt !== current.net_text) {
+                    const netEl = document.getElementById('net-text');
+                    if (netEl) netEl.textContent = current.net_text;
+                    current._lastRenderedNetTxt = current.net_text;
+                }
+                const netBar = document.getElementById('net-bar');
+                if (netBar) {
+                    const netPercentStr = `${current.net_percent || 0}%`;
+                    if (netBar.style.width !== netPercentStr) {
+                        netBar.style.width = netPercentStr;
+                    }
+                }
+            }
         }
 
         async function fetchSystemStats(manual = false) {
@@ -1443,75 +2101,426 @@
             } catch (err) {}
         }
 
-        function renderServices(services) {
-            container.innerHTML = '';
-            if (!services || services.length === 0) {
-                container.innerHTML = `
-                    <div class="card glass" style="grid-column: 1 / -1; padding: 2.5rem 1.5rem; text-align: center; border-radius: 16px;">
-                        <div style="font-size: 2.5rem; margin-bottom: 10px;">🔒</div>
-                        <h2 style="font-size: 1.15rem; margin-bottom: 6px;">No Sites Assigned</h2>
-                        <p style="color: var(--text-muted); font-size: 0.85rem; max-width: 420px; margin: 0 auto; line-height: 1.5;">You currently do not have access to any sites on this server. Contact the server owner to grant you access.</p>
-                    </div>
-                `;
-                return;
+        let LATEST_SERVICES = [];
+        let IS_EDIT_MODE = false;
+        let CURRENT_SEARCH_QUERY = '';
+        let CURRENT_CATEGORY_FILTER = 'all';
+        let COLLAPSED_BOARDS = {};
+        try {
+            COLLAPSED_BOARDS = JSON.parse(localStorage.getItem('tinarchy_homarr_collapsed') || '{}');
+        } catch (e) {
+            COLLAPSED_BOARDS = {};
+        }
+
+        function getCustomBookmarks() {
+            try {
+                return JSON.parse(localStorage.getItem('tinarchy_homarr_bookmarks') || '[]');
+            } catch (e) {
+                return [];
             }
-            services.forEach(s => {
-                const isOnline = s.status === 'online';
-                const isSuwayomi = s.id === 'suwayomi';
-                const isTorEnabled = isSuwayomi ? s.torProxyEnabled : false;
+        }
 
-                const card = document.createElement('div');
-                card.className = 'card glass';
+        function saveCustomBookmarks(bookmarks) {
+            localStorage.setItem('tinarchy_homarr_bookmarks', JSON.stringify(bookmarks));
+        }
 
-                let torButtonHTML = '';
-                if (isSuwayomi && isOnline) {
-                    torButtonHTML = `
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted)">Tor Proxy</span>
-                            <button
-                                class="toggle-switch ${isTorEnabled ? 'on' : ''}"
-                                aria-label="Toggle Tor Proxy"
-                                onclick="toggleTorProxy(${!isTorEnabled}, this)"
-                            ></button>
-                        </div>
-                    `;
+        function openAddBookmarkModal(defaultCategory = 'bookmarks') {
+            const select = document.getElementById('bm-category');
+            if (select) select.value = defaultCategory;
+            const nameEl = document.getElementById('bm-name');
+            const urlEl = document.getElementById('bm-url');
+            const iconEl = document.getElementById('bm-icon');
+            const descEl = document.getElementById('bm-desc');
+            if (nameEl) nameEl.value = '';
+            if (urlEl) urlEl.value = '';
+            if (iconEl) iconEl.value = '🔗';
+            if (descEl) descEl.value = '';
+            const modal = document.getElementById('bookmark-modal');
+            if (modal) modal.style.display = 'flex';
+            setTimeout(() => { if (nameEl) nameEl.focus(); }, 50);
+        }
+
+        function closeBookmarkModal() {
+            const modal = document.getElementById('bookmark-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function saveBookmark(e) {
+            if (e) e.preventDefault();
+            const name = (document.getElementById('bm-name').value || '').trim();
+            const url = (document.getElementById('bm-url').value || '').trim();
+            const category = document.getElementById('bm-category').value || 'bookmarks';
+            const icon = (document.getElementById('bm-icon').value || '').trim() || '🔗';
+            const desc = (document.getElementById('bm-desc').value || '').trim();
+
+            if (!name || !url) return;
+
+            const bookmarks = getCustomBookmarks();
+            bookmarks.push({
+                id: 'bm_' + Date.now(),
+                name,
+                url,
+                category,
+                icon,
+                description: desc || 'Custom Bookmark'
+            });
+            saveCustomBookmarks(bookmarks);
+            closeBookmarkModal();
+            showToast(`Added "${name}" to dashboard`, 'success');
+            renderHomarrBoards(LATEST_SERVICES);
+        }
+
+        function deleteBookmark(id) {
+            const bookmarks = getCustomBookmarks().filter(b => b.id !== id);
+            saveCustomBookmarks(bookmarks);
+            showToast('Bookmark removed', 'default');
+            renderHomarrBoards(LATEST_SERVICES);
+        }
+
+        function toggleEditMode() {
+            IS_EDIT_MODE = !IS_EDIT_MODE;
+            const btn = document.getElementById('btn-edit-mode');
+            const banner = document.getElementById('homarr-edit-banner');
+            if (btn) btn.classList.toggle('active', IS_EDIT_MODE);
+            if (banner) banner.style.display = IS_EDIT_MODE ? 'flex' : 'none';
+
+            document.querySelectorAll('.bookmark-delete-btn').forEach(b => {
+                b.style.display = IS_EDIT_MODE ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.board-add-btn').forEach(b => {
+                b.style.display = IS_EDIT_MODE ? 'inline-block' : 'none';
+            });
+
+            const bmSec = document.getElementById('section-bookmarks');
+            if (bmSec) {
+                const bookmarks = getCustomBookmarks().filter(b => (b.category || 'bookmarks') === 'bookmarks');
+                if (bookmarks.length === 0) {
+                    bmSec.style.display = IS_EDIT_MODE ? 'block' : 'none';
+                }
+            }
+        }
+
+        function toggleBoard(catId) {
+            const sec = document.getElementById(`section-${catId}`);
+            if (!sec) return;
+            const grid = sec.querySelector('.homarr-grid');
+            const btn = sec.querySelector('.board-toggle-btn');
+            if (!grid) return;
+            const isCurrentlyCollapsed = grid.style.display === 'none';
+            if (isCurrentlyCollapsed) {
+                grid.style.display = '';
+                if (btn) btn.classList.remove('collapsed');
+                COLLAPSED_BOARDS[catId] = false;
+            } else {
+                grid.style.display = 'none';
+                if (btn) btn.classList.add('collapsed');
+                COLLAPSED_BOARDS[catId] = true;
+            }
+            localStorage.setItem('tinarchy_homarr_collapsed', JSON.stringify(COLLAPSED_BOARDS));
+        }
+
+        function handleSearchInput(e) {
+            CURRENT_SEARCH_QUERY = (e.target.value || '').trim().toLowerCase();
+            const clearBtn = document.getElementById('homarr-clear-btn');
+            if (clearBtn) clearBtn.style.display = CURRENT_SEARCH_QUERY ? 'block' : 'none';
+            filterHomarrBoards();
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('homarr-search-input');
+            if (input) input.value = '';
+            CURRENT_SEARCH_QUERY = '';
+            const clearBtn = document.getElementById('homarr-clear-btn');
+            if (clearBtn) clearBtn.style.display = 'none';
+            filterHomarrBoards();
+            if (input) input.focus();
+        }
+
+        function setCategoryFilter(catId) {
+            CURRENT_CATEGORY_FILTER = catId;
+            document.querySelectorAll('.filter-pill').forEach(pill => {
+                pill.classList.toggle('active', pill.getAttribute('data-filter') === catId);
+            });
+            filterHomarrBoards();
+        }
+
+        function filterHomarrBoards() {
+            const categories = ['media', 'automation', 'storage', 'network', 'bookmarks'];
+            categories.forEach(catId => {
+                const sec = document.getElementById(`section-${catId}`);
+                if (!sec) return;
+
+                const categoryMatches = (CURRENT_CATEGORY_FILTER === 'all' || CURRENT_CATEGORY_FILTER === catId);
+                if (!categoryMatches) {
+                    sec.style.display = 'none';
+                    return;
                 }
 
-                const serviceLink = s.link || `/${s.id}`;
-                const launchUrl = serviceLink;
-                const titleHTML = isOnline
-                    ? `<a href="${launchUrl}" target="_blank" class="service-link"><h2>${s.name} ↗</h2></a>`
-                    : `<h2>${s.name}</h2>`;
+                const grid = sec.querySelector('.homarr-grid');
+                if (!grid) return;
+                const cards = grid.querySelectorAll('.card');
+                let visibleCards = 0;
 
-                card.innerHTML = `
-                    <div class="card-header">
-                        <div class="service-icon">${s.icon || '⚙️'}</div>
-                        <div class="status-badge ${s.status}">${s.status}</div>
-                    </div>
-                    <div class="service-details">
-                        ${titleHTML}
-                        <p>${s.description}</p>
-                        <div class="systemd-name">${s.systemd_name || (s.systemd + '.service')}</div>
-                    </div>
-                    <div class="card-footer">
-                        <a href="${launchUrl}" target="_blank" class="port" title="Open ${serviceLink}">${s.link_text || serviceLink}</a>
-                        <div class="actions">
-                            ${torButtonHTML}
-                            ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: ${isOnline ? 'var(--online)' : 'var(--offline)'}">${isOnline ? 'On' : 'Off'}</span>
-                                <button
-                                    class="toggle-switch ${isOnline ? 'on' : ''}"
-                                    aria-label="Toggle ${s.name}"
-                                    onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
-                                ></button>
-                            </div>
-                            `}
-                        </div>
+                cards.forEach(card => {
+                    const name = card.getAttribute('data-name') || '';
+                    const desc = card.getAttribute('data-desc') || '';
+                    const matchesSearch = !CURRENT_SEARCH_QUERY || name.includes(CURRENT_SEARCH_QUERY) || desc.includes(CURRENT_SEARCH_QUERY);
+                    if (matchesSearch) {
+                        card.style.display = '';
+                        visibleCards++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                if (CURRENT_SEARCH_QUERY && visibleCards === 0) {
+                    sec.style.display = 'none';
+                } else {
+                    if (catId === 'bookmarks' && visibleCards === 0 && !IS_EDIT_MODE) {
+                        sec.style.display = 'none';
+                    } else {
+                        sec.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        function formatSpeed(bytes) {
+            if (!bytes || bytes <= 0) return '0 B/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        async function fetchHomarrWidgets() {
+            if (document.hidden) return;
+            try {
+                // qBittorrent Widget
+                fetch('/api/widgets/qbittorrent').then(r => r.json()).then(data => {
+                    const card = document.getElementById('widget-qbittorrent');
+                    if (!card) return;
+                    if (data.online) {
+                        card.style.display = 'flex';
+                        const dlEl = document.getElementById('qbit-dl-spd');
+                        const upEl = document.getElementById('qbit-up-spd');
+                        const tfEl = document.getElementById('qbit-active-transfers');
+                        if (dlEl) dlEl.textContent = formatSpeed(data.dl_speed);
+                        if (upEl) upEl.textContent = formatSpeed(data.up_speed);
+                        if (tfEl) tfEl.textContent = `${data.active_torrents} active / ${data.total_torrents} total`;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }).catch(() => {});
+
+                // Suwayomi Manga Shelf Widget
+                fetch('/api/widgets/manga').then(r => r.json()).then(data => {
+                    const card = document.getElementById('widget-manga-shelf');
+                    const scrollContainer = document.getElementById('manga-shelf-scroll');
+                    if (!card || !scrollContainer) return;
+                    if (data.online && data.mangas && data.mangas.length > 0) {
+                        card.style.display = 'flex';
+                        scrollContainer.innerHTML = data.mangas.map(m => `
+                            <a href="${m.link}" target="_blank" class="shelf-item" title="${(m.title || '').replace(/"/g, '&quot;')}">
+                                <img class="shelf-thumb" src="${m.cover}" alt="${(m.title || '').replace(/"/g, '&quot;')}" loading="lazy" onerror="this.src='/favicon.ico'">
+                                <span class="shelf-title">${m.title || ''}</span>
+                            </a>
+                        `).join('');
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        function createServiceCard(s) {
+            const isOnline = s.status === 'online';
+            const isSuwayomi = s.id === 'suwayomi';
+            const isTorEnabled = isSuwayomi ? s.torProxyEnabled : false;
+
+            const card = document.createElement('div');
+            card.className = 'card glass';
+            card.setAttribute('data-name', (s.name || '').toLowerCase());
+            card.setAttribute('data-desc', (s.description || '').toLowerCase());
+
+            let torButtonHTML = '';
+            if (isSuwayomi && isOnline) {
+                torButtonHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--text-muted)">Tor Proxy</span>
+                        <button
+                            class="toggle-switch ${isTorEnabled ? 'on' : ''}"
+                            aria-label="Toggle Tor Proxy"
+                            onclick="toggleTorProxy(${!isTorEnabled}, this)"
+                        ></button>
                     </div>
                 `;
-                container.appendChild(card);
+            }
+
+            const serviceLink = s.link || `/${s.id}`;
+            const launchUrl = serviceLink;
+            const titleHTML = isOnline
+                ? `<a href="${launchUrl}" target="_blank" class="service-link"><h2>${s.name} ↗</h2></a>`
+                : `<h2>${s.name}</h2>`;
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="service-icon">${s.icon || '⚙️'}</div>
+                    <div class="status-badge ${s.status}">${s.status}</div>
+                </div>
+                <div class="service-details">
+                    ${titleHTML}
+                    <p>${s.description}</p>
+                    <div class="systemd-name">${s.systemd_name || (s.systemd + '.service')}</div>
+                </div>
+                <div class="card-footer">
+                    <a href="${launchUrl}" target="_blank" class="port" title="Open ${serviceLink}">${s.link_text || serviceLink}</a>
+                    <div class="actions">
+                        ${torButtonHTML}
+                        ${CURRENT_USER.role === 'viewer' ? '<span style="font-size:0.72rem; color:var(--text-muted); font-weight:600; background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px;">Viewer (Read-Only)</span>' : `
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: ${isOnline ? 'var(--online)' : 'var(--offline)'}">${isOnline ? 'On' : 'Off'}</span>
+                            <button
+                                class="toggle-switch ${isOnline ? 'on' : ''}"
+                                aria-label="Toggle ${s.name}"
+                                onclick="toggleService('${s.id}', '${isOnline ? 'stop' : 'start'}', this, '${s.name}')"
+                            ></button>
+                        </div>
+                        `}
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function createBookmarkCard(b) {
+            const card = document.createElement('div');
+            card.className = 'card glass bookmark-card';
+            card.setAttribute('data-name', (b.name || '').toLowerCase());
+            card.setAttribute('data-desc', (b.description || '').toLowerCase());
+
+            let hostname = b.url;
+            try {
+                hostname = new URL(b.url).hostname || b.url;
+            } catch(e) {}
+
+            card.innerHTML = `
+                <button class="bookmark-delete-btn" onclick="deleteBookmark('${b.id}')" title="Delete Bookmark" style="${IS_EDIT_MODE ? 'display:flex;' : 'display:none;'}">✕</button>
+                <div class="card-header">
+                    <div class="service-icon">${b.icon || '🔗'}</div>
+                    <div class="status-badge bookmark">Bookmark</div>
+                </div>
+                <div class="service-details">
+                    <a href="${b.url}" target="_blank" class="service-link"><h2>${b.name} ↗</h2></a>
+                    <p>${b.description || 'External service link'}</p>
+                    <div class="systemd-name">${hostname}</div>
+                </div>
+                <div class="card-footer">
+                    <a href="${b.url}" target="_blank" class="port" title="Open ${b.url}">${hostname}</a>
+                    <div class="actions">
+                        <a href="${b.url}" target="_blank" class="homarr-btn-secondary" style="font-size:0.72rem; padding:4px 10px; text-decoration:none;">Launch ↗</a>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function renderHomarrBoards(services) {
+            LATEST_SERVICES = services || [];
+            const bookmarks = getCustomBookmarks();
+
+            const grids = {
+                media: document.getElementById('grid-media'),
+                automation: document.getElementById('grid-automation'),
+                storage: document.getElementById('grid-storage'),
+                network: document.getElementById('grid-network'),
+                bookmarks: document.getElementById('grid-bookmarks')
+            };
+            Object.values(grids).forEach(g => { if(g) g.innerHTML = ''; });
+
+            if (container) container.innerHTML = '';
+
+            const counts = {
+                all: 0,
+                media: { total: 0, online: 0 },
+                automation: { total: 0, online: 0 },
+                storage: { total: 0, online: 0 },
+                network: { total: 0, online: 0 },
+                bookmarks: 0
+            };
+
+            // Populate services
+            LATEST_SERVICES.forEach(s => {
+                counts.all++;
+                const cat = s.category || 'media';
+                if (counts[cat]) {
+                    counts[cat].total++;
+                    if (s.status === 'online') counts[cat].online++;
+                }
+                const card = createServiceCard(s);
+                if (grids[cat]) grids[cat].appendChild(card);
+                if (container) container.appendChild(card.cloneNode(true));
             });
+
+            // Populate custom bookmarks
+            bookmarks.forEach(b => {
+                counts.all++;
+                const cat = b.category || 'bookmarks';
+                if (counts[cat]) {
+                    if (cat === 'bookmarks') counts.bookmarks++;
+                    else counts[cat].total++;
+                }
+                const card = createBookmarkCard(b);
+                if (grids[cat]) grids[cat].appendChild(card);
+                else if (grids.bookmarks) grids.bookmarks.appendChild(card);
+            });
+
+            // Update badge counts
+            ['media', 'automation', 'storage', 'network'].forEach(cat => {
+                const badge = document.getElementById(`badge-${cat}`);
+                if (badge) badge.textContent = `${counts[cat].online}/${counts[cat].total} Online`;
+                const countEl = document.getElementById(`count-${cat}`);
+                if (countEl) countEl.textContent = counts[cat].total;
+            });
+
+            const bmBadge = document.getElementById('badge-bookmarks');
+            if (bmBadge) bmBadge.textContent = `${counts.bookmarks} Links`;
+            const bmCountEl = document.getElementById('count-bookmarks');
+            if (bmCountEl) bmCountEl.textContent = counts.bookmarks;
+            const countAllEl = document.getElementById('count-all');
+            if (countAllEl) countAllEl.textContent = counts.all;
+
+            // Handle custom bookmarks section visibility
+            const bmSec = document.getElementById('section-bookmarks');
+            if (bmSec) {
+                bmSec.style.display = (counts.bookmarks > 0 || IS_EDIT_MODE) ? 'block' : 'none';
+            }
+
+            // Restore collapsed state
+            Object.keys(grids).forEach(catId => {
+                const sec = document.getElementById(`section-${catId}`);
+                if (!sec) return;
+                const grid = grids[catId];
+                const btn = sec.querySelector('.board-toggle-btn');
+                if (COLLAPSED_BOARDS[catId]) {
+                    if (grid) grid.style.display = 'none';
+                    if (btn) btn.classList.add('collapsed');
+                } else {
+                    if (grid) grid.style.display = '';
+                    if (btn) btn.classList.remove('collapsed');
+                }
+            });
+
+            // Update edit mode styling for buttons
+            document.querySelectorAll('.board-add-btn').forEach(b => {
+                b.style.display = IS_EDIT_MODE ? 'inline-block' : 'none';
+            });
+
+            filterHomarrBoards();
+        }
+
+        function renderServices(services) {
+            renderHomarrBoards(services);
         }
 
         async function toggleService(id, action, btnElement, serviceName) {
@@ -1717,12 +2726,40 @@
 
         // Global shortcuts
         window.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'Escape') {
+                closeBookmarkModal();
+                clearSearch();
+                const searchInput = document.getElementById('homarr-search-input');
+                if (searchInput) searchInput.blur();
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                const searchInput = document.getElementById('homarr-search-input');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                return;
+            }
+            if (e.key === '/' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                const searchInput = document.getElementById('homarr-search-input');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                return;
+            }
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (e.key === 'r' || e.key === 'R') {
                 fetchSystemStats(true);
                 fetchServices();
+                fetchHomarrWidgets();
             } else if (e.key === 's' || e.key === 'S') {
                 window.location.href = '/settings';
+            } else if (e.key === 'e' || e.key === 'E') {
+                toggleEditMode();
             }
         });
 
@@ -1730,6 +2767,7 @@
             await fetchCurrentUser();
             fetchSystemStats();
             fetchServices();
+            fetchHomarrWidgets();
             if (!CURRENT_USER || CURRENT_USER.role !== 'guest') {
                 fetchTorExitStatus();
             }
@@ -1740,12 +2778,19 @@
                     fetchSystemStats();
                 }
             }, 5000);
+            // Live Homarr Widgets polling
+            setInterval(() => {
+                if (!document.hidden) {
+                    fetchHomarrWidgets();
+                }
+            }, 4000);
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
                     if (sseSource && sseSource.readyState === EventSource.CLOSED) {
                         initTelemetryStream();
                     }
                     if (!sseActive) fetchSystemStats();
+                    fetchHomarrWidgets();
                 }
             });
         });

@@ -13,20 +13,30 @@ ENABLE_TOR = os.environ.get('ENABLE_TOR', 'true').strip().lower() in ('true', '1
 ENABLE_TAILSCALE_SSH = os.environ.get('ENABLE_TAILSCALE_SSH', 'true').strip().lower() in ('true', '1', 'yes')
 ENABLE_SYNCTHING = os.environ.get('ENABLE_SYNCTHING', 'true').strip().lower() in ('true', '1', 'yes')
 
+CATEGORIES = [
+    {'id': 'media', 'name': 'Media & Streaming', 'icon': '🎬'},
+    {'id': 'automation', 'name': 'Automation & Downloads', 'icon': '⚡'},
+    {'id': 'storage', 'name': 'Cloud & Storage Sync', 'icon': '📂'},
+    {'id': 'network', 'name': 'Network & Remote Access', 'icon': '🌐'},
+]
+
+def get_categories():
+    return CATEGORIES
+
 SERVICES = []
 if ENABLE_SUWAYOMI:
-    SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader'})
+    SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader', 'category': 'media'})
 if ENABLE_JELLYFIN:
-    SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming'})
+    SERVICES.append({'id': 'jellyfin', 'name': 'Jellyfin Media Server', 'port': int(os.environ.get('JELLYFIN_PORT', 8096)), 'systemd': 'jellyfin', 'icon': '🍿', 'description': 'Movies, TV shows & media streaming', 'category': 'media'})
 if ENABLE_SEERR:
     seerr_port = int(os.environ.get('SEERR_PORT', 5055))
-    SERVICES.append({'id': 'seerr', 'name': 'Seerr Discovery', 'port': seerr_port, 'systemd': 'seerr', 'icon': '🎬', 'description': 'Media discovery & request manager for Jellyfin', 'link': '/seerr', 'link_text': f':{seerr_port}'})
+    SERVICES.append({'id': 'seerr', 'name': 'Seerr Discovery', 'port': seerr_port, 'systemd': 'seerr', 'icon': '🎬', 'description': 'Media discovery & request manager for Jellyfin', 'link': '/seerr', 'link_text': f':{seerr_port}', 'category': 'media'})
 if ENABLE_TOR:
-    SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy'})
+    SERVICES.append({'id': 'tor', 'name': 'Tor Proxy', 'port': int(os.environ.get('TOR_SOCKS_PORT', 9050)), 'systemd': 'tor', 'icon': '🧅', 'description': 'SOCKS5 anonymity proxy', 'category': 'network'})
 if ENABLE_TAILSCALE_SSH:
-    SERVICES.append({'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh'})
+    SERVICES.append({'id': 'tailscale-ssh', 'name': 'Tailscale SSH', 'port': int(os.environ.get('SSH_PORT', 22)), 'systemd': 'tailscaled', 'systemd_name': 'tailscale ssh', 'icon': '🔑', 'description': 'Keyless mesh shell access via Tailscale', 'link': '/ssh', 'link_text': '/ssh', 'category': 'network'})
 if ENABLE_SYNCTHING:
-    SERVICES.append({'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing'})
+    SERVICES.append({'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing', 'category': 'storage'})
 
 # Optional Services (toggleable via .env)
 ENABLE_SYNCYOMI = os.environ.get('ENABLE_SYNCYOMI', 'false').strip().lower() in ('true', '1', 'yes')
@@ -40,7 +50,8 @@ if ENABLE_SYNCYOMI:
         'icon': '📖',
         'description': 'Tachiyomi, Mihon & Suwayomi manga reading progress sync',
         'link': '/syncyomi',
-        'link_text': f':{syncyomi_port}'
+        'link_text': f':{syncyomi_port}',
+        'category': 'media'
     })
 
 ENABLE_FILEBROWSER = os.environ.get('ENABLE_FILEBROWSER', 'false').strip().lower() in ('true', '1', 'yes')
@@ -55,7 +66,8 @@ if ENABLE_FILEBROWSER:
         'icon': '📂',
         'description': 'Modern web-based file manager',
         'link': '/files',
-        'link_text': f':{filebrowser_port}'
+        'link_text': f':{filebrowser_port}',
+        'category': 'storage'
     })
 
 ENABLE_COUCHDB = os.environ.get('ENABLE_COUCHDB', 'false').strip().lower() in ('true', '1', 'yes')
@@ -69,7 +81,8 @@ if ENABLE_COUCHDB:
         'icon': '🔮',
         'description': 'Real-time E2EE sync backend for Obsidian vaults',
         'link': '/obsidian',
-        'link_text': f':{couchdb_port}'
+        'link_text': f':{couchdb_port}',
+        'category': 'storage'
     })
 
 def _is_unit_present(unit_name: str) -> bool:
@@ -102,7 +115,8 @@ if ENABLE_RADARR:
         'icon': '🎬',
         'description': 'Automated movie collection manager & downloader',
         'link': '/radarr',
-        'link_text': f':{radarr_port}'
+        'link_text': f':{radarr_port}',
+        'category': 'automation'
     })
 
 ENABLE_SONARR = _resolve_service_toggle('ENABLE_SONARR', 'auto', 'sonarr.service')
@@ -116,7 +130,8 @@ if ENABLE_SONARR:
         'icon': '📺',
         'description': 'Automated TV series collection manager & downloader',
         'link': '/sonarr',
-        'link_text': f':{sonarr_port}'
+        'link_text': f':{sonarr_port}',
+        'category': 'automation'
     })
 
 ENABLE_PROWLARR = _resolve_service_toggle('ENABLE_PROWLARR', 'auto', 'prowlarr.service')
@@ -130,7 +145,8 @@ if ENABLE_PROWLARR:
         'icon': '🔍',
         'description': 'Torrent tracker & indexer synchronization engine',
         'link': '/prowlarr',
-        'link_text': f':{prowlarr_port}'
+        'link_text': f':{prowlarr_port}',
+        'category': 'automation'
     })
 
 qbit_unit = f'qbittorrent-nox@{PRIMARY_USER}.service'
@@ -145,7 +161,8 @@ if ENABLE_QBITTORRENT:
         'icon': '🧲',
         'description': 'High-performance headless BitTorrent download engine',
         'link': '/qbittorrent/',
-        'link_text': '/qbittorrent'
+        'link_text': '/qbittorrent',
+        'category': 'automation'
     })
 
 ENABLE_BAZARR = _resolve_service_toggle('ENABLE_BAZARR', 'auto', 'bazarr.service')
@@ -159,7 +176,8 @@ if ENABLE_BAZARR:
         'icon': '📝',
         'description': 'Companion subtitle downloader for Radarr and Sonarr',
         'link': '/bazarr/',
-        'link_text': '/bazarr'
+        'link_text': '/bazarr',
+        'category': 'automation'
     })
 
 ENABLE_NAVIDROME = _resolve_service_toggle('ENABLE_NAVIDROME', 'auto', 'navidrome.service')
@@ -173,7 +191,8 @@ if ENABLE_NAVIDROME:
         'icon': '🎵',
         'description': 'Modern personal music streaming server',
         'link': '/navidrome',
-        'link_text': f':{navidrome_port}'
+        'link_text': f':{navidrome_port}',
+        'category': 'media'
     })
 
 

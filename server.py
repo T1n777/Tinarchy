@@ -552,6 +552,67 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             filtered = services.get_services_status(allowed_services)
             self.send_compressed(json.dumps(filtered).encode(), "application/json")
 
+        elif self.path == '/api/categories':
+            self.send_compressed(json.dumps(services.get_categories()).encode(), "application/json")
+
+        elif self.path == '/api/widgets/qbittorrent':
+            import urllib.request
+            qbit_info = {"online": False}
+            try:
+                req = urllib.request.Request("http://127.0.0.1:8084/api/v2/transfer/info")
+                with urllib.request.urlopen(req, timeout=1.5) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode())
+                        qbit_info = {
+                            "online": True,
+                            "dl_speed": data.get("dl_info_speed", 0),
+                            "up_speed": data.get("up_info_speed", 0),
+                            "dht_nodes": data.get("dht_nodes", 0),
+                            "connection_status": data.get("connection_status", "connected"),
+                            "total_torrents": 0,
+                            "active_torrents": 0
+                        }
+                        try:
+                            req_t = urllib.request.Request("http://127.0.0.1:8084/api/v2/torrents/info?filter=all")
+                            with urllib.request.urlopen(req_t, timeout=1.5) as r_t:
+                                if r_t.status == 200:
+                                    t_data = json.loads(r_t.read().decode())
+                                    qbit_info["total_torrents"] = len(t_data)
+                                    qbit_info["active_torrents"] = sum(1 for t in t_data if t.get("state") in ("downloading", "uploading", "stalledDL", "stalledUP"))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            self.send_compressed(json.dumps(qbit_info).encode(), "application/json")
+
+        elif self.path == '/api/widgets/manga':
+            import urllib.request
+            shelf_info = {"online": False, "mangas": []}
+            try:
+                gql_query = json.dumps({
+                    "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 12) { nodes { id title } } }"
+                }).encode('utf-8')
+                req = urllib.request.Request("http://127.0.0.1:4566/api/graphql", data=gql_query, headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode())
+                        nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
+                        shelf_info = {
+                            "online": True,
+                            "mangas": [
+                                {
+                                    "id": m["id"],
+                                    "title": m.get("title", ""),
+                                    "cover": f"/api/suwayomi/thumbnail/{m['id']}",
+                                    "link": "/manga"
+                                }
+                                for m in nodes
+                            ]
+                        }
+            except Exception:
+                pass
+            self.send_compressed(json.dumps(shelf_info).encode(), "application/json")
+
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
