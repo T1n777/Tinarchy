@@ -10,6 +10,7 @@ import subprocess
 import sys
 import json
 import urllib.request
+import ssl
 import os
 
 tests = []
@@ -278,6 +279,20 @@ def test_navidrome_live():
         if r.status != 200:
             raise Exception(f"Navidrome direct backend returned status {r.status}")
 run_test("Navidrome Music Server Live (200 OK)", test_navidrome_live)
+
+# 16. Suwayomi WebP Thumbnail Fast-Path (Static Kernel Sendfile / Dynamic Optimizer)
+def test_suwayomi_thumbnail_fastpath():
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    req = urllib.request.Request("https://127.0.0.1:4567/api/v1/manga/4/thumbnail")
+    with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
+        if r.status != 200:
+            raise Exception(f"Thumbnail fast-path returned HTTP status {r.status}")
+        ctype = r.headers.get("Content-Type", "")
+        if "webp" not in ctype:
+            raise Exception(f"Expected image/webp content-type, got: {ctype}")
+run_test("Suwayomi WebP Thumbnail Fast-Path (200 OK, image/webp)", test_suwayomi_thumbnail_fastpath)
 
 
 passed = sum(1 for _, ok, _ in tests if ok)

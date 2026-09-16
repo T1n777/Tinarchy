@@ -1167,6 +1167,20 @@ if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/baz
     manage_service "bazarr.service" "Bazarr Subtitles Manager" "true"
 fi
 
+if [ -f /usr/lib/systemd/system/navidrome.service ] || [ -f /etc/systemd/system/navidrome.service ]; then
+    mkdir -p /etc/systemd/system/navidrome.service.d /var/lib/navidrome /etc/navidrome
+    if [ ! -f /etc/navidrome/navidrome.toml ] && [ -f "$REPO_ROOT/configs/navidrome/navidrome.toml" ]; then
+        cp "$REPO_ROOT/configs/navidrome/navidrome.toml" /etc/navidrome/navidrome.toml
+    fi
+    if [ -f "$REPO_ROOT/configs/systemd/navidrome-storage-access.conf" ]; then
+        sed -e "s|User=tin|User=${TARGET_USER}|g" \
+            -e "s|Group=tin|Group=${TARGET_USER}|g" \
+            -e "s|/home/tin|${USER_HOME}|g" \
+            "$REPO_ROOT/configs/systemd/navidrome-storage-access.conf" > /etc/systemd/system/navidrome.service.d/override.conf
+    fi
+    manage_service "navidrome.service" "Navidrome Music Server" "true"
+fi
+
 
 if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/systemd/system/qbittorrent-nox@.service" ]; then
     QBIT_DIR="${USER_HOME}/.config/qBittorrent"

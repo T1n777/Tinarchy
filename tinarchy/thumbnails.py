@@ -9,14 +9,19 @@ except ImportError:
     import config
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageFile
+    ImageFile.LOAD_TRUNCATED_IMAGES = True
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
 
 OPTIMIZED_DIR = "/var/lib/suwayomi/cache/optimized_thumbnails"
 RAW_CACHE_DIR = "/var/lib/suwayomi/cache/Tachidesk/thumbnails"
-SUWAYOMI_INTERNAL_URL = "http://127.0.0.1:4567/manga/api/v1/manga/{manga_id}/thumbnail"
+SUWAYOMI_INTERNAL_URLS = [
+    "http://127.0.0.1:4566/api/v1/manga/{manga_id}/thumbnail",
+    "http://127.0.0.1:4567/api/v1/manga/{manga_id}/thumbnail",
+    "http://127.0.0.1:4567/manga/api/v1/manga/{manga_id}/thumbnail",
+]
 
 def optimize_image_data(raw_data: bytes, target_width: int = 340, quality: int = 80) -> tuple[bytes, str]:
     """Downscales raw image bytes to an optimized high-DPI WebP thumbnail."""
@@ -92,20 +97,23 @@ def get_or_generate_thumbnail(manga_id: int, query_string: str = "") -> tuple[by
 
     # If not found on disk, fetch from Suwayomi core
     if not raw_data:
-        try:
-            url = SUWAYOMI_INTERNAL_URL.format(manga_id=manga_id)
-            if query_string:
-                url = f"{url}?{query_string}"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-            }
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                if resp.status == 200:
-                    raw_data = resp.read()
-        except Exception:
-            pass
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        }
+        for tmpl in SUWAYOMI_INTERNAL_URLS:
+            try:
+                url = tmpl.format(manga_id=manga_id)
+                if query_string:
+                    url = f"{url}?{query_string}"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if resp.status == 200:
+                        raw_data = resp.read()
+                        if raw_data:
+                            break
+            except Exception:
+                pass
 
     if not raw_data:
         return b"", "text/plain"
