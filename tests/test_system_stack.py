@@ -56,6 +56,7 @@ SERVICES = [
     "suwayomi-server.service",
     "jellyfin.service",
     "seerr.service",
+    "navidrome.service",
     get_syncthing_unit(),
     "tailscaled.service",
     "nginx.service",
@@ -269,6 +270,14 @@ def test_bazarr_live():
         if r.status != 200:
             raise Exception(f"Nginx /bazarr/ proxy returned status {r.status}")
 run_test("Bazarr Subtitles Manager Live & Nginx Reverse Proxy (200 OK)", test_bazarr_live)
+
+# 15. Navidrome Music Server Live
+def test_navidrome_live():
+    req = urllib.request.Request("http://127.0.0.1:4533/ping")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Navidrome direct backend returned status {r.status}")
+run_test("Navidrome Music Server Live (200 OK)", test_navidrome_live)
 
 
 passed = sum(1 for _, ok, _ in tests if ok)

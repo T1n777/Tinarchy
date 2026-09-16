@@ -162,6 +162,20 @@ if ENABLE_BAZARR:
         'link_text': '/bazarr'
     })
 
+ENABLE_NAVIDROME = _resolve_service_toggle('ENABLE_NAVIDROME', 'auto', 'navidrome.service')
+if ENABLE_NAVIDROME:
+    navidrome_port = int(os.environ.get('NAVIDROME_PORT', 4533))
+    SERVICES.append({
+        'id': 'navidrome',
+        'name': 'Navidrome',
+        'port': navidrome_port,
+        'systemd': 'navidrome',
+        'icon': '🎵',
+        'description': 'Modern personal music streaming server',
+        'link': '/navidrome',
+        'link_text': f':{navidrome_port}'
+    })
+
 
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
@@ -177,7 +191,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome']
 
 def is_tailscale_ssh_active():
     try:
