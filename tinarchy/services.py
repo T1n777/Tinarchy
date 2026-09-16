@@ -195,7 +195,7 @@ def get_all_service_ids():
 
 def is_tailscale_ssh_active():
     try:
-        res = subprocess.run(['tailscale', 'debug', 'prefs'], capture_output=True, text=True, timeout=1)
+        res = subprocess.run(['tailscale', 'debug', 'prefs'], capture_output=True, text=True, timeout=3)
         if res.returncode == 0:
             return '"RunSSH": true' in res.stdout
     except Exception:
@@ -229,13 +229,22 @@ def get_services_status(allowed_services=None):
         if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
             units = [s['systemd'] for s in SERVICES]
             unit_status = {}
+            success = False
             try:
-                res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=2)
+                res = subprocess.run(['systemctl', 'is-active'] + units, capture_output=True, text=True, timeout=5)
                 lines = res.stdout.strip().splitlines()
-                for u, line in zip(units, lines):
-                    unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
+                if lines and len(lines) == len(units):
+                    for u, line in zip(units, lines):
+                        unit_status[u] = 'online' if line.strip() == 'active' else 'offline'
+                    success = True
             except Exception:
                 pass
+
+            if not success and _SERVICES_STATUS_CACHE['data']:
+                cached_data = _SERVICES_STATUS_CACHE['data']
+                if allowed_services is None:
+                    return cached_data
+                return [s for s in cached_data if s['id'] in allowed_services]
 
             tor_proxy_enabled = False
             for sc in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
