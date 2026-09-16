@@ -1254,38 +1254,6 @@
             border-radius: 4px;
         }
         .homarr-clear-btn:hover { color: var(--text); }
-        .homarr-filter-pills {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            scrollbar-width: none;
-            padding-bottom: 2px;
-        }
-        .homarr-filter-pills::-webkit-scrollbar { display: none; }
-        .filter-pill {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--glass-border);
-            color: var(--text-muted);
-            padding: 4px 12px;
-            border-radius: 999px;
-            font-size: 0.76rem;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-        }
-        .filter-pill:hover {
-            background: rgba(255, 255, 255, 0.12);
-            color: var(--text);
-            border-color: var(--primary);
-        }
-        .filter-pill.active {
-            background: var(--primary);
-            color: #0b0f14;
-            border-color: var(--primary);
-            font-weight: 700;
-            box-shadow: 0 2px 8px var(--primary-glow);
-        }
 
         /* ─── Homarr Live Widgets ─── */
         .homarr-widgets-row {
@@ -1405,74 +1373,9 @@
             line-height: 1.25;
         }
 
-        /* ─── Homarr Board Sections ─── */
-        .homarr-board-section {
-            margin-bottom: 18px;
-            transition: all 0.3s ease;
-        }
-        .homarr-board-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .homarr-board-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .homarr-board-title h2 {
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: var(--text);
-            margin: 0;
-            letter-spacing: -0.01em;
-        }
-        .board-icon { font-size: 1.2rem; }
-        .board-badge {
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.08);
-            color: var(--text-muted);
-            border: 1px solid var(--glass-border);
-        }
-        .board-actions {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .board-add-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--glass-border);
-            color: var(--text);
-            padding: 3px 10px;
-            border-radius: 8px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: none;
-        }
-        .board-add-btn:hover {
-            background: var(--primary);
-            color: #0b0f14;
-            border-color: var(--primary);
-        }
-        .board-toggle-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1.1rem;
-            padding: 2px 6px;
-            transition: transform 0.2s;
-        }
-        .board-toggle-btn.collapsed {
-            transform: rotate(-90deg);
+        /* ─── Unified Draggable Grid ─── */
+        .homarr-grid {
+            margin-bottom: 28px;
         }
 
         /* ─── Drag & Drop Sorting Styles (SortableJS) ─── */
@@ -1488,16 +1391,10 @@
         }
         .homarr-sortable-drag {
             opacity: 0.98 !important;
-            transform: scale(1.04) rotate(1.5deg) !important;
+            transform: scale(1.03) rotate(1deg) !important;
             box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7) !important;
             border-color: var(--primary) !important;
             z-index: 99999 !important;
-        }
-        .board-sortable-ghost {
-            opacity: 0.3 !important;
-            border: 2px dashed var(--primary) !important;
-            border-radius: 16px;
-            padding: 12px;
         }
         .card-drag-handle {
             cursor: grab;
@@ -1507,10 +1404,10 @@
             color: var(--text-muted);
             padding: 2px 6px;
             border-radius: 6px;
-            opacity: 0.55;
+            opacity: 0.45;
             transition: all 0.2s;
             user-select: none;
-            display: none;
+            display: inline-block;
         }
         .card-drag-handle:hover {
             opacity: 1;
@@ -1520,24 +1417,6 @@
         .card-drag-handle:active {
             cursor: grabbing;
             cursor: -webkit-grabbing;
-        }
-        .board-drag-handle {
-            cursor: grab;
-            cursor: -webkit-grab;
-            font-size: 1.2rem;
-            line-height: 1;
-            color: var(--text-muted);
-            padding: 2px 6px;
-            border-radius: 6px;
-            opacity: 0.55;
-            margin-right: 2px;
-            display: none;
-            user-select: none;
-        }
-        .board-drag-handle:hover {
-            opacity: 1;
-            color: var(--primary);
-            background: rgba(255, 255, 255, 0.08);
         }
         .widget-drag-handle {
             cursor: grab;
@@ -1555,16 +1434,15 @@
         }
 
         /* ─── Edit Mode & Bookmarks ─── */
-        body.dashboard-edit-mode .card-drag-handle,
-        body.dashboard-edit-mode .board-drag-handle,
+        body.dashboard-edit-mode .card-drag-handle {
+            opacity: 0.9 !important;
+            color: var(--primary);
+        }
         body.dashboard-edit-mode .widget-drag-handle {
             display: inline-block !important;
         }
-        body.dashboard-edit-mode .board-edit-btn,
-        body.dashboard-edit-mode .board-del-btn,
         body.dashboard-edit-mode .bookmark-edit-btn,
-        body.dashboard-edit-mode .bookmark-delete-btn,
-        body.dashboard-edit-mode .board-add-btn {
+        body.dashboard-edit-mode .bookmark-delete-btn {
             display: inline-flex !important;
         }
         body.dashboard-edit-mode .card {
@@ -1620,20 +1498,6 @@
         .bookmark-delete-btn:hover {
             transform: scale(1.15);
         }
-        .board-edit-btn, .board-del-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid var(--glass-border);
-            color: var(--text-muted);
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 0.72rem;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            transition: all 0.2s;
-        }
-        .board-edit-btn:hover { color: var(--text); border-color: var(--primary); }
-        .board-del-btn:hover { color: #ff6b6b; border-color: #ff6b6b; }
 
         .homarr-edit-banner {
             border-radius: 14px;
@@ -1884,20 +1748,19 @@
             <div class="homarr-edit-banner-content">
                 <span class="homarr-edit-icon">🛠️</span>
                 <div>
-                    <strong>Homarr Customization Mode</strong>
-                    <p>Drag items & boards to reorder. Add bookmarks, create sections, or configure widgets.</p>
+                    <strong>Dashboard Edit Mode</strong>
+                    <p>Drag any card to rearrange your dashboard. Add custom bookmarks or configure widgets.</p>
                 </div>
             </div>
             <div class="homarr-edit-banner-actions">
                 <button class="homarr-btn-secondary" onclick="openAddBookmarkModal()">+ Bookmark</button>
-                <button class="homarr-btn-secondary" onclick="openAddSectionModal()">+ Section</button>
                 <button class="homarr-btn-secondary" onclick="openWidgetsModal()">⚙️ Widgets</button>
                 <button class="homarr-btn-secondary" onclick="resetDashboardLayout()" style="color: #ffb4ab;" title="Restore original system layout">↺ Reset</button>
                 <button class="homarr-btn-primary" onclick="toggleEditMode()">✓ Done</button>
             </div>
         </div>
 
-        <!-- Homarr Universal Search & Quick Filter Bar -->
+        <!-- Homarr Universal Search Bar -->
         <div class="homarr-search-card glass" id="homarr-search-card">
             <div class="homarr-search-input-wrap">
                 <span class="homarr-search-icon">🔍</span>
@@ -1906,9 +1769,6 @@
                     <span class="homarr-search-kbd" id="homarr-search-kbd">/</span>
                     <button class="homarr-clear-btn" id="homarr-clear-btn" onclick="clearSearch()" style="display:none;" title="Clear search">✕</button>
                 </div>
-            </div>
-            <div class="homarr-filter-pills" id="homarr-filter-pills">
-                <button class="filter-pill active" data-filter="all" onclick="setCategoryFilter('all')">All (<span id="count-all">0</span>)</button>
             </div>
         </div>
 
@@ -1955,8 +1815,8 @@
             </div>
         </div>
 
-        <!-- Homarr Categorized Dynamic Draggable Boards Container -->
-        <div id="homarr-boards"></div>
+        <!-- Unified Draggable Grid Container -->
+        <div class="grid homarr-grid" id="homarr-grid"></div>
 
         <div class="grid" id="services-container" style="display:none;"></div>
     </div>
@@ -1979,10 +1839,6 @@
                     <input type="url" id="bm-url" placeholder="https://..." required autocomplete="off">
                 </div>
                 <div class="form-group">
-                    <label for="bm-category">Board Category</label>
-                    <select id="bm-category"></select>
-                </div>
-                <div class="form-group">
                     <label for="bm-icon">Icon / Emoji</label>
                     <input type="text" id="bm-icon" placeholder="e.g. 🖥️, 📡, 💾, 🔗" value="🔗" autocomplete="off">
                 </div>
@@ -1993,31 +1849,6 @@
                 <div class="homarr-modal-actions">
                     <button type="button" class="homarr-btn-secondary" onclick="closeBookmarkModal()">Cancel</button>
                     <button type="submit" class="homarr-btn-primary" id="bm-submit-btn">Save Bookmark</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Homarr Add/Edit Section Modal -->
-    <div class="homarr-modal-backdrop" id="section-modal" style="display:none;" onclick="if(event.target === this) closeSectionModal()">
-        <div class="homarr-modal glass">
-            <div class="homarr-modal-header">
-                <h3 id="section-modal-title">Add Board Section</h3>
-                <button class="homarr-modal-close" onclick="closeSectionModal()">✕</button>
-            </div>
-            <form id="section-form" onsubmit="saveSection(event)">
-                <input type="hidden" id="sec-id" value="">
-                <div class="form-group">
-                    <label for="sec-name">Section Title</label>
-                    <input type="text" id="sec-name" placeholder="e.g. Smart Home, Utilities, Gaming" required autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="sec-icon">Section Icon / Emoji</label>
-                    <input type="text" id="sec-icon" placeholder="e.g. 💡, 🎮, 🛡️, 📂" value="📁" required autocomplete="off">
-                </div>
-                <div class="homarr-modal-actions">
-                    <button type="button" class="homarr-btn-secondary" onclick="closeSectionModal()">Cancel</button>
-                    <button type="submit" class="homarr-btn-primary">Save Section</button>
                 </div>
             </form>
         </div>
@@ -2237,25 +2068,18 @@
         let LATEST_SERVICES = [];
         let IS_EDIT_MODE = false;
         let CURRENT_SEARCH_QUERY = '';
-        let CURRENT_CATEGORY_FILTER = 'all';
         let SORTABLE_INSTANCES = [];
         let SAVE_LAYOUT_TIMER = null;
 
         let CURRENT_LAYOUT = {
-            version: 1,
+            version: 2,
             widgets: {
                 stats_bar: { enabled: true },
                 qbittorrent: { enabled: true },
                 manga_shelf: { enabled: true },
                 tor_exit: { enabled: true }
             },
-            sections: [
-                { id: 'media', name: 'Media & Streaming', icon: '🎬', collapsed: false, items: [] },
-                { id: 'automation', name: 'Automation & Downloads', icon: '⚡', collapsed: false, items: [] },
-                { id: 'storage', name: 'Cloud & Storage Sync', icon: '📂', collapsed: false, items: [] },
-                { id: 'network', name: 'Network & Remote Access', icon: '🌐', collapsed: false, items: [] },
-                { id: 'bookmarks', name: 'Custom Bookmarks', icon: '⭐', collapsed: false, items: [] }
-            ],
+            items: [],
             custom_bookmarks: []
         };
 
@@ -2264,11 +2088,18 @@
                 const res = await fetch('/api/dashboard/layout');
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && data.sections) {
-                        CURRENT_LAYOUT = data;
-                        localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(CURRENT_LAYOUT));
-                        applyWidgetVisibility();
-                        return;
+                    if (data) {
+                        if (!data.items && data.sections) {
+                            const flat = [];
+                            data.sections.forEach(sec => flat.push(...(sec.items || [])));
+                            data.items = flat;
+                        }
+                        if (Array.isArray(data.items)) {
+                            CURRENT_LAYOUT = data;
+                            localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(CURRENT_LAYOUT));
+                            applyWidgetVisibility();
+                            return;
+                        }
                     }
                 }
             } catch (e) {}
@@ -2276,7 +2107,13 @@
             try {
                 const cached = localStorage.getItem('tinarchy_dashboard_layout');
                 if (cached) {
-                    CURRENT_LAYOUT = JSON.parse(cached);
+                    const parsed = JSON.parse(cached);
+                    if (!parsed.items && parsed.sections) {
+                        const flat = [];
+                        parsed.sections.forEach(sec => flat.push(...(sec.items || [])));
+                        parsed.items = flat;
+                    }
+                    CURRENT_LAYOUT = parsed;
                 }
             } catch (e) {}
             applyWidgetVisibility();
@@ -2303,22 +2140,11 @@
         }
 
         function syncLayoutFromDOM() {
-            const secEls = document.querySelectorAll('#homarr-boards > .homarr-board-section');
-            const newSections = [];
-            const secMap = {};
-            (CURRENT_LAYOUT.sections || []).forEach(s => { secMap[s.id] = s; });
-
-            secEls.forEach(secEl => {
-                const secId = secEl.getAttribute('data-section-id');
-                const secObj = secMap[secId] || { id: secId, name: secId, icon: '📁', collapsed: false, items: [] };
-                const cards = secEl.querySelectorAll('.homarr-grid > .card');
-                secObj.items = Array.from(cards).map(c => c.getAttribute('data-item-id')).filter(Boolean);
-                newSections.push(secObj);
-            });
-
-            CURRENT_LAYOUT.sections = newSections;
+            const grid = document.getElementById('homarr-grid');
+            if (!grid) return;
+            const cards = grid.querySelectorAll('.card[data-item-id]');
+            CURRENT_LAYOUT.items = Array.from(cards).map(c => c.getAttribute('data-item-id')).filter(Boolean);
             saveCurrentLayout();
-            updateBoardBadges();
         }
 
         function initSortable() {
@@ -2330,34 +2156,20 @@
 
             if (typeof Sortable === 'undefined') return;
 
-            // 1. Sortable Sections / Boards
-            const boardsContainer = document.getElementById('homarr-boards');
-            if (boardsContainer) {
-                SORTABLE_INSTANCES.push(Sortable.create(boardsContainer, {
-                    animation: 200,
-                    handle: '.board-drag-handle',
-                    ghostClass: 'board-sortable-ghost',
-                    onEnd: () => syncLayoutFromDOM()
-                }));
-            }
-
-            // 2. Sortable Live Widgets
+            // 1. Sortable Live Widgets
             const widgetsRow = document.getElementById('homarr-widgets-row');
             if (widgetsRow) {
                 SORTABLE_INSTANCES.push(Sortable.create(widgetsRow, {
                     animation: 180,
                     handle: '.widget-drag-handle',
-                    ghostClass: 'homarr-sortable-ghost',
-                    onEnd: () => {
-                        // Keep widgets order in DOM
-                    }
+                    ghostClass: 'homarr-sortable-ghost'
                 }));
             }
 
-            // 3. Sortable Cards inside and between Boards
-            document.querySelectorAll('#homarr-boards .homarr-grid').forEach(gridEl => {
+            // 2. Sortable Unified Cards Grid
+            const gridEl = document.getElementById('homarr-grid');
+            if (gridEl) {
                 SORTABLE_INSTANCES.push(Sortable.create(gridEl, {
-                    group: 'homarr-cards',
                     animation: 180,
                     handle: '.card-drag-handle',
                     ghostClass: 'homarr-sortable-ghost',
@@ -2365,7 +2177,7 @@
                     dragClass: 'homarr-sortable-drag',
                     onEnd: () => syncLayoutFromDOM()
                 }));
-            });
+            }
         }
 
         function toggleEditMode() {
@@ -2380,31 +2192,14 @@
                 saveCurrentLayout(true);
                 showToast('Layout changes saved', 'success');
             }
-            filterHomarrBoards();
-        }
-
-        function toggleBoard(catId) {
-            const sec = document.querySelector(`.homarr-board-section[data-section-id="${catId}"]`);
-            if (!sec) return;
-            const grid = sec.querySelector('.homarr-grid');
-            const btn = sec.querySelector('.board-toggle-btn');
-            if (!grid) return;
-            const isCurrentlyCollapsed = grid.style.display === 'none';
-            grid.style.display = isCurrentlyCollapsed ? '' : 'none';
-            if (btn) btn.classList.toggle('collapsed', !isCurrentlyCollapsed);
-
-            const secObj = (CURRENT_LAYOUT.sections || []).find(s => s.id === catId);
-            if (secObj) {
-                secObj.collapsed = !isCurrentlyCollapsed;
-                saveCurrentLayout();
-            }
+            filterHomarrGrid();
         }
 
         function handleSearchInput(e) {
             CURRENT_SEARCH_QUERY = (e.target.value || '').trim().toLowerCase();
             const clearBtn = document.getElementById('homarr-clear-btn');
             if (clearBtn) clearBtn.style.display = CURRENT_SEARCH_QUERY ? 'block' : 'none';
-            filterHomarrBoards();
+            filterHomarrGrid();
         }
 
         function clearSearch() {
@@ -2413,54 +2208,19 @@
             CURRENT_SEARCH_QUERY = '';
             const clearBtn = document.getElementById('homarr-clear-btn');
             if (clearBtn) clearBtn.style.display = 'none';
-            filterHomarrBoards();
+            filterHomarrGrid();
             if (input) input.focus();
         }
 
-        function setCategoryFilter(catId) {
-            CURRENT_CATEGORY_FILTER = catId;
-            document.querySelectorAll('.filter-pill').forEach(pill => {
-                pill.classList.toggle('active', pill.getAttribute('data-filter') === catId);
-            });
-            filterHomarrBoards();
-        }
-
-        function filterHomarrBoards() {
-            const secEls = document.querySelectorAll('#homarr-boards > .homarr-board-section');
-            secEls.forEach(sec => {
-                const catId = sec.getAttribute('data-section-id');
-                const matchesCategory = (CURRENT_CATEGORY_FILTER === 'all' || CURRENT_CATEGORY_FILTER === catId);
-                if (!matchesCategory) {
-                    sec.style.display = 'none';
-                    return;
-                }
-
-                const grid = sec.querySelector('.homarr-grid');
-                if (!grid) return;
-                const cards = grid.querySelectorAll('.card');
-                let visibleCards = 0;
-
-                cards.forEach(card => {
-                    const name = card.getAttribute('data-name') || '';
-                    const desc = card.getAttribute('data-desc') || '';
-                    const matchesSearch = !CURRENT_SEARCH_QUERY || name.includes(CURRENT_SEARCH_QUERY) || desc.includes(CURRENT_SEARCH_QUERY);
-                    if (matchesSearch) {
-                        card.style.display = '';
-                        visibleCards++;
-                    } else {
-                        card.style.display = 'none';
-                    }
-                });
-
-                if (CURRENT_SEARCH_QUERY && visibleCards === 0) {
-                    sec.style.display = 'none';
-                } else {
-                    if (visibleCards === 0 && !IS_EDIT_MODE) {
-                        sec.style.display = 'none';
-                    } else {
-                        sec.style.display = 'block';
-                    }
-                }
+        function filterHomarrGrid() {
+            const grid = document.getElementById('homarr-grid');
+            if (!grid) return;
+            const cards = grid.querySelectorAll('.card');
+            cards.forEach(card => {
+                const name = card.getAttribute('data-name') || '';
+                const desc = card.getAttribute('data-desc') || '';
+                const matchesSearch = !CURRENT_SEARCH_QUERY || name.includes(CURRENT_SEARCH_QUERY) || desc.includes(CURRENT_SEARCH_QUERY);
+                card.style.display = matchesSearch ? '' : 'none';
             });
         }
 
@@ -2550,7 +2310,7 @@
             card.innerHTML = `
                 <div class="card-header">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="card-drag-handle" title="Drag to reorder or move to another board">⋮⋮</span>
+                        <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>
                         <div class="service-icon">${s.icon || '⚙️'}</div>
                     </div>
                     <div class="status-badge ${s.status}">${s.status}</div>
@@ -2599,7 +2359,7 @@
                 </div>
                 <div class="card-header">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="card-drag-handle" title="Drag to reorder or move to another board">⋮⋮</span>
+                        <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>
                         <div class="service-icon">${b.icon || '🔗'}</div>
                     </div>
                     <div class="status-badge bookmark">Bookmark</div>
@@ -2619,12 +2379,13 @@
             return card;
         }
 
-        function renderHomarrBoards(services) {
+        function renderHomarrGrid(services) {
             LATEST_SERVICES = services || [];
-            const boardsContainer = document.getElementById('homarr-boards');
-            if (!boardsContainer) return;
-            boardsContainer.innerHTML = '';
+            const gridContainer = document.getElementById('homarr-grid');
+            if (!gridContainer) return;
+            gridContainer.innerHTML = '';
 
+            const container = document.getElementById('services-container');
             if (container) container.innerHTML = '';
 
             const serviceMap = {};
@@ -2633,104 +2394,45 @@
             const bookmarkMap = {};
             (CURRENT_LAYOUT.custom_bookmarks || []).forEach(b => { bookmarkMap[b.id] = b; });
 
-            // Render sections in layout order
-            (CURRENT_LAYOUT.sections || []).forEach(sec => {
-                const isCustomSection = !['media', 'automation', 'storage', 'network', 'bookmarks'].includes(sec.id);
-                const secEl = document.createElement('section');
-                secEl.className = 'homarr-board-section';
-                secEl.id = `section-${sec.id}`;
-                secEl.setAttribute('data-section-id', sec.id);
-                secEl.setAttribute('data-category', sec.id);
+            // Reconcile items
+            const layoutItems = Array.isArray(CURRENT_LAYOUT.items) ? [...CURRENT_LAYOUT.items] : [];
+            const existingSet = new Set(layoutItems);
 
-                secEl.innerHTML = `
-                    <div class="homarr-board-header">
-                        <div class="homarr-board-title">
-                            <span class="board-drag-handle" title="Drag to reorder section board">⋮⋮</span>
-                            <span class="board-icon">${sec.icon || '📁'}</span>
-                            <h2>${sec.name}</h2>
-                            <span class="board-badge" id="badge-${sec.id}">0 Items</span>
-                        </div>
-                        <div class="board-actions">
-                            <button class="board-edit-btn" onclick="openEditSectionModal('${sec.id}')" title="Edit Section Title & Icon">✏️</button>
-                            ${isCustomSection ? `<button class="board-del-btn" onclick="deleteSection('${sec.id}')" title="Delete Section">🗑️</button>` : ''}
-                            <button class="board-add-btn" onclick="openAddBookmarkModal('${sec.id}')" title="Add Bookmark to ${sec.name}">+ Bookmark</button>
-                            <button class="board-toggle-btn ${sec.collapsed ? 'collapsed' : ''}" onclick="toggleBoard('${sec.id}')" aria-label="Toggle Section">▾</button>
-                        </div>
-                    </div>
-                    <div class="grid homarr-grid" id="grid-${sec.id}" style="${sec.collapsed ? 'display:none;' : ''}"></div>
-                `;
-
-                const gridEl = secEl.querySelector('.homarr-grid');
-                (sec.items || []).forEach(itemId => {
-                    if (serviceMap[itemId]) {
-                        const card = createServiceCard(serviceMap[itemId]);
-                        gridEl.appendChild(card);
-                        if (container) container.appendChild(card.cloneNode(true));
-                    } else if (bookmarkMap[itemId]) {
-                        const card = createBookmarkCard(bookmarkMap[itemId]);
-                        gridEl.appendChild(card);
-                    }
-                });
-
-                boardsContainer.appendChild(secEl);
-            });
-
-            populateCategoryOptions();
-            updateBoardBadges();
-            initSortable();
-            filterHomarrBoards();
-        }
-
-        function populateCategoryOptions() {
-            const select = document.getElementById('bm-category');
-            if (!select) return;
-            const prevVal = select.value;
-            select.innerHTML = (CURRENT_LAYOUT.sections || []).map(s => `
-                <option value="${s.id}">${s.icon || '📁'} ${s.name}</option>
-            `).join('');
-            if (prevVal) select.value = prevVal;
-        }
-
-        function updateBoardBadges() {
-            const serviceMap = {};
-            LATEST_SERVICES.forEach(s => { serviceMap[s.id] = s; });
-
-            let totalCountAll = 0;
-            const filterPillsContainer = document.getElementById('homarr-filter-pills');
-            const pillHTML = [`<button class="filter-pill ${CURRENT_CATEGORY_FILTER === 'all' ? 'active' : ''}" data-filter="all" onclick="setCategoryFilter('all')">All (<span id="count-all">0</span>)</button>`];
-
-            (CURRENT_LAYOUT.sections || []).forEach(sec => {
-                let onlineCount = 0;
-                let totalCount = (sec.items || []).length;
-                totalCountAll += totalCount;
-
-                (sec.items || []).forEach(itemId => {
-                    if (serviceMap[itemId] && serviceMap[itemId].status === 'online') {
-                        onlineCount++;
-                    }
-                });
-
-                const badge = document.getElementById(`badge-${sec.id}`);
-                if (badge) {
-                    if (sec.id === 'bookmarks') {
-                        badge.textContent = `${totalCount} Links`;
-                    } else {
-                        badge.textContent = `${onlineCount}/${totalCount} Online`;
-                    }
+            LATEST_SERVICES.forEach(s => {
+                if (!existingSet.has(s.id)) {
+                    layoutItems.push(s.id);
+                    existingSet.add(s.id);
                 }
-
-                pillHTML.push(`<button class="filter-pill ${CURRENT_CATEGORY_FILTER === sec.id ? 'active' : ''}" data-filter="${sec.id}" onclick="setCategoryFilter('${sec.id}')">${sec.icon || '📁'} ${sec.name} (${totalCount})</button>`);
             });
 
-            if (filterPillsContainer) {
-                filterPillsContainer.innerHTML = pillHTML.join('');
-            }
-            const countAllEl = document.getElementById('count-all');
-            if (countAllEl) countAllEl.textContent = totalCountAll;
+            (CURRENT_LAYOUT.custom_bookmarks || []).forEach(b => {
+                if (!existingSet.has(b.id)) {
+                    layoutItems.push(b.id);
+                    existingSet.add(b.id);
+                }
+            });
+
+            CURRENT_LAYOUT.items = layoutItems;
+
+            layoutItems.forEach(itemId => {
+                if (serviceMap[itemId]) {
+                    const card = createServiceCard(serviceMap[itemId]);
+                    gridContainer.appendChild(card);
+                    if (container) container.appendChild(card.cloneNode(true));
+                } else if (bookmarkMap[itemId]) {
+                    const card = createBookmarkCard(bookmarkMap[itemId]);
+                    gridContainer.appendChild(card);
+                }
+            });
+
+            initSortable();
+            filterHomarrGrid();
         }
+
+        const renderHomarrBoards = renderHomarrGrid;
 
         // ─── Bookmark Management ───
-        function openAddBookmarkModal(defaultCategory = 'bookmarks') {
+        function openAddBookmarkModal() {
             document.getElementById('bm-id').value = '';
             document.getElementById('bm-modal-title').textContent = 'Add Custom Bookmark';
             document.getElementById('bm-submit-btn').textContent = 'Add Bookmark';
@@ -2738,14 +2440,6 @@
             document.getElementById('bm-url').value = '';
             document.getElementById('bm-icon').value = '🔗';
             document.getElementById('bm-desc').value = '';
-            const select = document.getElementById('bm-category');
-            if (select) {
-                if (Array.from(select.options).some(o => o.value === defaultCategory)) {
-                    select.value = defaultCategory;
-                } else if (select.options.length > 0) {
-                    select.selectedIndex = 0;
-                }
-            }
             document.getElementById('bookmark-modal').style.display = 'flex';
             setTimeout(() => document.getElementById('bm-name').focus(), 50);
         }
@@ -2760,8 +2454,6 @@
             document.getElementById('bm-url').value = b.url;
             document.getElementById('bm-icon').value = b.icon || '🔗';
             document.getElementById('bm-desc').value = b.description || '';
-            const select = document.getElementById('bm-category');
-            if (select && b.category) select.value = b.category;
             document.getElementById('bookmark-modal').style.display = 'flex';
             setTimeout(() => document.getElementById('bm-name').focus(), 50);
         }
@@ -2775,135 +2467,44 @@
             const id = document.getElementById('bm-id').value.trim();
             const name = document.getElementById('bm-name').value.trim();
             const url = document.getElementById('bm-url').value.trim();
-            const category = document.getElementById('bm-category').value;
             const icon = document.getElementById('bm-icon').value.trim() || '🔗';
             const desc = document.getElementById('bm-desc').value.trim();
 
             if (!name || !url) return;
 
             if (!CURRENT_LAYOUT.custom_bookmarks) CURRENT_LAYOUT.custom_bookmarks = [];
+            if (!CURRENT_LAYOUT.items) CURRENT_LAYOUT.items = [];
 
             if (id) {
                 // Update existing bookmark
                 const existing = CURRENT_LAYOUT.custom_bookmarks.find(b => b.id === id);
                 if (existing) {
-                    const oldCategory = existing.category;
                     existing.name = name;
                     existing.url = url;
                     existing.icon = icon;
                     existing.description = desc;
-                    existing.category = category;
-
-                    if (oldCategory !== category) {
-                        // Move across sections
-                        (CURRENT_LAYOUT.sections || []).forEach(s => {
-                            s.items = (s.items || []).filter(item => item !== id);
-                        });
-                        const targetSec = (CURRENT_LAYOUT.sections || []).find(s => s.id === category);
-                        if (targetSec) targetSec.items.push(id);
-                    }
                 }
                 showToast(`Updated "${name}"`, 'success');
             } else {
                 // Create new bookmark
                 const newId = 'bm_' + Date.now();
-                const newBookmark = { id: newId, name, url, category, icon, description: desc };
+                const newBookmark = { id: newId, name, url, icon, description: desc };
                 CURRENT_LAYOUT.custom_bookmarks.push(newBookmark);
-
-                const targetSec = (CURRENT_LAYOUT.sections || []).find(s => s.id === category);
-                if (targetSec) {
-                    if (!targetSec.items) targetSec.items = [];
-                    targetSec.items.push(newId);
-                }
+                CURRENT_LAYOUT.items.push(newId);
                 showToast(`Added "${name}"`, 'success');
             }
 
             saveCurrentLayout(true);
             closeBookmarkModal();
-            renderHomarrBoards(LATEST_SERVICES);
+            renderHomarrGrid(LATEST_SERVICES);
         }
 
         function deleteBookmark(id) {
             CURRENT_LAYOUT.custom_bookmarks = (CURRENT_LAYOUT.custom_bookmarks || []).filter(b => b.id !== id);
-            (CURRENT_LAYOUT.sections || []).forEach(s => {
-                s.items = (s.items || []).filter(item => item !== id);
-            });
+            CURRENT_LAYOUT.items = (CURRENT_LAYOUT.items || []).filter(item => item !== id);
             saveCurrentLayout(true);
             showToast('Bookmark removed', 'default');
-            renderHomarrBoards(LATEST_SERVICES);
-        }
-
-        // ─── Section Management ───
-        function openAddSectionModal() {
-            document.getElementById('sec-id').value = '';
-            document.getElementById('section-modal-title').textContent = 'Add Board Section';
-            document.getElementById('sec-name').value = '';
-            document.getElementById('sec-icon').value = '📁';
-            document.getElementById('section-modal').style.display = 'flex';
-            setTimeout(() => document.getElementById('sec-name').focus(), 50);
-        }
-
-        function openEditSectionModal(secId) {
-            const sec = (CURRENT_LAYOUT.sections || []).find(s => s.id === secId);
-            if (!sec) return;
-            document.getElementById('sec-id').value = sec.id;
-            document.getElementById('section-modal-title').textContent = 'Edit Board Section';
-            document.getElementById('sec-name').value = sec.name;
-            document.getElementById('sec-icon').value = sec.icon || '📁';
-            document.getElementById('section-modal').style.display = 'flex';
-            setTimeout(() => document.getElementById('sec-name').focus(), 50);
-        }
-
-        function closeSectionModal() {
-            document.getElementById('section-modal').style.display = 'none';
-        }
-
-        function saveSection(e) {
-            if (e) e.preventDefault();
-            const id = document.getElementById('sec-id').value.trim();
-            const name = document.getElementById('sec-name').value.trim();
-            const icon = document.getElementById('sec-icon').value.trim() || '📁';
-            if (!name) return;
-
-            if (id) {
-                const sec = (CURRENT_LAYOUT.sections || []).find(s => s.id === id);
-                if (sec) {
-                    sec.name = name;
-                    sec.icon = icon;
-                }
-                showToast(`Section "${name}" updated`, 'success');
-            } else {
-                const newId = 'sec_' + Date.now();
-                if (!CURRENT_LAYOUT.sections) CURRENT_LAYOUT.sections = [];
-                CURRENT_LAYOUT.sections.push({
-                    id: newId,
-                    name,
-                    icon,
-                    collapsed: false,
-                    items: []
-                });
-                showToast(`Section "${name}" created`, 'success');
-            }
-
-            saveCurrentLayout(true);
-            closeSectionModal();
-            renderHomarrBoards(LATEST_SERVICES);
-        }
-
-        function deleteSection(secId) {
-            const sec = (CURRENT_LAYOUT.sections || []).find(s => s.id === secId);
-            if (!sec) return;
-            if (!confirm(`Delete board section "${sec.name}"? Contained items will be moved to Bookmarks.`)) return;
-
-            // Move items to bookmarks section
-            let bmSec = (CURRENT_LAYOUT.sections || []).find(s => s.id === 'bookmarks');
-            if (bmSec && sec.items && sec.items.length > 0) {
-                bmSec.items.push(...sec.items);
-            }
-            CURRENT_LAYOUT.sections = (CURRENT_LAYOUT.sections || []).filter(s => s.id !== secId);
-            saveCurrentLayout(true);
-            showToast(`Section "${sec.name}" removed`, 'default');
-            renderHomarrBoards(LATEST_SERVICES);
+            renderHomarrGrid(LATEST_SERVICES);
         }
 
         // ─── Widgets Settings & Reset ───
@@ -2947,7 +2548,7 @@
         }
 
         async function resetDashboardLayout() {
-            if (!confirm("Reset all board sections, order, and widgets to default layout?")) return;
+            if (!confirm("Reset dashboard order and widgets to default layout?")) return;
             try {
                 const res = await fetch('/api/dashboard/layout/reset', { method: 'POST' });
                 if (res.ok) {
@@ -2957,12 +2558,12 @@
             } catch (e) {}
             localStorage.removeItem('tinarchy_dashboard_layout');
             applyWidgetVisibility();
-            renderHomarrBoards(LATEST_SERVICES);
+            renderHomarrGrid(LATEST_SERVICES);
             showToast('Dashboard layout reset to defaults', 'default');
         }
 
         function renderServices(services) {
-            renderHomarrBoards(services);
+            renderHomarrGrid(services);
         }
 
         async function toggleService(id, action, btnElement, serviceName) {
@@ -3170,7 +2771,6 @@
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeBookmarkModal();
-                closeSectionModal();
                 closeWidgetsModal();
                 clearSearch();
                 const searchInput = document.getElementById('homarr-search-input');

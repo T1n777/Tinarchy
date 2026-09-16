@@ -8,27 +8,14 @@ logger = logging.getLogger(__name__)
 LAYOUT_FILE = os.path.join(BASE_DIR, 'dashboard_layout.json')
 
 def get_default_layout():
-    cat_map = {c['id']: {'id': c['id'], 'name': c['name'], 'icon': c['icon'], 'collapsed': False, 'items': []} for c in CATEGORIES}
-    cat_map['bookmarks'] = {'id': 'bookmarks', 'name': 'Custom Bookmarks', 'icon': '⭐', 'collapsed': False, 'items': []}
-
-    for s in SERVICES:
-        cid = s.get('category', 'media')
-        if cid not in cat_map:
-            cid = 'media'
-        cat_map[cid]['items'].append(s['id'])
-
-    sections = [cat_map[c['id']] for c in CATEGORIES if c['id'] in cat_map]
-    if 'bookmarks' in cat_map:
-        sections.append(cat_map['bookmarks'])
-
     return {
-        'version': 1,
+        'version': 2,
         'widgets': {
             'stats_bar': {'enabled': True, 'order': 0},
             'qbittorrent': {'enabled': True, 'order': 1},
             'manga_shelf': {'enabled': True, 'order': 2}
         },
-        'sections': sections,
+        'items': [s['id'] for s in SERVICES],
         'custom_bookmarks': []
     }
 
@@ -40,26 +27,26 @@ def load_dashboard_layout():
         with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        if not isinstance(data, dict) or 'sections' not in data:
+        if not isinstance(data, dict):
             return get_default_layout()
 
-        # Reconcile any newly installed/configured services not in saved layout
-        all_section_items = set()
-        for sec in data.get('sections', []):
-            all_section_items.update(sec.get('items', []))
+        # Migrate from legacy sections structure if needed
+        if 'items' not in data and 'sections' in data:
+            flat = []
+            for sec in data.get('sections', []):
+                flat.extend(sec.get('items', []))
+            data['items'] = flat
 
+        if 'items' not in data:
+            data['items'] = [s['id'] for s in SERVICES]
+
+        # Reconcile any newly installed/configured services not in saved layout
+        existing_items = set(data.get('items', []))
         for s in SERVICES:
             sid = s['id']
-            if sid not in all_section_items:
-                target_cat = s.get('category', 'media')
-                found = False
-                for sec in data['sections']:
-                    if sec.get('id') == target_cat:
-                        sec.setdefault('items', []).append(sid)
-                        found = True
-                        break
-                if not found and data['sections']:
-                    data['sections'][0].setdefault('items', []).append(sid)
+            if sid not in existing_items:
+                data['items'].append(sid)
+                existing_items.add(sid)
 
         return data
     except Exception as e:
@@ -70,9 +57,15 @@ def save_dashboard_layout(layout_data):
     if not isinstance(layout_data, dict):
         raise ValueError("Invalid layout data: root must be a dict")
 
-    sections = layout_data.get('sections', [])
-    if not isinstance(sections, list):
-        raise ValueError("Invalid layout data: sections must be a list")
+    items = layout_data.get('items', [])
+    if not isinstance(items, list):
+        if 'sections' in layout_data and isinstance(layout_data['sections'], list):
+            flat = []
+            for sec in layout_data['sections']:
+                flat.extend(sec.get('items', []))
+            layout_data['items'] = flat
+        else:
+            raise ValueError("Invalid layout data: items must be a list")
 
     tmp_file = LAYOUT_FILE + '.tmp'
     with open(tmp_file, 'w', encoding='utf-8') as f:

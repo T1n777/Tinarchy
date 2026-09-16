@@ -322,6 +322,31 @@ def test_suwayomi_privacy_vault():
 
 run_test("Suwayomi Private Category '_' Isolation & Vault Injection", test_suwayomi_privacy_vault)
 
+# --- TEST 18: Unified Draggable Dashboard Grid & Flat Items Schema ---
+def test_dashboard_unified_grid():
+    # 1. Test backend endpoint
+    req = urllib.request.Request("http://127.0.0.1:8085/api/dashboard/layout")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Expected 200 from /api/dashboard/layout, got {r.status}")
+        data = json.loads(r.read().decode())
+        if "items" not in data or not isinstance(data["items"], list):
+            raise Exception("Layout response missing flat 'items' list")
+        if len(data["items"]) < 10:
+            raise Exception(f"Expected >=10 items in layout, got {len(data['items'])}")
+
+    # 2. Test public/index.html structure
+    with open("public/index.html", "r", encoding="utf-8") as f:
+        html = f.read()
+    if 'id="homarr-grid"' not in html:
+        raise Exception("Missing #homarr-grid in public/index.html")
+    if 'id="homarr-boards"' in html:
+        raise Exception("Found deprecated #homarr-boards in public/index.html")
+    if 'id="homarr-filter-pills"' in html:
+        raise Exception("Found deprecated #homarr-filter-pills in public/index.html")
+
+run_test("Unified Draggable Dashboard Grid & Flat Items Schema", test_dashboard_unified_grid)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
