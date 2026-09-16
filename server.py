@@ -555,6 +555,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/api/categories':
             self.send_compressed(json.dumps(services.get_categories()).encode(), "application/json")
 
+        elif self.path == '/api/dashboard/layout':
+            from tinarchy import dashboard_layout
+            layout = dashboard_layout.load_dashboard_layout()
+            self.send_compressed(json.dumps(layout).encode(), "application/json")
+
         elif self.path == '/api/widgets/qbittorrent':
             import urllib.request
             qbit_info = {"online": False}
@@ -797,6 +802,43 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+
+        # ─── Homarr Dashboard Layout Management: OWNER & ADMIN ───
+        elif self.path == '/api/dashboard/layout':
+            if session.get('role') not in ['owner', 'admin']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                return
+            try:
+                from tinarchy import dashboard_layout
+                dashboard_layout.save_dashboard_layout(data)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"success": true}')
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+
+        elif self.path == '/api/dashboard/layout/reset':
+            if session.get('role') not in ['owner', 'admin']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                return
+            from tinarchy import dashboard_layout
+            def_layout = dashboard_layout.reset_dashboard_layout()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "layout": def_layout}).encode())
             return
 
         # ─── Wallpapers: ADMIN & OWNER ───
