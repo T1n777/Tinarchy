@@ -13,6 +13,10 @@ import urllib.request
 import ssl
 import os
 
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 tests = []
 
 def run_test(name, fn):
@@ -293,6 +297,30 @@ def test_suwayomi_thumbnail_fastpath():
         if "webp" not in ctype:
             raise Exception(f"Expected image/webp content-type, got: {ctype}")
 run_test("Suwayomi WebP Thumbnail Fast-Path (200 OK, image/webp)", test_suwayomi_thumbnail_fastpath)
+
+# 17. Suwayomi Private Category '_' Isolation & Vault Injection
+def test_suwayomi_privacy_vault():
+    # A. Test /api/widgets/manga excludes category '_'
+    req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/manga")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"/api/widgets/manga returned {r.status}")
+        data = json.loads(r.read().decode())
+        mangas = data.get("mangas", [])
+        from tinarchy.thumbnails import get_private_manga_ids
+        p_ids = get_private_manga_ids()
+        for m in mangas:
+            if m["id"] in p_ids:
+                raise Exception(f"Private manga {m['id']} ({m['title']}) found in public widget!")
+
+    # B. Test Nginx injects suwayomi-vault.js into Suwayomi WebUI
+    req_nginx = urllib.request.Request("http://127.0.0.1:8080/")
+    with urllib.request.urlopen(req_nginx, timeout=3) as r:
+        html = r.read().decode()
+        if "suwayomi-vault.js" not in html:
+            raise Exception("Nginx did not inject suwayomi-vault.js into Suwayomi HTML")
+
+run_test("Suwayomi Private Category '_' Isolation & Vault Injection", test_suwayomi_privacy_vault)
 
 
 passed = sum(1 for _, ok, _ in tests if ok)

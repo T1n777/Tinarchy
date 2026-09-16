@@ -387,8 +387,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 parts = clean_path.rstrip('/').split('/')
                 manga_id = int(parts[-1])
+                from tinarchy.thumbnails import get_or_generate_thumbnail, is_manga_private
+                if is_manga_private(manga_id):
+                    session = self.check_auth()
+                    if session.get('role') not in ['owner', 'admin']:
+                        self.send_response(404)
+                        self.end_headers()
+                        return
                 query_string = self.path.split('?')[1] if '?' in self.path else ''
-                from tinarchy.thumbnails import get_or_generate_thumbnail
                 data, ctype = get_or_generate_thumbnail(manga_id, query_string=query_string)
                 if data:
                     self.send_response(200)
@@ -484,8 +490,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 parts = clean_path.rstrip('/').split('/')
                 manga_id = int(parts[-1])
+                from tinarchy.thumbnails import get_or_generate_thumbnail, is_manga_private
+                if is_manga_private(manga_id):
+                    session = self.check_auth()
+                    if session.get('role') not in ['owner', 'admin']:
+                        self.send_response(404)
+                        self.end_headers()
+                        return
                 query_string = self.path.split('?')[1] if '?' in self.path else ''
-                from tinarchy.thumbnails import get_or_generate_thumbnail
                 data, ctype = get_or_generate_thumbnail(manga_id, query_string=query_string)
                 if data:
                     self.send_response(200)
@@ -595,24 +607,29 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             shelf_info = {"online": False, "mangas": []}
             try:
                 gql_query = json.dumps({
-                    "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 12) { nodes { id title } } }"
+                    "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 60) { nodes { id title categories { nodes { id name } } } } }"
                 }).encode('utf-8')
                 req = urllib.request.Request("http://127.0.0.1:4566/api/graphql", data=gql_query, headers={"Content-Type": "application/json"})
                 with urllib.request.urlopen(req, timeout=2.0) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode())
                         nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
+                        clean_mangas = []
+                        for m in nodes:
+                            cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
+                            if "_" in cats or "private" in [c.lower() for c in cats]:
+                                continue
+                            clean_mangas.append({
+                                "id": m["id"],
+                                "title": m.get("title", ""),
+                                "cover": f"/api/suwayomi/thumbnail/{m['id']}",
+                                "link": "/manga"
+                            })
+                            if len(clean_mangas) >= 16:
+                                break
                         shelf_info = {
                             "online": True,
-                            "mangas": [
-                                {
-                                    "id": m["id"],
-                                    "title": m.get("title", ""),
-                                    "cover": f"/api/suwayomi/thumbnail/{m['id']}",
-                                    "link": "/manga"
-                                }
-                                for m in nodes
-                            ]
+                            "mangas": clean_mangas
                         }
             except Exception:
                 pass
