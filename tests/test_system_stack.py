@@ -394,6 +394,43 @@ def test_manga_shelf_links():
 
 run_test("Manga Shelf Individual Items Linked Directly to Manhwa Page", test_manga_shelf_links)
 
+# --- TEST 20: Pink Top Minimal tmux & Shared TTY / SSH Session Persistence ---
+def test_tmux_pink_top_and_tty_persistence():
+    # 1. Verify tmux configuration
+    tmux_path = "configs/tmux/tmux.conf"
+    if not os.path.exists(tmux_path):
+        raise Exception(f"Missing {tmux_path}")
+    with open(tmux_path, "r", encoding="utf-8") as f:
+        tmux_conf = f.read()
+    if "status-position top" not in tmux_conf:
+        raise Exception("tmux.conf missing 'status-position top'")
+    if "#ff79c6" not in tmux_conf:
+        raise Exception("tmux.conf missing pink accent '#ff79c6'")
+    if "window-size latest" not in tmux_conf:
+        raise Exception("tmux.conf missing 'window-size latest'")
+
+    # 2. Verify Zsh tmux auto-attach supports both SSH and physical TTY
+    zsh_path = "configs/zsh/zshrc"
+    if not os.path.exists(zsh_path):
+        raise Exception(f"Missing {zsh_path}")
+    with open(zsh_path, "r", encoding="utf-8") as f:
+        zsh_conf = f.read()
+    if "/dev/tty" not in zsh_conf:
+        raise Exception("configs/zsh/zshrc missing /dev/tty auto-attach matching")
+    if "exec tmux new-session -A -s main" not in zsh_conf:
+        raise Exception("configs/zsh/zshrc missing 'exec tmux new-session -A -s main'")
+
+    # 3. Verify getty-autologin.conf drop-in
+    autologin_path = "configs/systemd/getty-autologin.conf"
+    if not os.path.exists(autologin_path):
+        raise Exception(f"Missing {autologin_path}")
+    with open(autologin_path, "r", encoding="utf-8") as f:
+        auto_conf = f.read()
+    if "--autologin" not in auto_conf:
+        raise Exception("getty-autologin.conf missing --autologin")
+
+run_test("Pink Top Minimal tmux & Shared TTY / SSH Session Persistence", test_tmux_pink_top_and_tty_persistence)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")

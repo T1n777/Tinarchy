@@ -48,11 +48,11 @@ ZSH_HIGHLIGHT_STYLES[bracket-level-1]='fg=75,bold'
 ZSH_HIGHLIGHT_STYLES[bracket-level-2]='fg=81,bold'
 ZSH_HIGHLIGHT_STYLES[bracket-level-3]='fg=117,bold'
 
-# ─── Tailscale / Remote SSH Session Persistence (tmux auto-attach) ───────────
-# Automatically keep background tasks running even if the terminal closes,
-# Wi-Fi drops, or the client device sleeps.
-# To bypass tmux in an interactive shell, connect with: NO_AUTO_TMUX=1 ssh ...
-if [[ -n "$SSH_CONNECTION" || -n "$SSH_CLIENT" || -n "$SSH_TTY" ]] && \
+# ─── Terminal Session Persistence (tmux auto-attach for SSH & Default TTY) ────
+# Automatically keep background tasks running and share the exact same session
+# across Tailscale SSH and the default physical TTY console.
+# To bypass tmux in an interactive shell, run: NO_AUTO_TMUX=1 zsh (or ssh)
+if [[ -n "$SSH_CONNECTION" || -n "$SSH_CLIENT" || -n "$SSH_TTY" || "$(tty 2>/dev/null)" =~ ^/dev/tty[0-9]+$ ]] && \
    [[ -z "$TMUX" ]] && \
    [[ -t 1 ]] && \
    [[ -o interactive ]] && \

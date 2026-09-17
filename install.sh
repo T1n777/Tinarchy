@@ -964,6 +964,10 @@ UDEV_EOF
         mkdir -p /etc/systemd/system/getty@.service.d/
         cp "$REPO_ROOT/configs/systemd/getty-powersave.conf" /etc/systemd/system/getty@.service.d/powersave.conf
     fi
+    if [ -f "$REPO_ROOT/configs/systemd/getty-autologin.conf" ]; then
+        mkdir -p /etc/systemd/system/getty@tty1.service.d/
+        sed "s/pineapple/$TARGET_USER/g" "$REPO_ROOT/configs/systemd/getty-autologin.conf" > /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    fi
     if [ -f "$REPO_ROOT/configs/scripts/console-powersave.sh" ]; then
         cp "$REPO_ROOT/configs/scripts/console-powersave.sh" /etc/profile.d/console-powersave.sh
     fi
