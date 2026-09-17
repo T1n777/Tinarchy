@@ -614,28 +614,85 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "http://127.0.0.1:8080/manga/api/graphql",
             ]
             gql_query = json.dumps({
-                "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 60) { nodes { id title categories { nodes { id name } } } } }"
+                "query": """{
+                    chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST }, first: 150) {
+                        nodes {
+                            lastReadAt
+                            manga {
+                                id
+                                title
+                                categories { nodes { id name } }
+                            }
+                        }
+                    }
+                    mangas(filter: { inLibrary: { equalTo: true } }, first: 60) {
+                        nodes {
+                            id
+                            title
+                            categories { nodes { id name } }
+                        }
+                    }
+                }"""
             }).encode('utf-8')
             for ep in gql_candidates:
                 try:
                     req = urllib.request.Request(ep, data=gql_query, headers={"Content-Type": "application/json"})
-                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                    with urllib.request.urlopen(req, timeout=2.5) as resp:
                         if resp.status == 200:
                             data = json.loads(resp.read().decode())
-                            nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
+                            data_obj = data.get("data") or {}
+                            c_nodes = (data_obj.get("chapters") or {}).get("nodes") or []
+                            m_nodes = (data_obj.get("mangas") or {}).get("nodes") or []
+
                             clean_mangas = []
-                            for m in nodes:
-                                cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
+                            seen_ids = set()
+
+                            # 1. Primary: Most recently read manga from reading history
+                            for ch in c_nodes:
+                                if not ch.get("lastReadAt"):
+                                    continue
+                                m = ch.get("manga")
+                                if not m or not m.get("id"):
+                                    continue
+                                mid = m["id"]
+                                if mid in seen_ids:
+                                    continue
+                                seen_ids.add(mid)
+
+                                cats = [c.get("name", "").strip() for c in (m.get("categories") or {}).get("nodes", [])]
                                 if "_" in cats or "private" in [c.lower() for c in cats]:
                                     continue
+
                                 clean_mangas.append({
-                                    "id": m["id"],
+                                    "id": mid,
                                     "title": m.get("title", ""),
-                                    "cover": f"/api/suwayomi/thumbnail/{m['id']}",
-                                    "link": "/manga"
+                                    "cover": f"/api/suwayomi/thumbnail/{mid}",
+                                    "link": f"/manga/manga/{mid}"
                                 })
                                 if len(clean_mangas) >= 16:
                                     break
+
+                            # 2. Fallback: If fewer than 16 in history, fill with general library manga
+                            if len(clean_mangas) < 16:
+                                for m in m_nodes:
+                                    mid = m.get("id")
+                                    if not mid or mid in seen_ids:
+                                        continue
+                                    seen_ids.add(mid)
+
+                                    cats = [c.get("name", "").strip() for c in (m.get("categories") or {}).get("nodes", [])]
+                                    if "_" in cats or "private" in [c.lower() for c in cats]:
+                                        continue
+
+                                    clean_mangas.append({
+                                        "id": mid,
+                                        "title": m.get("title", ""),
+                                        "cover": f"/api/suwayomi/thumbnail/{mid}",
+                                        "link": f"/manga/manga/{mid}"
+                                    })
+                                    if len(clean_mangas) >= 16:
+                                        break
+
                             shelf_info = {
                                 "online": True,
                                 "mangas": clean_mangas

@@ -1808,9 +1808,12 @@
                     <div class="homarr-widget-title">
                         <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
                         <span class="widget-icon">📚</span>
-                        <h3>Suwayomi Library Shelf</h3>
+                        <h3>Reading History</h3>
                     </div>
-                    <a href="/manga" target="_blank" class="widget-link">Library ↗</a>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <a href="/manga/history" target="_blank" class="widget-link">History ↗</a>
+                        <a href="/manga" target="_blank" class="widget-link">Library ↗</a>
+                    </div>
                 </div>
                 <div class="homarr-shelf-scroll" id="manga-shelf-scroll">
                 </div>
@@ -1869,7 +1872,7 @@
                     <input type="checkbox" id="toggle-widget-qbit" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('qbittorrent', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
-                    <span>📚 Suwayomi Manga Library Shelf</span>
+                    <span>📚 Suwayomi Reading History Shelf</span>
                     <input type="checkbox" id="toggle-widget-manga" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('manga_shelf', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
