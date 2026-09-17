@@ -933,13 +933,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"success": True, "layout": def_layout}).encode())
             return
 
-        # ─── Wallpapers: ADMIN & OWNER ───
+        # ─── Wallpapers: SELECT ───
         elif self.path == '/api/wallpaper/select':
-            if session.get('role') not in ['owner', 'admin']:
+            role = session.get('role', 'viewer')
+            if role not in ['owner', 'admin', 'viewer']:
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                self.wfile.write(b'{"error": "Forbidden: Authenticated access required"}')
                 return
 
             filename = data.get('filename') or os.path.basename(data.get('url', ''))
@@ -963,11 +964,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if not pywal_data:
                 pywal_data = pywal_generator.generate_pywal_palette('default_palette')
 
-            try:
-                with open(os.path.join(PUBLIC_DIR, 'pywal.json'), 'w') as f_out:
-                    json.dump(pywal_data, f_out, indent=2)
-            except Exception:
-                pass
+            # Only admin and owner overwrite the server-wide default pywal.json
+            if role in ['owner', 'admin']:
+                try:
+                    with open(os.path.join(PUBLIC_DIR, 'pywal.json'), 'w') as f_out:
+                        json.dump(pywal_data, f_out, indent=2)
+                except Exception:
+                    pass
 
             self.send_compressed(json.dumps({
                 "success": True,
@@ -978,13 +981,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             }).encode(), "application/json")
             return
 
-        # ─── Wallpaper Upload: ADMIN & OWNER ───
+        # ─── Wallpaper Upload ───
         elif self.path == '/api/wallpaper/upload':
-            if session.get('role') not in ['owner', 'admin']:
+            role = session.get('role', 'viewer')
+            if role not in ['owner', 'admin', 'viewer']:
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                self.wfile.write(b'{"error": "Forbidden: Authenticated access required"}')
                 return
 
             raw_data = data.get('data', '')
@@ -1017,11 +1021,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 if not pywal_data:
                     pywal_data = pywal_generator.generate_pywal_palette('default_palette')
 
-                try:
-                    with open(os.path.join(PUBLIC_DIR, 'pywal.json'), 'w') as f_out:
-                        json.dump(pywal_data, f_out, indent=2)
-                except Exception:
-                    pass
+                # Only admin and owner overwrite the server-wide default pywal.json
+                if role in ['owner', 'admin']:
+                    try:
+                        with open(os.path.join(PUBLIC_DIR, 'pywal.json'), 'w') as f_out:
+                            json.dump(pywal_data, f_out, indent=2)
+                    except Exception:
+                        pass
 
                 self.send_compressed(json.dumps({
                     "success": True,

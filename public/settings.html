@@ -637,8 +637,8 @@
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
                         <strong style="color: var(--text);">Role Hierarchy & Access Rules:</strong><br>
                         • <strong>👑 Owner:</strong> Immutable full control. Has unrestricted access to all sites, services, user roles, site permissions, and server branding.<br>
-                        • <strong>🛡️ Admin:</strong> Full access to all sites and services. Can manage services, wallpapers, Tor exit routing, and site access delegation.<br>
-                        • <strong>👁️ Viewer:</strong> Read-only access. Access is restricted exclusively to the specific sites granted below by the Owner or Admin.
+                        • <strong>🛡️ Admin:</strong> Full access to all sites and services. Can manage services, server default wallpapers, Tor exit routing, and site access delegation.<br>
+                        • <strong>👁️ Viewer:</strong> Access to granted sites, plus personal visual themes and custom wallpaper customization. Server service management is restricted.
                     </div>
                 </div>
 
@@ -1701,7 +1701,7 @@
             }
         }
 
-                        async function selectServerWallpaper(filename, url, element) {
+        async function selectServerWallpaper(filename, url, element) {
             showToast("Applying wallpaper & generating Pywal colors...", "default");
             try {
                 const res = await fetch("/api/wallpaper/select", {
@@ -1710,8 +1710,62 @@
                     body: JSON.stringify({ filename: filename, url: url })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    const isVid = data.is_video || url.toLowerCase().endsWith(".mp4");
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || "Failed to apply wallpaper");
+                }
+
+                const isVid = data.is_video || url.toLowerCase().endsWith(".mp4");
+                localStorage.setItem("dashboard-wallpaper", data.url);
+                localStorage.setItem("login-wallpaper", data.url);
+                localStorage.setItem("dashboard-wallpaper-is-video", isVid ? "true" : "false");
+                
+                const root = document.documentElement;
+                if (localStorage.getItem('dashboard-theme') !== 'glass') {
+                    selectTheme('glass', document.getElementById('theme-card-glass'));
+                }
+                applyMediaToBackground(data.url, isVid);
+
+                if (!isVid) {
+                    try {
+                        const imgRes = await fetch(data.url);
+                        if (imgRes.ok) {
+                            const blob = await imgRes.blob();
+                            await saveLocalWallpaper(blob, 'active_wallpaper');
+                        }
+                    } catch(e) {}
+                }
+
+                if (data.pywal && data.pywal.colors) {
+                    localStorage.setItem("dashboard-pywal", JSON.stringify(data.pywal));
+                    localStorage.removeItem('dashboard-primary-color');
+                    applyThemeAndColors(root, data.pywal);
+                    renderPywalSwatches();
+                }
+
+                document.querySelectorAll(".wallpaper-item").forEach(el => el.classList.remove("active"));
+                if (element) element.classList.add("active");
+                showToast(isVid ? "MP4 Video Wallpaper & Pywal applied!" : "Wallpaper & Pywal palette applied!", "success");
+            } catch(err) { showToast("Error setting wallpaper: " + (err.message || err), "error"); }
+        }
+
+        async function handleWallpaperUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                showToast("Uploading to server & running Pywal...", "default");
+                try {
+                    const res = await fetch("/api/wallpaper/upload", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ data: e.target.result, filename: file.name })
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.success) {
+                        throw new Error(data.error || "Failed to upload wallpaper");
+                    }
+
+                    const isVid = data.is_video || file.name.toLowerCase().endsWith(".mp4");
                     localStorage.setItem("dashboard-wallpaper", data.url);
                     localStorage.setItem("login-wallpaper", data.url);
                     localStorage.setItem("dashboard-wallpaper-is-video", isVid ? "true" : "false");
@@ -1738,39 +1792,9 @@
                         applyThemeAndColors(root, data.pywal);
                         renderPywalSwatches();
                     }
-
-                    document.querySelectorAll(".wallpaper-item").forEach(el => el.classList.remove("active"));
-                    if (element) element.classList.add("active");
-                    showToast(isVid ? "MP4 Video Wallpaper & Pywal applied!" : "Wallpaper & Pywal palette applied!", "success");
-                }
-            } catch(err) { showToast("Error setting wallpaper: " + err, "error"); }
-        }
-
-        async function handleWallpaperUpload(input) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                showToast("Uploading to server & running Pywal...", "default");
-                try {
-                    const res = await fetch("/api/wallpaper/upload", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ data: e.target.result, filename: file.name })
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        localStorage.setItem("dashboard-wallpaper", data.url);
-                        if (data.pywal) {
-                            localStorage.setItem("dashboard-pywal", JSON.stringify(data.pywal));
-                            localStorage.removeItem('dashboard-primary-color');
-                            applyThemeAndColors(document.documentElement, data.pywal);
-                            renderPywalSwatches();
-                        }
-                        showToast("Wallpaper uploaded & Pywal applied!", "success");
-                        initWallpapers();
-                    }
-                } catch(err) { showToast("Upload error: " + err, "error"); }
+                    showToast("Wallpaper uploaded & Pywal applied!", "success");
+                    initWallpapers();
+                } catch(err) { showToast("Upload error: " + (err.message || err), "error"); }
             };
             reader.readAsDataURL(file);
         }
