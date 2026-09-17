@@ -12,8 +12,6 @@
 
 A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, end-to-end encrypted **Syncthing full shared folder sync with LZ4/Zstandard compression**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
 
----
-
 ## 📸 Interface Previews
 
 ### 💻 Tin's Setup (`tinarchy`)
@@ -23,8 +21,6 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 [![Pineapple's Dashboard Preview](public/screenshots/pineapple-preview.png)](public/screenshots/pineapple-preview.png)
 
 > *Dynamic Pywal palette generation, frosted glassmorphism, and live telemetry across different home server environments.*
-
----
 
 ## 🌟 Key Features
 
@@ -45,9 +41,14 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **Nginx Upstream Keepalive & Zero-Buffering**: Persistent connection pool (`keepalive 32;`) eliminates TCP socket churn between Nginx and Python backend, with dedicated unbuffered proxying for real-time SSE streams.
   - **Graceful Fallback Polling**: Client uses native browser `EventSource` with automated fallback to interval polling if disconnected or unsupported.
 
-- **⚡ Persistent Remote SSH & Terminal Ecosystem (tmux + Zsh)**:
-  - **Automatic Session Persistence**: Interactive SSH and Tailscale SSH logins automatically attach to a persistent `tmux` session (`main`). Running builds, downloads, and servers never get killed if Wi-Fi drops or your client machine sleeps.
-  - **Pinedash-Themed tmux (`configs/tmux/tmux.conf`)**: Features 50,000 lines of scrollback, full mouse scrolling & selection, instant 0ms Esc-key modal switching for Vim/Neovim, truecolor RGB, and custom glass-matching status bar badges.
+- **🧩 Homarr-Style Draggable Dashboard & Reading History Shelf**:
+  - **Interactive Drag-and-Drop Reordering**: Fully customizable, draggable service grid and widget cards with smooth layout persistence.
+  - **Reading History Shelf with Direct Manga Linking**: Real-time reading progress shelf querying Suwayomi's GraphQL backend (`chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST })`), displaying recently read manhwa first and binding card covers directly to their individual manhwa details/reader pages (`/manga/:id`).
+  - **Personal Viewer Styling & Custom Wallpapers**: Viewers can select presets or upload personal wallpapers with immediate client-side application.
+
+- **⚡ Persistent Terminal Ecosystem (tmux + Zsh)**:
+  - **Shared TTY Console & Tailscale SSH Persistence**: Both the physical Linux virtual console (TTY1 autologin) and Tailscale SSH automatically attach to the exact same persistent `tmux` session (`main`). Running builds, downloads, and interactive shells stay alive and synchronized whether you are at the physical machine or connecting remotely over Tailscale.
+  - **Minimal Pastel Pink Top Bar (`configs/tmux/tmux.conf`)**: Top-anchored minimal status bar with soft pastel pink accents (`#f5c2e7`), native terminal background inheritance (`bg=default` matching your terminal's wallpaper/transparency), clean window indicators (`● #I:#W`), 50,000 lines of scrollback, instant 0ms Esc-key modal switching, and dynamic responsive multi-client sizing (`window-size latest`).
   - **Optimized Zsh Shell (`configs/zsh/zshrc`)**: Tuned for ultra-low latency over remote SSH connections with async autosuggestions, non-blocking buffer limits, and custom syntax highlighting colors.
   - **Zero-Overhead Cheatsheets**: Instant built-in tmux keyboard shortcuts reference table (`tmux-keys` / `shortcuts`) without shell launch delay.
   - **Bypass Flag**: Non-interactive commands execute directly; to bypass tmux in an interactive shell, simply connect with `NO_AUTO_TMUX=1 ssh ...`.
@@ -127,8 +128,6 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 - **🧩 Extensible Local Services (`services.local.json`)**:
   - Register machine-specific or private services (such as multi-user Navidrome instances) without touching Git-tracked code.
-
----
 
 ## 🏗️ System Architecture
 
@@ -222,8 +221,6 @@ Tinarchy/
 │   └── reports.py         # Autonomous daily markdown system report generator
 ```
 
----
-
 ## 📋 Port & Service Reference
 
 | Service | Internal Port | External Path / Port | Systemd Service | Description |
@@ -249,8 +246,6 @@ Tinarchy/
 | **Tor SOCKS5 Proxy** | `9050` | `:9050` | `tor.service` | SOCKS5 anonymity proxy |
 | **Global Tor Exit Node** | `9040` / `5353` | `tailscale0` NAT | `tor_exit_node.sh` | Routes Tailnet client traffic over Tor |
 | **SSH & tmux Persistence** | `22` | `:22` | `sshd.service` / `tmux` | Resilient remote sessions with auto-attach |
-
----
 
 ## 🚀 Quick Start & Installation
 
@@ -315,8 +310,6 @@ To run unattended with sensible defaults or existing `.env` values:
 ./install.sh --yes
 ```
 
----
-
 ### 4. Manual Configuration (Advanced)
 
 #### A. Centralized Environment Engine (`.env`)
@@ -380,8 +373,6 @@ Add untracked machine-specific services (e.g. Navidrome instances):
 ]
 ```
 
----
-
 ### 5. Deploy Systemd Services
 
 Deploy the dashboard unit file:
@@ -402,8 +393,6 @@ Additional service unit templates are available under `configs/systemd/`:
 - `console-screen-blank.service` & `getty-powersave.conf` (Display powerdown)
 - `syncyomi.service` (SyncYomi reading progress synchronization daemon)
 
----
-
 ### 6. Install the Drive Sync Engine
 
 Set up the unified `$HOME/drive/` sync script and background service:
@@ -420,8 +409,6 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now pinedash-drive-sync.service
 ```
 
----
-
 ### 7. Configure Nginx Reverse Proxy
 
 1. Review and adjust `configs/nginx/nginx.conf` (ensure usernames, SSL certificate paths, and server names match your machine).
@@ -430,8 +417,6 @@ sudo systemctl enable --now pinedash-drive-sync.service
    sudo cp configs/nginx/nginx.conf /etc/nginx/nginx.conf
    sudo nginx -t && sudo systemctl restart nginx
    ```
-
----
 
 ### 8. Configure Tor Exit Node (Optional)
 
@@ -446,8 +431,6 @@ To allow the dashboard backend to toggle the Tor exit node without password prom
 %wheel ALL=(ALL) NOPASSWD: /usr/local/bin/tor_exit_node.sh *, /usr/lib/tinarchy/tor_exit_node.sh *, /home/*/Tinarchy/configs/scripts/tor_exit_node.sh *, /home/*/Tinarchy/tor_exit_node.sh *, /home/*/server-dashboard/tor_exit_node.sh *, /home/*/server-dashboard/configs/scripts/tor_exit_node.sh *, /usr/bin/iptables, /usr/bin/ip6tables
 ```
 
----
-
 ### 9. Configure Persistent SSH & Terminal (tmux + Zsh)
 
 Install the low-latency Zsh configuration and persistent tmux environment:
@@ -457,8 +440,6 @@ Install the low-latency Zsh configuration and persistent tmux environment:
 cp configs/zsh/zshrc ~/.zshrc
 cp configs/tmux/tmux.conf ~/.tmux.conf
 ```
-
----
 
 ### 10. Headless Laptop Display Powerdown (Optional)
 
@@ -478,8 +459,6 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 # 4. Reload systemd
 sudo systemctl daemon-reload
 ```
-
----
 
 ### 11. Syncthing Continuous Cross-Platform Sync Setup
 
@@ -516,8 +495,6 @@ Syncthing delivers private, continuous, decentralized folder synchronization acr
     1. Install **[Möbius Sync](https://www.mobiussync.com/)** from the Apple App Store.
     2. Möbius Sync bundles Syncthing internally and integrates with the native iOS **Files** app.
 
----
-
 #### B. Step-by-Step Device Pairing
 
 Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devices must add each other before any sync can occur:
@@ -543,8 +520,6 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
    * A prompt will appear: *`New Device "Device-ID" wants to connect`*.
    * Click **Add Device** ➔ check **Auto Accept Folders** (optional, recommended for trusted owner devices) ➔ click **Save**.
    * Status will transition to **Connected** over TLS 1.3.
-
----
 
 #### C. Adding & Sharing Folders
 
@@ -574,8 +549,6 @@ Syncthing uses mutual cryptographic TLS with 56-character Device IDs. Both devic
    (?d)Thumbs.db
    ```
 
----
-
 ### 12. Manga Ecosystem: Suwayomi Tsurumi vs. SyncYomi
 
 #### A. Recommended Client: Suwayomi Tsurumi (Native Android Client)
@@ -602,8 +575,6 @@ If your mobile reader feels slow to connect over Tailscale or background updates
 2. **Prevent Tailscale Sleep Delays**:
    - In Android **Settings** ➔ **Connections** ➔ **More connection settings** ➔ **VPN** ➔ **Tailscale** (Gear icon) ➔ Enable **"Always-on VPN"** (leave "Block connections without VPN" off). This eliminates WireGuard sleep/wake handshake delays when the app opens.
 
----
-
 ### 13. Headless JCEF Browser Engine & Cloudflare Clearance (Xvfb + FlareSolverr)
 
 When running Suwayomi on a headless Linux server, manga extensions that rely on Chromium / CEF (such as Comix, Vortex, and other sources protected by Cloudflare Turnstile) can fail or crash due to the lack of an active X11 display server. The ecosystem solves this transparently:
@@ -620,8 +591,6 @@ For sources requiring full Cloudflare challenge solving:
 docker compose -f configs/docker/docker-compose.flaresolverr.yml up -d
 ```
 FlareSolverr listens on `http://127.0.0.1:8191` and provides a JSON proxy API to solve Cloudflare Turnstile, JavaScript challenges, and anti-bot verification headlessly.
-
----
 
 ### 14. Autonomous Closed-Loop Thermal PID Governor & Dynamic Network Tuner
 
@@ -647,8 +616,6 @@ Home servers and repurposed laptops running heavy background workloads (like dow
 ```bash
 curl -s http://127.0.0.1:8085/api/reports/daily | jq .
 ```
-
----
 
 ### 15. Automated High-Throughput Media Server & *Arr Pipeline
 
@@ -690,8 +657,6 @@ flowchart LR
    - Direct-stream playback across web, Apple TV, Android TV, and mobile apps.
    - Nginx proxy caching for media artwork and backdrops, serving image assets directly at kernel `sendfile` speeds.
 
----
-
 #### B. 8-Thread Parallel Hashing & Libtorrent Multicore Tuning
 
 Default BitTorrent setups often suffer from severe single-core bottlenecks: libtorrent defaults to `hashing_threads: 1`, leaving available CPU threads idle while a single core maxes out verifying multi-gigabyte files. 
@@ -706,8 +671,6 @@ The pipeline tunes qBittorrent and libtorrent to utilize all hardware threads (I
 * **Expanded RAM Disk Cache (`Session\DiskCacheSize=256`)**:
   - Boosted from the default 64MB buffer to 256MB RAM cache.
   - Absorbs multi-megabyte burst throughput from fast peers and flushes to SSD sequentially.
-
----
 
 #### C. Autonomous Resource Governor Dynamic Scaling
 
@@ -724,8 +687,6 @@ The media server pipeline is tightly integrated with the system's **Autonomous R
   - Active torrent downloads are registered as active system workloads, preventing the machine from transitioning into deep idle or low-frequency sleep states while downloads are in flight.
 * **Cgroup CPU Scheduling Priority**:
   - `system-qbittorrent-nox.slice` is assigned a high `cpu.weight` of **200**, ensuring torrent downloads and piece hashing receive immediate CPU time without starving interactive SSH or Jellyfin playback.
-
----
 
 #### D. Unified Storage Architecture & Zero-Copy Atomic Hardlinks
 
@@ -745,8 +706,6 @@ All media downloads and completed series reside on the same filesystem partition
   - **Zero Disk Space Overhead**: Both the torrent seeding file and the Jellyfin playback file point to the exact same disk sectors.
   - **Seeding Continuity**: You can seed files indefinitely in qBittorrent without duplicating 30GB+ of storage.
 
----
-
 #### E. Zero-Interference System Design
 
 For users and installations that do not require the media server or *Arr suite, the codebase is engineered with strict non-interference principles:
@@ -760,8 +719,6 @@ For users and installations that do not require the media server or *Arr suite, 
 3. **Automated Security Sandboxing & Self-Healing**:
    - Systemd drop-in units (`configs/systemd/*-storage-access.conf`) grant targeted access to `/home/<user>/storage` without opening the entire `/home` directory (`ProtectHome=false`, `ReadWritePaths`).
    - Self-healing startup triggers (`ExecStartPre=+/usr/bin/chown -R <user>:<user> /var/lib/bazarr`) ensure database and state directories maintain correct ownership across system updates and reboots.
-
----
 
 ## 🛠️ Management & Useful Commands
 
@@ -786,8 +743,6 @@ For users and installations that do not require the media server or *Arr suite, 
 | **Bypass Persistent tmux on SSH** | `NO_AUTO_TMUX=1 ssh user@host` |
 | **View Telemetry & tmux Cheatsheet** | `shortcuts` or `tmux-keys` or `ff` |
 
----
-
 ## 🔒 Security & Isolation Model
 
 1. **Tailscale Whois Identity**: Authenticates users dynamically based on verified WireGuard mesh identities.
@@ -795,8 +750,6 @@ For users and installations that do not require the media server or *Arr suite, 
 3. **Mutual Cryptographic Pairing & TLS 1.3**: Syncthing requires explicit reciprocal 56-character Device ID fingerprint authorization, ensuring no unauthenticated device can ever access or sync the drive.
 4. **Leak-Proof Tor Routing**: The Tor exit node script rejects non-TCP/DNS traffic and filters IPv6 to prevent accidental deanonymization.
 5. **Persistent Session Sandboxing**: Remote SSH sessions are contained in detachable tmux sessions, preventing abrupt network drops from terminating background administration jobs.
-
----
 
 ## 📄 License
 
