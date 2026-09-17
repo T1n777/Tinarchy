@@ -2409,9 +2409,16 @@
             const bookmarkMap = {};
             (CURRENT_LAYOUT.custom_bookmarks || []).forEach(b => { bookmarkMap[b.id] = b; });
 
-            // Reconcile items
-            const layoutItems = Array.isArray(CURRENT_LAYOUT.items) ? [...CURRENT_LAYOUT.items] : [];
-            const existingSet = new Set(layoutItems);
+            // Reconcile items with deduplication
+            const rawItems = Array.isArray(CURRENT_LAYOUT.items) ? CURRENT_LAYOUT.items : [];
+            const layoutItems = [];
+            const existingSet = new Set();
+            rawItems.forEach(id => {
+                if (id && !existingSet.has(id)) {
+                    existingSet.add(id);
+                    layoutItems.push(id);
+                }
+            });
 
             LATEST_SERVICES.forEach(s => {
                 if (!existingSet.has(s.id)) {

@@ -371,6 +371,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return self.serve_access_denied('Bazarr')
             target_url = "/bazarr/"
 
+        if not target_url:
+            svc_name = clean_path.lstrip('/')
+            matched_svc = next((s for s in SERVICES if s.get('id') == svc_name), None)
+            if matched_svc and matched_svc.get('port'):
+                if matched_svc['id'] not in allowed_services:
+                    return self.serve_access_denied(matched_svc.get('name', matched_svc['id']))
+                scheme = matched_svc.get('scheme') or matched_svc.get('protocol') or 'http'
+                target_url = f"{scheme}://{host}:{matched_svc['port']}/"
 
         if target_url:
             self.send_response(302)

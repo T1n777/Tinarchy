@@ -202,7 +202,16 @@ if os.path.exists(LOCAL_SERVICES_FILE):
         with open(LOCAL_SERVICES_FILE, 'r') as f:
             local_svcs = json.load(f)
             if isinstance(local_svcs, list):
-                SERVICES.extend(local_svcs)
+                existing_map = {s['id']: i for i, s in enumerate(SERVICES)}
+                for l_svc in local_svcs:
+                    if not isinstance(l_svc, dict) or 'id' not in l_svc:
+                        continue
+                    sid = l_svc['id']
+                    if sid in existing_map:
+                        SERVICES[existing_map[sid]].update(l_svc)
+                    else:
+                        SERVICES.append(l_svc)
+                        existing_map[sid] = len(SERVICES) - 1
     except Exception as e:
         print(f'Error loading local services: {e}')
 
@@ -302,7 +311,7 @@ def get_services_status(allowed_services=None):
                         service_link = '/tor'
                     elif s['id'] == 'seerr':
                         service_link = '/seerr'
-                    elif 'navidrome' in s['id']:
+                    elif s['id'] == 'navidrome':
                         service_link = '/navidrome'
                 status_obj['link'] = service_link
                 base_results.append(status_obj)
