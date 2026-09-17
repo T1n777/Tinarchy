@@ -314,11 +314,19 @@ def test_suwayomi_privacy_vault():
                 raise Exception(f"Private manga {m['id']} ({m['title']}) found in public widget!")
 
     # B. Test Nginx injects suwayomi-vault.js into Suwayomi WebUI
-    req_nginx = urllib.request.Request("http://127.0.0.1:8080/")
-    with urllib.request.urlopen(req_nginx, timeout=3) as r:
-        html = r.read().decode()
-        if "suwayomi-vault.js" not in html:
-            raise Exception("Nginx did not inject suwayomi-vault.js into Suwayomi HTML")
+    injected = False
+    for url in ("http://127.0.0.1:8080/manga/", "http://127.0.0.1:8080/"):
+        try:
+            req_nginx = urllib.request.Request(url)
+            with urllib.request.urlopen(req_nginx, timeout=3) as r:
+                html = r.read().decode()
+                if "suwayomi-vault.js" in html:
+                    injected = True
+                    break
+        except Exception:
+            pass
+    if not injected:
+        raise Exception("Nginx did not inject suwayomi-vault.js into Suwayomi HTML")
 
 run_test("Suwayomi Private Category '_' Isolation & Vault Injection", test_suwayomi_privacy_vault)
 

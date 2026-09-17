@@ -22,30 +22,38 @@ import time
 
 _PRIVATE_CACHE = {"ids": set(), "ts": 0}
 
+GRAPHQL_CANDIDATES = [
+    "http://127.0.0.1:4567/manga/api/graphql",
+    "http://127.0.0.1:4567/api/graphql",
+    "http://127.0.0.1:4566/api/graphql",
+    "http://127.0.0.1:8080/manga/api/graphql",
+]
+
 def get_private_manga_ids() -> set[int]:
     """Returns set of manga IDs belonging to private category '_'."""
     now = time.time()
     if now - _PRIVATE_CACHE["ts"] < 60 and _PRIVATE_CACHE["ids"]:
         return _PRIVATE_CACHE["ids"]
-    try:
-        query = json.dumps({
-            "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 100) { nodes { id categories { nodes { name } } } } }"
-        }).encode("utf-8")
-        req = urllib.request.Request("http://127.0.0.1:4566/api/graphql", data=query, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=2.0) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode())
-                nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
-                p_ids = set()
-                for m in nodes:
-                    cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
-                    if "_" in cats or "private" in [c.lower() for c in cats]:
-                        p_ids.add(m["id"])
-                _PRIVATE_CACHE["ids"] = p_ids
-                _PRIVATE_CACHE["ts"] = now
-                return p_ids
-    except Exception:
-        pass
+    query = json.dumps({
+        "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 100) { nodes { id categories { nodes { name } } } } }"
+    }).encode("utf-8")
+    for ep in GRAPHQL_CANDIDATES:
+        try:
+            req = urllib.request.Request(ep, data=query, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=2.0) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode())
+                    nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
+                    p_ids = set()
+                    for m in nodes:
+                        cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
+                        if "_" in cats or "private" in [c.lower() for c in cats]:
+                            p_ids.add(m["id"])
+                    _PRIVATE_CACHE["ids"] = p_ids
+                    _PRIVATE_CACHE["ts"] = now
+                    return p_ids
+        except Exception:
+            continue
     return _PRIVATE_CACHE["ids"]
 
 def is_manga_private(manga_id: int) -> bool:

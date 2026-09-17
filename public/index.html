@@ -1775,7 +1775,7 @@
         <!-- Homarr Live Widgets Row -->
         <div class="homarr-widgets-row" id="homarr-widgets-row">
             <!-- qBittorrent Widget -->
-            <div class="homarr-widget-card glass" id="widget-qbittorrent" data-widget-id="qbittorrent" style="display:none;">
+            <div class="homarr-widget-card glass" id="widget-qbittorrent" data-widget-id="qbittorrent">
                 <div class="homarr-widget-header">
                     <div class="homarr-widget-title">
                         <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
@@ -1801,7 +1801,7 @@
             </div>
 
             <!-- Suwayomi Manga Shelf Widget -->
-            <div class="homarr-widget-card glass" id="widget-manga-shelf" data-widget-id="manga_shelf" style="display:none;">
+            <div class="homarr-widget-card glass" id="widget-manga-shelf" data-widget-id="manga_shelf">
                 <div class="homarr-widget-header">
                     <div class="homarr-widget-title">
                         <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
@@ -2240,16 +2240,22 @@
                     fetch('/api/widgets/qbittorrent').then(r => r.json()).then(data => {
                         const card = document.getElementById('widget-qbittorrent');
                         if (!card) return;
+                        if (CURRENT_LAYOUT.widgets?.qbittorrent?.enabled === false) {
+                            card.style.display = 'none';
+                            return;
+                        }
+                        card.style.display = 'flex';
+                        const dlEl = document.getElementById('qbit-dl-spd');
+                        const upEl = document.getElementById('qbit-up-spd');
+                        const tfEl = document.getElementById('qbit-active-transfers');
                         if (data.online) {
-                            card.style.display = 'flex';
-                            const dlEl = document.getElementById('qbit-dl-spd');
-                            const upEl = document.getElementById('qbit-up-spd');
-                            const tfEl = document.getElementById('qbit-active-transfers');
                             if (dlEl) dlEl.textContent = formatSpeed(data.dl_speed);
                             if (upEl) upEl.textContent = formatSpeed(data.up_speed);
                             if (tfEl) tfEl.textContent = `${data.active_torrents} active / ${data.total_torrents} total`;
                         } else {
-                            card.style.display = 'none';
+                            if (dlEl) dlEl.textContent = '--';
+                            if (upEl) upEl.textContent = '--';
+                            if (tfEl) tfEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">Service Offline</span>';
                         }
                     }).catch(() => {});
                 }
@@ -2260,8 +2266,12 @@
                         const card = document.getElementById('widget-manga-shelf');
                         const scrollContainer = document.getElementById('manga-shelf-scroll');
                         if (!card || !scrollContainer) return;
+                        if (CURRENT_LAYOUT.widgets?.manga_shelf?.enabled === false) {
+                            card.style.display = 'none';
+                            return;
+                        }
+                        card.style.display = 'flex';
                         if (data.online && data.mangas && data.mangas.length > 0) {
-                            card.style.display = 'flex';
                             scrollContainer.innerHTML = data.mangas.map(m => `
                                 <a href="${m.link}" target="_blank" class="shelf-item" title="${(m.title || '').replace(/"/g, '&quot;')}">
                                     <img class="shelf-thumb" src="${m.cover}" alt="${(m.title || '').replace(/"/g, '&quot;')}" loading="lazy" onerror="this.src='/favicon.ico'">
@@ -2269,7 +2279,7 @@
                                 </a>
                             `).join('');
                         } else {
-                            card.style.display = 'none';
+                            scrollContainer.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>📚</span> Suwayomi Library is empty or offline</div>';
                         }
                     }).catch(() => {});
                 }
@@ -2541,10 +2551,10 @@
             if (torBanner) torBanner.style.display = w.tor_exit?.enabled === false ? 'none' : 'flex';
 
             const qbitCard = document.getElementById('widget-qbittorrent');
-            if (qbitCard && w.qbittorrent?.enabled === false) qbitCard.style.display = 'none';
+            if (qbitCard) qbitCard.style.display = w.qbittorrent?.enabled === false ? 'none' : 'flex';
 
             const mangaCard = document.getElementById('widget-manga-shelf');
-            if (mangaCard && w.manga_shelf?.enabled === false) mangaCard.style.display = 'none';
+            if (mangaCard) mangaCard.style.display = w.manga_shelf?.enabled === false ? 'none' : 'flex';
         }
 
         async function resetDashboardLayout() {

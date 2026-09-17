@@ -605,34 +605,42 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/api/widgets/manga':
             import urllib.request
             shelf_info = {"online": False, "mangas": []}
-            try:
-                gql_query = json.dumps({
-                    "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 60) { nodes { id title categories { nodes { id name } } } } }"
-                }).encode('utf-8')
-                req = urllib.request.Request("http://127.0.0.1:4566/api/graphql", data=gql_query, headers={"Content-Type": "application/json"})
-                with urllib.request.urlopen(req, timeout=2.0) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode())
-                        nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
-                        clean_mangas = []
-                        for m in nodes:
-                            cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
-                            if "_" in cats or "private" in [c.lower() for c in cats]:
-                                continue
-                            clean_mangas.append({
-                                "id": m["id"],
-                                "title": m.get("title", ""),
-                                "cover": f"/api/suwayomi/thumbnail/{m['id']}",
-                                "link": "/manga"
-                            })
-                            if len(clean_mangas) >= 16:
-                                break
-                        shelf_info = {
-                            "online": True,
-                            "mangas": clean_mangas
-                        }
-            except Exception:
-                pass
+            gql_candidates = [
+                "http://127.0.0.1:4567/manga/api/graphql",
+                "http://127.0.0.1:4567/api/graphql",
+                "http://127.0.0.1:4566/api/graphql",
+                "http://127.0.0.1:8080/manga/api/graphql",
+            ]
+            gql_query = json.dumps({
+                "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 60) { nodes { id title categories { nodes { id name } } } } }"
+            }).encode('utf-8')
+            for ep in gql_candidates:
+                try:
+                    req = urllib.request.Request(ep, data=gql_query, headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                        if resp.status == 200:
+                            data = json.loads(resp.read().decode())
+                            nodes = data.get("data", {}).get("mangas", {}).get("nodes", [])
+                            clean_mangas = []
+                            for m in nodes:
+                                cats = [c.get("name", "").strip() for c in m.get("categories", {}).get("nodes", [])]
+                                if "_" in cats or "private" in [c.lower() for c in cats]:
+                                    continue
+                                clean_mangas.append({
+                                    "id": m["id"],
+                                    "title": m.get("title", ""),
+                                    "cover": f"/api/suwayomi/thumbnail/{m['id']}",
+                                    "link": "/manga"
+                                })
+                                if len(clean_mangas) >= 16:
+                                    break
+                            shelf_info = {
+                                "online": True,
+                                "mangas": clean_mangas
+                            }
+                            break
+                except Exception:
+                    continue
             self.send_compressed(json.dumps(shelf_info).encode(), "application/json")
 
         elif self.path == '/api/me':
