@@ -322,11 +322,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 target_url = "/couchdb/_utils/"
             else:
                 target_url = "/syncthing"
-        elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi']:
+        elif clean_path in ['/manga', '/reader', '/tachiyomi', '/suwayomi'] or clean_path.startswith(('/manga/', '/reader/', '/tachiyomi/', '/suwayomi/')):
             if 'suwayomi' not in allowed_services:
                 return self.serve_access_denied('Suwayomi Server')
             services.trigger_suwayomi_sync_async()
-            target_url = f"https://{host}:4567/"
+            sub = clean_path
+            for prefix in ['/reader', '/tachiyomi', '/suwayomi']:
+                if sub.startswith(prefix):
+                    sub = '/manga' + sub[len(prefix):]
+            if sub.startswith('/manga/manga/'):
+                sub = sub[len('/manga'):]
+            elif sub == '/manga/history':
+                sub = '/history'
+            elif sub.startswith('/manga/'):
+                pass
+            else:
+                sub = '/'
+            query = ('?' + self.path.split('?', 1)[1]) if '?' in self.path else ''
+            target_url = f"https://{host}:4567{sub}{query}"
         elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
             if 'jellyfin' not in allowed_services:
                 return self.serve_access_denied('Jellyfin Media Server')
@@ -675,7 +688,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     "id": mid,
                                     "title": m.get("title", ""),
                                     "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                    "link": f"/manga/manga/{mid}"
+                                    "link": f"/manga/{mid}"
                                 })
                                 if len(clean_mangas) >= 16:
                                     break
@@ -696,7 +709,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                         "id": mid,
                                         "title": m.get("title", ""),
                                         "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                        "link": f"/manga/manga/{mid}"
+                                        "link": f"/manga/{mid}"
                                     })
                                     if len(clean_mangas) >= 16:
                                         break

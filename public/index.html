@@ -1360,6 +1360,9 @@
             border-color: var(--primary);
             box-shadow: 0 4px 14px var(--primary-glow);
         }
+        .shelf-item:hover .shelf-title {
+            color: var(--primary);
+        }
         .shelf-title {
             font-size: 0.72rem;
             font-weight: 600;
@@ -2277,12 +2280,16 @@
                         }
                         card.style.display = 'flex';
                         if (data.online && data.mangas && data.mangas.length > 0) {
-                            scrollContainer.innerHTML = data.mangas.map(m => `
-                                <a href="${m.link}" target="_blank" class="shelf-item" title="${(m.title || '').replace(/"/g, '&quot;')}">
-                                    <img class="shelf-thumb" src="${m.cover}" alt="${(m.title || '').replace(/"/g, '&quot;')}" loading="lazy" onerror="this.src='/favicon.ico'">
-                                    <span class="shelf-title">${m.title || ''}</span>
-                                </a>
-                            `).join('');
+                            scrollContainer.innerHTML = data.mangas.map(m => {
+                                const mangaUrl = m.link || ('/manga/' + m.id);
+                                const titleEsc = (m.title || '').replace(/"/g, '&quot;');
+                                return `
+                                    <a href="${mangaUrl}" target="_blank" class="shelf-item" title="${titleEsc} (Open manhwa ↗)">
+                                        <img class="shelf-thumb" src="${m.cover}" alt="${titleEsc}" loading="lazy" onerror="this.src='/favicon.ico'">
+                                        <span class="shelf-title">${m.title || ''}</span>
+                                    </a>
+                                `;
+                            }).join('');
                         } else {
                             scrollContainer.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>📚</span> Suwayomi Library is empty or offline</div>';
                         }

@@ -355,6 +355,45 @@ def test_dashboard_unified_grid():
 
 run_test("Unified Draggable Dashboard Grid & Flat Items Schema", test_dashboard_unified_grid)
 
+# --- TEST 19: Manga Shelf Individual Items Linked Directly to Manhwa Page ---
+def test_manga_shelf_links():
+    # 1. Verify /api/widgets/manga links point to specific /manga/:id
+    req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/manga")
+    with urllib.request.urlopen(req, timeout=3) as r:
+        if r.status != 200:
+            raise Exception(f"Failed to fetch /api/widgets/manga: {r.status}")
+        data = json.loads(r.read().decode())
+        mangas = data.get("mangas", [])
+        if not mangas:
+            raise Exception("No mangas found in /api/widgets/manga to verify")
+        for m in mangas:
+            expected_link = f"/manga/{m['id']}"
+            if m.get("link") != expected_link:
+                raise Exception(f"Expected manga link {expected_link}, got {m.get('link')}")
+
+    # 2. Verify backend /manga/:id redirects to Suwayomi port 4567 with target manga path
+    first_manga_id = mangas[0]["id"]
+    class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(NoRedirectHandler)
+    req_redir = urllib.request.Request(f"http://127.0.0.1:8085/manga/{first_manga_id}")
+    try:
+        resp = opener.open(req_redir, timeout=3)
+        code = resp.status
+        loc = resp.headers.get("Location", "")
+    except urllib.error.HTTPError as e:
+        code = e.code
+        loc = e.headers.get("Location", "")
+
+    if code != 302:
+        raise Exception(f"Expected 302 redirect from /manga/{first_manga_id}, got HTTP {code}")
+    if f":4567/manga/{first_manga_id}" not in loc:
+        raise Exception(f"Expected redirect location to contain :4567/manga/{first_manga_id}, got '{loc}'")
+
+run_test("Manga Shelf Individual Items Linked Directly to Manhwa Page", test_manga_shelf_links)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
