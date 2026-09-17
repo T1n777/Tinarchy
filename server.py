@@ -77,9 +77,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def end_headers(self):
         if hasattr(self, 'path'):
-            if self.path == '/sw.js':
+            clean_p = self.path.split('?')[0].split('#')[0]
+            if clean_p in ['/', '/index.html', '/settings', '/settings.html', '/sw.js']:
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                self.send_header('Service-Worker-Allowed', '/')
+                if clean_p == '/sw.js':
+                    self.send_header('Service-Worker-Allowed', '/')
             elif (
                 self.path.startswith('/Wallpapers/') or
                 self.path.startswith('/thumbnails/') or
