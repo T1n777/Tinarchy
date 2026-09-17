@@ -404,8 +404,10 @@ def test_tmux_pink_top_and_tty_persistence():
         tmux_conf = f.read()
     if "status-position top" not in tmux_conf:
         raise Exception("tmux.conf missing 'status-position top'")
-    if "#ff79c6" not in tmux_conf:
-        raise Exception("tmux.conf missing pink accent '#ff79c6'")
+    if "#f5c2e7" not in tmux_conf:
+        raise Exception("tmux.conf missing pastel pink accent '#f5c2e7'")
+    if "bg=default" not in tmux_conf:
+        raise Exception("tmux.conf missing 'bg=default' terminal backdrop")
     if "window-size latest" not in tmux_conf:
         raise Exception("tmux.conf missing 'window-size latest'")
 
