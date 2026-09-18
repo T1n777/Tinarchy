@@ -714,12 +714,22 @@ def test_suwayomi_tabbed_widget():
         if data.get("library"):
             first_manga_id = data["library"][0]["id"]
             q_cat = json.dumps({"query": f"{{ manga(id: {first_manga_id}) {{ categories {{ nodes {{ name }} }} }} }}"}).encode("utf-8")
-            r_cat = urllib.request.Request("http://127.0.0.1:4567/manga/api/graphql", data=q_cat, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(r_cat, timeout=3.0) as resp_cat:
-                cat_data = json.loads(resp_cat.read().decode("utf-8"))
-                cats = [c["name"].strip().lower() for c in (cat_data.get("data", {}).get("manga", {}).get("categories", {}).get("nodes", []))]
-                if "reading" not in cats:
-                    raise Exception(f"First library manga id {first_manga_id} does not have 'Reading' category: {cats}")
+            cat_data = None
+            for p, path in [(4566, "/api/graphql"), (4567, "/api/graphql")]:
+                try:
+                    r_test = urllib.request.Request(f"http://127.0.0.1:{p}{path}", data=q_cat, headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(r_test, timeout=2.0) as resp_test:
+                        if resp_test.status == 200:
+                            cat_data = json.loads(resp_test.read().decode("utf-8"))
+                            if "data" in cat_data:
+                                break
+                except Exception:
+                    continue
+            if not cat_data:
+                raise Exception("Could not reach Suwayomi GraphQL API on port 4566 or 4567")
+            cats = [c["name"].strip().lower() for c in (cat_data.get("data", {}).get("manga", {}).get("categories", {}).get("nodes", []))]
+            if "reading" not in cats:
+                raise Exception(f"First library manga id {first_manga_id} does not have 'Reading' category: {cats}")
 
 run_test("Suwayomi Tabbed Manga Shelf & Stacking Exclusion", test_suwayomi_tabbed_widget)
 
