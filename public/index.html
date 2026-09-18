@@ -1404,6 +1404,136 @@
             font-size: 0.7rem;
             color: var(--text-muted);
         }
+        /* ─── Stackable & Tabbed Widgets ─── */
+        .homarr-widget-stack {
+            position: relative;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .widget-stack-pills {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.32);
+            padding: 3px 4px;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            gap: 4px;
+            max-width: 100%;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .widget-stack-pills::-webkit-scrollbar { display: none; }
+        .stack-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 11px;
+            border-radius: 18px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            white-space: nowrap;
+            user-select: none;
+        }
+        .stack-pill:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .stack-pill.active {
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        }
+        .stack-pill .widget-icon {
+            font-size: 0.92rem;
+            line-height: 1;
+        }
+        .stack-cycle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: bold;
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            flex-shrink: 0;
+            padding: 0;
+            line-height: 1;
+        }
+        .stack-cycle-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: var(--text);
+            transform: scale(1.08) rotate(180deg);
+        }
+        .stack-cycle-btn:active {
+            transform: scale(0.95);
+        }
+        .widget-stack-panes {
+            position: relative;
+            width: 100%;
+            min-height: 0;
+        }
+        .widget-pane {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .widget-pane.active {
+            display: flex;
+            animation: stackSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes stackSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(8px) scale(0.995);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+        .stack-select {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 0.78rem;
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+        }
+        .stack-select:focus {
+            border-color: var(--primary);
+        }
+        .stack-preset-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            transition: all 0.2s ease;
+        }
+        .stack-preset-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: var(--primary);
+        }
+        .stack-preset-btn.active {
+            background: var(--primary);
+            color: #fff;
+        }
         .homarr-shelf-scroll {
             display: flex;
             gap: 12px;
@@ -1861,81 +1991,56 @@
 
         <!-- Homarr Live Widgets Row -->
         <div class="homarr-widgets-row" id="homarr-widgets-row">
-            <!-- qBittorrent Widget -->
-            <div class="homarr-widget-card glass" id="widget-qbittorrent" data-widget-id="qbittorrent">
-                <div class="homarr-widget-header">
-                    <div class="homarr-widget-title">
-                        <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
-                        <span class="widget-icon">🧲</span>
-                        <h3>qBittorrent Active Transfers</h3>
-                    </div>
-                    <a href="/qbittorrent/" target="_blank" class="widget-link">Open WebUI ↗</a>
-                </div>
-                <div class="qbit-body">
-                    <div class="qbit-metric">
-                        <span class="qbit-label">Download Speed</span>
-                        <span class="qbit-val" id="qbit-dl-spd">0 B/s</span>
-                    </div>
-                    <div class="qbit-metric">
-                        <span class="qbit-label">Upload Speed</span>
-                        <span class="qbit-val" id="qbit-up-spd">0 B/s</span>
-                    </div>
-                    <div class="qbit-metric">
-                        <span class="qbit-label">Active Transfers</span>
-                        <span class="qbit-val" id="qbit-active-transfers">0 / 0</span>
+            <!-- Storage for live widget content panes (dynamically mounted into stacks or standalone cards) -->
+            <div id="widget-panes-storage" style="display:none;">
+                <!-- qBittorrent Widget Pane -->
+                <div class="widget-pane" id="widget-qbittorrent" data-widget-id="qbittorrent">
+                    <div class="qbit-body">
+                        <div class="qbit-metric">
+                            <span class="qbit-label">Download Speed</span>
+                            <span class="qbit-val" id="qbit-dl-spd">0 B/s</span>
+                        </div>
+                        <div class="qbit-metric">
+                            <span class="qbit-label">Upload Speed</span>
+                            <span class="qbit-val" id="qbit-up-spd">0 B/s</span>
+                        </div>
+                        <div class="qbit-metric">
+                            <span class="qbit-label">Active Transfers</span>
+                            <span class="qbit-val" id="qbit-active-transfers">0 / 0</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- JDownloader 2 Widget -->
-            <div class="homarr-widget-card glass" id="widget-jdownloader" data-widget-id="jdownloader">
-                <div class="homarr-widget-header">
-                    <div class="homarr-widget-title">
-                        <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
-                        <span class="widget-icon">📥</span>
-                        <h3>JDownloader Active Transfers</h3>
+                <!-- JDownloader 2 Widget Pane -->
+                <div class="widget-pane" id="widget-jdownloader" data-widget-id="jdownloader">
+                    <div class="qbit-body">
+                        <div class="qbit-metric">
+                            <span class="qbit-label">Download Speed</span>
+                            <span class="qbit-val" id="jd-dl-spd">0 B/s</span>
+                        </div>
+                        <div class="qbit-metric">
+                            <span class="qbit-label">State</span>
+                            <span class="qbit-val" id="jd-state">IDLE</span>
+                        </div>
+                        <div class="qbit-metric">
+                            <span class="qbit-label">Active Downloads</span>
+                            <span class="qbit-val" id="jd-active-transfers">0 / 0</span>
+                        </div>
                     </div>
-                    <a href="https://my.jdownloader.org" target="_blank" class="widget-link" title="Open MyJDownloader Web Panel">MyJDownloader ↗</a>
+                    <!-- Interactive Quick-Add Link Row -->
+                    <div class="jd-add-row">
+                        <input type="text" id="jd-link-input" class="jd-input" placeholder="Paste download URL, Mega, DDL, or magnet link..." onkeydown="if(event.key==='Enter') submitJDownloaderLink()">
+                        <button type="button" id="jd-add-btn" class="jd-add-btn" onclick="submitJDownloaderLink()" title="Send to JDownloader">
+                            <span>📥</span> <span>Add</span>
+                        </button>
+                    </div>
+                    <!-- Live Downloads / Grabbed Package List -->
+                    <div id="jd-packages-container" class="jd-pkg-list" style="display: none;"></div>
                 </div>
-                <div class="qbit-body">
-                    <div class="qbit-metric">
-                        <span class="qbit-label">Download Speed</span>
-                        <span class="qbit-val" id="jd-dl-spd">0 B/s</span>
-                    </div>
-                    <div class="qbit-metric">
-                        <span class="qbit-label">State</span>
-                        <span class="qbit-val" id="jd-state">IDLE</span>
-                    </div>
-                    <div class="qbit-metric">
-                        <span class="qbit-label">Active Downloads</span>
-                        <span class="qbit-val" id="jd-active-transfers">0 / 0</span>
-                    </div>
-                </div>
-                <!-- Interactive Quick-Add Link Row -->
-                <div class="jd-add-row">
-                    <input type="text" id="jd-link-input" class="jd-input" placeholder="Paste download URL, Mega, DDL, or magnet link..." onkeydown="if(event.key==='Enter') submitJDownloaderLink()">
-                    <button type="button" id="jd-add-btn" class="jd-add-btn" onclick="submitJDownloaderLink()" title="Send to JDownloader">
-                        <span>📥</span> <span>Add</span>
-                    </button>
-                </div>
-                <!-- Live Downloads / Grabbed Package List -->
-                <div id="jd-packages-container" class="jd-pkg-list" style="display: none;"></div>
-            </div>
 
-            <!-- Suwayomi Manga Shelf Widget -->
-            <div class="homarr-widget-card glass" id="widget-manga-shelf" data-widget-id="manga_shelf">
-                <div class="homarr-widget-header">
-                    <div class="homarr-widget-title">
-                        <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
-                        <span class="widget-icon">📚</span>
-                        <h3>Reading History</h3>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <a href="/manga/history" target="_blank" class="widget-link">History ↗</a>
-                        <a href="/manga" target="_blank" class="widget-link">Library ↗</a>
-                    </div>
-                </div>
-                <div class="homarr-shelf-scroll" id="manga-shelf-scroll">
+                <!-- Suwayomi Manga Shelf Widget Pane -->
+                <div class="widget-pane" id="widget-manga-shelf" data-widget-id="manga_shelf">
+                    <div class="homarr-shelf-scroll" id="manga-shelf-scroll"></div>
                 </div>
             </div>
         </div>
@@ -2007,6 +2112,53 @@
                     <span>🧅 Tor Exit Node Banner</span>
                     <input type="checkbox" id="toggle-widget-tor" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('tor_exit', this.checked)">
                 </label>
+            </div>
+
+            <!-- Widget Stacking & Combining Section -->
+            <div style="border-top: 1px solid var(--glass-border); padding-top: 14px; margin-top: 4px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="font-size: 0.88rem; color: var(--text);">Widget Stacking & Tabs</strong>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">Combine cards into one</span>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Group multiple widgets into a single card with tabs and a slider toggle to save dashboard space.</p>
+                
+                <!-- Quick Presets -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" class="stack-preset-btn" id="btn-preset-transfers" onclick="applyStackPreset('transfers')">⚡ Stack Transfers (qBit + JD)</button>
+                    <button type="button" class="stack-preset-btn" id="btn-preset-all" onclick="applyStackPreset('all')">📑 Stack All Widgets</button>
+                    <button type="button" class="stack-preset-btn" id="btn-preset-unstack" onclick="applyStackPreset('none')">🔲 Separate (Unstack)</button>
+                </div>
+
+                <!-- Per-widget stack group assignment -->
+                <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.82rem;">🧲 qBittorrent Transfers</span>
+                        <select class="stack-select" id="stack-sel-qbittorrent" onchange="onWidgetStackChange('qbittorrent', this.value)">
+                            <option value="">Standalone (Unstacked)</option>
+                            <option value="transfers">Stack: Transfers</option>
+                            <option value="all_widgets">Stack: All Widgets</option>
+                            <option value="stack_custom">Stack: Custom Stack</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.82rem;">📥 JDownloader Transfers</span>
+                        <select class="stack-select" id="stack-sel-jdownloader" onchange="onWidgetStackChange('jdownloader', this.value)">
+                            <option value="">Standalone (Unstacked)</option>
+                            <option value="transfers">Stack: Transfers</option>
+                            <option value="all_widgets">Stack: All Widgets</option>
+                            <option value="stack_custom">Stack: Custom Stack</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.82rem;">📚 Suwayomi Reading History</span>
+                        <select class="stack-select" id="stack-sel-manga_shelf" onchange="onWidgetStackChange('manga_shelf', this.value)">
+                            <option value="">Standalone (Unstacked)</option>
+                            <option value="transfers">Stack: Transfers</option>
+                            <option value="all_widgets">Stack: All Widgets</option>
+                            <option value="stack_custom">Stack: Custom Stack</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="homarr-modal-actions">
                 <button type="button" class="homarr-btn-primary" onclick="closeWidgetsModal()">Done</button>
@@ -2209,6 +2361,14 @@
                 manga_shelf: { enabled: true },
                 tor_exit: { enabled: true }
             },
+            widget_stacks: [
+                {
+                    id: 'transfers',
+                    name: 'Transfers',
+                    widgets: ['qbittorrent', 'jdownloader'],
+                    active: 'qbittorrent'
+                }
+            ],
             items: [],
             custom_bookmarks: []
         };
@@ -2227,6 +2387,16 @@
                         if (Array.isArray(data.items)) {
                             if (data.widgets && data.widgets.jdownloader === undefined) {
                                 data.widgets.jdownloader = { enabled: true };
+                            }
+                            if (!Array.isArray(data.widget_stacks)) {
+                                data.widget_stacks = [
+                                    {
+                                        id: 'transfers',
+                                        name: 'Transfers',
+                                        widgets: ['qbittorrent', 'jdownloader'],
+                                        active: 'qbittorrent'
+                                    }
+                                ];
                             }
                             CURRENT_LAYOUT = data;
                             localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(CURRENT_LAYOUT));
@@ -2248,6 +2418,16 @@
                     }
                     if (parsed.widgets && parsed.widgets.jdownloader === undefined) {
                         parsed.widgets.jdownloader = { enabled: true };
+                    }
+                    if (!Array.isArray(parsed.widget_stacks)) {
+                        parsed.widget_stacks = [
+                            {
+                                id: 'transfers',
+                                name: 'Transfers',
+                                widgets: ['qbittorrent', 'jdownloader'],
+                                active: 'qbittorrent'
+                            }
+                        ];
                     }
                     CURRENT_LAYOUT = parsed;
                 }
@@ -2368,19 +2548,339 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
+        // ─── Stackable & Customizable Widgets Architecture ───
+        const STACKABLE_WIDGETS = {
+            qbittorrent: {
+                id: 'qbittorrent',
+                title: 'qBittorrent',
+                icon: '🧲',
+                elementId: 'widget-qbittorrent',
+                linksHtml: '<a href="/qbit" target="_blank" class="widget-link" title="Open WebUI">WebUI ↗</a>'
+            },
+            jdownloader: {
+                id: 'jdownloader',
+                title: 'JDownloader',
+                icon: '📥',
+                elementId: 'widget-jdownloader',
+                linksHtml: '<a href="https://my.jdownloader.org" target="_blank" class="widget-link" title="Open MyJDownloader Web Panel">MyJDownloader ↗</a>'
+            },
+            manga_shelf: {
+                id: 'manga_shelf',
+                title: 'Reading History',
+                icon: '📚',
+                elementId: 'widget-manga-shelf',
+                linksHtml: '<a href="/manga/history" target="_blank" class="widget-link">History ↗</a><a href="/manga" target="_blank" class="widget-link">Library ↗</a>'
+            }
+        };
+
+        function renderWidgetsLayout() {
+            const row = document.getElementById('homarr-widgets-row');
+            const storage = document.getElementById('widget-panes-storage');
+            if (!row || !storage) return;
+
+            // 1. Stash all panes back in storage first
+            Object.values(STACKABLE_WIDGETS).forEach(cfg => {
+                const pane = document.getElementById(cfg.elementId);
+                if (pane) {
+                    pane.classList.remove('active');
+                    storage.appendChild(pane);
+                }
+            });
+
+            // 2. Remove any previously rendered cards in row
+            Array.from(row.children).forEach(child => {
+                if (child.id !== 'widget-panes-storage') {
+                    child.remove();
+                }
+            });
+
+            const wConfig = CURRENT_LAYOUT.widgets || {};
+            const stacks = Array.isArray(CURRENT_LAYOUT.widget_stacks) ? CURRENT_LAYOUT.widget_stacks : [];
+
+            const widgetToStack = {};
+            stacks.forEach(st => {
+                (st.widgets || []).forEach(wId => {
+                    widgetToStack[wId] = st;
+                });
+            });
+
+            const renderedStacks = new Set();
+            const widgetKeys = Object.keys(STACKABLE_WIDGETS);
+
+            widgetKeys.forEach(wId => {
+                if (wConfig[wId]?.enabled === false) return;
+
+                const stack = widgetToStack[wId];
+                if (stack) {
+                    if (renderedStacks.has(stack.id)) return;
+                    renderedStacks.add(stack.id);
+
+                    const enabledInStack = (stack.widgets || []).filter(id => STACKABLE_WIDGETS[id] && wConfig[id]?.enabled !== false);
+                    if (enabledInStack.length === 0) return;
+
+                    if (enabledInStack.length === 1) {
+                        renderStandaloneWidgetCard(row, enabledInStack[0]);
+                    } else {
+                        renderStackedWidgetsCard(row, stack, enabledInStack);
+                    }
+                } else {
+                    renderStandaloneWidgetCard(row, wId);
+                }
+            });
+
+            if (typeof initSortable === 'function') {
+                initSortable();
+            }
+        }
+
+        function renderStackedWidgetsCard(row, stack, enabledWidgets) {
+            let activeWid = stack.active;
+            if (!enabledWidgets.includes(activeWid)) {
+                activeWid = enabledWidgets[0];
+                stack.active = activeWid;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'homarr-widget-card glass homarr-widget-stack';
+            card.setAttribute('data-stack-id', stack.id);
+
+            const header = document.createElement('div');
+            header.className = 'homarr-widget-header';
+
+            const headerLeft = document.createElement('div');
+            headerLeft.style.display = 'flex';
+            headerLeft.style.alignItems = 'center';
+            headerLeft.style.gap = '8px';
+            headerLeft.style.flexWrap = 'wrap';
+
+            const dragHandle = document.createElement('span');
+            dragHandle.className = 'widget-drag-handle';
+            dragHandle.title = 'Drag to reorder widget';
+            dragHandle.textContent = '⋮⋮';
+            headerLeft.appendChild(dragHandle);
+
+            const pillsWrap = document.createElement('div');
+            pillsWrap.className = 'widget-stack-pills';
+
+            enabledWidgets.forEach(wId => {
+                const cfg = STACKABLE_WIDGETS[wId];
+                if (!cfg) return;
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = `stack-pill ${wId === activeWid ? 'active' : ''}`;
+                pill.setAttribute('data-widget-id', wId);
+                pill.innerHTML = `<span class="widget-icon">${cfg.icon}</span> <span>${cfg.title}</span>`;
+                pill.onclick = () => setStackActiveWidget(stack.id, wId);
+                pillsWrap.appendChild(pill);
+            });
+            headerLeft.appendChild(pillsWrap);
+
+            const cycleBtn = document.createElement('button');
+            cycleBtn.type = 'button';
+            cycleBtn.className = 'stack-cycle-btn';
+            cycleBtn.title = 'Toggle / Slide to next stacked widget';
+            cycleBtn.textContent = '⇄';
+            cycleBtn.onclick = () => cycleStackActiveWidget(stack.id);
+            headerLeft.appendChild(cycleBtn);
+
+            header.appendChild(headerLeft);
+
+            const linksDiv = document.createElement('div');
+            linksDiv.id = `stack-links-${stack.id}`;
+            linksDiv.className = 'stack-header-links';
+            linksDiv.style.display = 'flex';
+            linksDiv.style.alignItems = 'center';
+            linksDiv.style.gap = '10px';
+            const activeCfg = STACKABLE_WIDGETS[activeWid];
+            if (activeCfg) linksDiv.innerHTML = activeCfg.linksHtml || '';
+            header.appendChild(linksDiv);
+
+            card.appendChild(header);
+
+            const panesWrap = document.createElement('div');
+            panesWrap.className = 'widget-stack-panes';
+
+            enabledWidgets.forEach(wId => {
+                const cfg = STACKABLE_WIDGETS[wId];
+                if (!cfg) return;
+                const pane = document.getElementById(cfg.elementId);
+                if (pane) {
+                    if (wId === activeWid) {
+                        pane.classList.add('active');
+                    } else {
+                        pane.classList.remove('active');
+                    }
+                    panesWrap.appendChild(pane);
+                }
+            });
+
+            card.appendChild(panesWrap);
+            row.appendChild(card);
+        }
+
+        function renderStandaloneWidgetCard(row, wId) {
+            const cfg = STACKABLE_WIDGETS[wId];
+            if (!cfg) return;
+
+            const card = document.createElement('div');
+            card.className = 'homarr-widget-card glass';
+            card.setAttribute('data-widget-id', wId);
+
+            const header = document.createElement('div');
+            header.className = 'homarr-widget-header';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'homarr-widget-title';
+            titleDiv.innerHTML = `
+                <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
+                <span class="widget-icon">${cfg.icon}</span>
+                <h3>${cfg.title}</h3>
+            `;
+            header.appendChild(titleDiv);
+
+            const linksDiv = document.createElement('div');
+            linksDiv.style.display = 'flex';
+            linksDiv.style.alignItems = 'center';
+            linksDiv.style.gap = '10px';
+            linksDiv.innerHTML = cfg.linksHtml || '';
+            header.appendChild(linksDiv);
+
+            card.appendChild(header);
+
+            const pane = document.getElementById(cfg.elementId);
+            if (pane) {
+                pane.classList.add('active');
+                card.appendChild(pane);
+            }
+
+            row.appendChild(card);
+        }
+
+        function setStackActiveWidget(stackId, widgetId) {
+            if (!Array.isArray(CURRENT_LAYOUT.widget_stacks)) return;
+            const stack = CURRENT_LAYOUT.widget_stacks.find(s => s.id === stackId);
+            if (!stack) return;
+            stack.active = widgetId;
+            saveCurrentLayout();
+
+            const stackCard = document.querySelector(`.homarr-widget-stack[data-stack-id="${stackId}"]`);
+            if (!stackCard) {
+                renderWidgetsLayout();
+                return;
+            }
+
+            stackCard.querySelectorAll('.stack-pill').forEach(pill => {
+                const pWid = pill.getAttribute('data-widget-id');
+                pill.classList.toggle('active', pWid === widgetId);
+            });
+
+            stackCard.querySelectorAll('.widget-pane').forEach(pane => {
+                const pWid = pane.getAttribute('data-widget-id');
+                pane.classList.toggle('active', pWid === widgetId);
+            });
+
+            const linksContainer = document.getElementById(`stack-links-${stackId}`);
+            if (linksContainer && STACKABLE_WIDGETS[widgetId]) {
+                linksContainer.innerHTML = STACKABLE_WIDGETS[widgetId].linksHtml || '';
+            }
+        }
+
+        function cycleStackActiveWidget(stackId) {
+            if (!Array.isArray(CURRENT_LAYOUT.widget_stacks)) return;
+            const stack = CURRENT_LAYOUT.widget_stacks.find(s => s.id === stackId);
+            if (!stack || !Array.isArray(stack.widgets)) return;
+
+            const enabledWidgets = stack.widgets.filter(wid => STACKABLE_WIDGETS[wid] && CURRENT_LAYOUT.widgets?.[wid]?.enabled !== false);
+            if (enabledWidgets.length <= 1) return;
+
+            const currentIdx = enabledWidgets.indexOf(stack.active);
+            const nextIdx = (currentIdx + 1) % enabledWidgets.length;
+            const nextWidget = enabledWidgets[nextIdx];
+            setStackActiveWidget(stackId, nextWidget);
+        }
+
+        function applyStackPreset(preset) {
+            if (!Array.isArray(CURRENT_LAYOUT.widget_stacks)) CURRENT_LAYOUT.widget_stacks = [];
+            if (preset === 'transfers') {
+                CURRENT_LAYOUT.widget_stacks = [
+                    {
+                        id: 'transfers',
+                        name: 'Transfers',
+                        widgets: ['qbittorrent', 'jdownloader'],
+                        active: 'qbittorrent'
+                    }
+                ];
+            } else if (preset === 'all') {
+                CURRENT_LAYOUT.widget_stacks = [
+                    {
+                        id: 'all_widgets',
+                        name: 'All Widgets',
+                        widgets: ['qbittorrent', 'jdownloader', 'manga_shelf'],
+                        active: 'qbittorrent'
+                    }
+                ];
+            } else if (preset === 'none') {
+                CURRENT_LAYOUT.widget_stacks = [];
+            }
+            syncStackModalUI();
+            renderWidgetsLayout();
+            saveCurrentLayout(true);
+            showToast('Widget layout updated', 'default');
+        }
+
+        function onWidgetStackChange(widgetId, stackGroup) {
+            if (!Array.isArray(CURRENT_LAYOUT.widget_stacks)) {
+                CURRENT_LAYOUT.widget_stacks = [];
+            }
+            CURRENT_LAYOUT.widget_stacks.forEach(st => {
+                st.widgets = (st.widgets || []).filter(w => w !== widgetId);
+                if (st.active === widgetId && st.widgets.length > 0) {
+                    st.active = st.widgets[0];
+                }
+            });
+
+            if (stackGroup) {
+                let targetStack = CURRENT_LAYOUT.widget_stacks.find(st => st.id === stackGroup);
+                if (!targetStack) {
+                    let name = 'Custom Stack';
+                    if (stackGroup === 'transfers') name = 'Transfers';
+                    else if (stackGroup === 'all_widgets') name = 'All Widgets';
+                    targetStack = {
+                        id: stackGroup,
+                        name: name,
+                        widgets: [],
+                        active: widgetId
+                    };
+                    CURRENT_LAYOUT.widget_stacks.push(targetStack);
+                }
+                if (!targetStack.widgets.includes(widgetId)) {
+                    targetStack.widgets.push(widgetId);
+                }
+            }
+
+            CURRENT_LAYOUT.widget_stacks = CURRENT_LAYOUT.widget_stacks.filter(st => st.widgets && st.widgets.length > 0);
+
+            syncStackModalUI();
+            renderWidgetsLayout();
+            saveCurrentLayout(true);
+        }
+
+        function syncStackModalUI() {
+            const stacks = CURRENT_LAYOUT.widget_stacks || [];
+            ['qbittorrent', 'jdownloader', 'manga_shelf'].forEach(wid => {
+                const sel = document.getElementById(`stack-sel-${wid}`);
+                if (!sel) return;
+                const parentStack = stacks.find(st => (st.widgets || []).includes(wid));
+                sel.value = parentStack ? parentStack.id : '';
+            });
+        }
+
         async function fetchHomarrWidgets() {
             if (document.hidden) return;
             try {
                 // qBittorrent Widget
                 if (CURRENT_LAYOUT.widgets?.qbittorrent?.enabled !== false) {
                     fetch('/api/widgets/qbittorrent').then(r => r.json()).then(data => {
-                        const card = document.getElementById('widget-qbittorrent');
-                        if (!card) return;
-                        if (CURRENT_LAYOUT.widgets?.qbittorrent?.enabled === false) {
-                            card.style.display = 'none';
-                            return;
-                        }
-                        card.style.display = 'flex';
                         const dlEl = document.getElementById('qbit-dl-spd');
                         const upEl = document.getElementById('qbit-up-spd');
                         const tfEl = document.getElementById('qbit-active-transfers');
@@ -2399,13 +2899,6 @@
                 // JDownloader Widget
                 if (CURRENT_LAYOUT.widgets?.jdownloader?.enabled !== false) {
                     fetch('/api/widgets/jdownloader').then(r => r.json()).then(data => {
-                        const card = document.getElementById('widget-jdownloader');
-                        if (!card) return;
-                        if (CURRENT_LAYOUT.widgets?.jdownloader?.enabled === false) {
-                            card.style.display = 'none';
-                            return;
-                        }
-                        card.style.display = 'flex';
                         const dlEl = document.getElementById('jd-dl-spd');
                         const stateEl = document.getElementById('jd-state');
                         const tfEl = document.getElementById('jd-active-transfers');
@@ -2453,14 +2946,8 @@
                 // Suwayomi Manga Shelf Widget
                 if (CURRENT_LAYOUT.widgets?.manga_shelf?.enabled !== false) {
                     fetch('/api/widgets/manga').then(r => r.json()).then(data => {
-                        const card = document.getElementById('widget-manga-shelf');
                         const scrollContainer = document.getElementById('manga-shelf-scroll');
-                        if (!card || !scrollContainer) return;
-                        if (CURRENT_LAYOUT.widgets?.manga_shelf?.enabled === false) {
-                            card.style.display = 'none';
-                            return;
-                        }
-                        card.style.display = 'flex';
+                        if (!scrollContainer) return;
                         if (data.online && data.mangas && data.mangas.length > 0) {
                             scrollContainer.innerHTML = data.mangas.map(m => {
                                 const mangaUrl = m.link || ('/manga/' + m.id);
@@ -2731,6 +3218,7 @@
             if (manga) manga.checked = w.manga_shelf?.enabled !== false;
             if (stats) stats.checked = w.stats_bar?.enabled !== false;
             if (tor) tor.checked = w.tor_exit?.enabled !== false;
+            syncStackModalUI();
             document.getElementById('widgets-modal').style.display = 'flex';
         }
 
@@ -2753,14 +3241,7 @@
             const torBanner = document.getElementById('tor-exit-banner');
             if (torBanner) torBanner.style.display = w.tor_exit?.enabled === false ? 'none' : 'flex';
 
-            const qbitCard = document.getElementById('widget-qbittorrent');
-            if (qbitCard) qbitCard.style.display = w.qbittorrent?.enabled === false ? 'none' : 'flex';
-
-            const jdCard = document.getElementById('widget-jdownloader');
-            if (jdCard) jdCard.style.display = w.jdownloader?.enabled === false ? 'none' : 'flex';
-
-            const mangaCard = document.getElementById('widget-manga-shelf');
-            if (mangaCard) mangaCard.style.display = w.manga_shelf?.enabled === false ? 'none' : 'flex';
+            renderWidgetsLayout();
         }
 
         async function submitJDownloaderLink() {

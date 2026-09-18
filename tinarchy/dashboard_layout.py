@@ -23,6 +23,14 @@ def get_default_layout():
             'jdownloader': {'enabled': True, 'order': 2},
             'manga_shelf': {'enabled': True, 'order': 3}
         },
+        'widget_stacks': [
+            {
+                'id': 'transfers',
+                'name': 'Transfers',
+                'widgets': ['qbittorrent', 'jdownloader'],
+                'active': 'qbittorrent'
+            }
+        ],
         'items': deduped_items,
         'custom_bookmarks': []
     }
@@ -70,6 +78,17 @@ def load_dashboard_layout():
             data['widgets'] = get_default_layout()['widgets']
         elif 'jdownloader' not in data['widgets']:
             data['widgets']['jdownloader'] = {'enabled': True, 'order': 2}
+
+        # Reconcile widget stacks
+        if 'widget_stacks' not in data or not isinstance(data['widget_stacks'], list):
+            data['widget_stacks'] = [
+                {
+                    'id': 'transfers',
+                    'name': 'Transfers',
+                    'widgets': ['qbittorrent', 'jdownloader'],
+                    'active': 'qbittorrent'
+                }
+            ]
 
         return data
     except Exception as e:

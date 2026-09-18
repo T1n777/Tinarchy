@@ -606,6 +606,45 @@ def test_jdownloader_widget_integration():
 
 run_test("JDownloader 2 Dashboard Widget & Layout Integration", test_jdownloader_widget_integration)
 
+# 26. Stackable & Tabbed Dashboard Widgets Architecture
+def test_stackable_widgets_architecture():
+    from tinarchy import dashboard_layout
+    layout = dashboard_layout.load_dashboard_layout()
+    if 'widget_stacks' not in layout or not isinstance(layout['widget_stacks'], list):
+        raise Exception("widget_stacks missing or not a list in dashboard layout")
+    
+    stacks = layout['widget_stacks']
+    transfer_stack = next((s for s in stacks if s.get('id') == 'transfers'), None)
+    if not transfer_stack:
+        raise Exception("Default 'transfers' stack missing in widget_stacks")
+    if 'qbittorrent' not in transfer_stack.get('widgets', []) or 'jdownloader' not in transfer_stack.get('widgets', []):
+        raise Exception("Default 'transfers' stack must include qbittorrent and jdownloader")
+
+    with open(os.path.join(REPO_ROOT, "public", "index.html"), "r", encoding="utf-8") as f:
+        html = f.read()
+    
+    for token in [
+        "homarr-widget-stack",
+        "widget-stack-pills",
+        "stack-cycle-btn",
+        "renderWidgetsLayout",
+        "setStackActiveWidget",
+        "cycleStackActiveWidget",
+        "applyStackPreset"
+    ]:
+        if token not in html:
+            raise Exception(f"Missing '{token}' in public/index.html")
+
+    req = urllib.request.Request("http://127.0.0.1:8085/api/dashboard/layout")
+    with urllib.request.urlopen(req, timeout=5.0) as resp:
+        if resp.status != 200:
+            raise Exception(f"HTTP {resp.status} on /api/dashboard/layout")
+        data = json.loads(resp.read().decode("utf-8"))
+        if "widget_stacks" not in data or not isinstance(data["widget_stacks"], list):
+            raise Exception("API /api/dashboard/layout did not return widget_stacks list")
+
+run_test("Stackable & Tabbed Dashboard Widgets Architecture", test_stackable_widgets_architecture)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
