@@ -78,7 +78,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         if hasattr(self, 'path'):
             clean_p = self.path.split('?')[0].split('#')[0]
-            if clean_p in ['/', '/index.html', '/settings', '/settings.html', '/sw.js']:
+            if clean_p in ['/', '/index.html', '/settings', '/settings.html', '/sw.js', '/install.sh', '/install', '/bootstrap.sh', '/bootstrap']:
                 self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 if clean_p == '/sw.js':
                     self.send_header('Service-Worker-Allowed', '/')
@@ -438,6 +438,33 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
 
+        if clean_path in ['/install.sh', '/install', '/bootstrap.sh', '/bootstrap']:
+            install_script = os.path.join(config.BASE_DIR, 'install.sh')
+            if os.path.isfile(install_script):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8')
+                self.send_header('Content-Length', str(os.path.getsize(install_script)))
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                return
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+
+        if clean_path in ['/pair', '/pair.sh']:
+            pair_script = os.path.join(config.BASE_DIR, 'configs', 'scripts', 'pair-client.sh')
+            if os.path.isfile(pair_script):
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8')
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                return
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
+
         if self.handle_service_routes():
             return
         super().do_HEAD()
@@ -451,6 +478,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         clean_path = self.path.split('?')[0]
+
+        # Universal shell installer & remote bootstrap endpoint
+        if clean_path in ['/install.sh', '/install', '/bootstrap.sh', '/bootstrap']:
+            install_script = os.path.join(config.BASE_DIR, 'install.sh')
+            if os.path.isfile(install_script):
+                with open(install_script, 'rb') as f:
+                    script_bytes = f.read()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8')
+                self.send_header('Content-Length', str(len(script_bytes)))
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                self.end_headers()
+                self.wfile.write(script_bytes)
+                return
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
 
         # Dynamic client pairing script
         if clean_path in ['/pair', '/pair.sh']:

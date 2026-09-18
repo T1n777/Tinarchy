@@ -36,3 +36,10 @@ tmp/
 
 # Large local media
 /public/Wallpapers
+
+# Distribution & ISO build outputs
+dist/
+work/
+*.iso
+*.iso.sha256
+

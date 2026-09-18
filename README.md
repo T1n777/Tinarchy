@@ -249,35 +249,66 @@ Tinarchy/
 
 ## 🚀 Quick Start & Installation
 
-### 1. Prerequisites
+Choose the deployment method that fits your environment:
+- **Option A**: Bootable Live ISO (for fresh bare-metal PC, laptop, or VM)
+- **Option B**: One-Line Remote Shell Installer (for existing Arch / Debian / Fedora installs)
+- **Option C**: Git Clone & Interactive Setup
 
-Install core runtime dependencies:
+### 💿 Method 1: Bootable Live ISO (Turn-Key Appliance)
+
+Turn any computer or laptop into a dedicated Tinarchy OS server in minutes. The bootable ISO includes a live pastel pink console and a guided installer:
+
+1. **Download or Build the ISO**:
+   ```bash
+   # Build locally from repository:
+   sudo ./packaging/iso/build.sh
+   # Built ISO is saved to dist/tinarchy-os-YYYY.MM.DD-x86_64.iso
+   ```
+
+2. **Flash to USB**:
+   ```bash
+   sudo dd bs=4M if=dist/tinarchy-os-*.iso of=/dev/sdX conv=fsync oflag=direct status=progress
+   ```
+
+3. **Boot & Install**:
+   - Boot your target PC/laptop from the USB drive in UEFI or BIOS mode.
+   - The system automatically logs in to TTY1 inside a pastel pink tmux session.
+   - Launch the guided installer:
+     ```bash
+     tinarchy-installer
+     ```
+   - Follow the interactive prompts to select your target disk, filesystem (Ext4 / Btrfs), hostname, and passwords. The installer partitions the drive, pacstraps the system, installs GRUB, and pre-provisions Tinarchy automatically.
+
+### 🌐 Method 2: One-Line Remote Shell Installer (`curl | bash`)
+
+To install or bootstrap Tinarchy on an existing Linux system without cloning manually:
 
 ```bash
-# Arch Linux
-sudo pacman -S python python-pillow nginx tor iptables tailscale rclone tmux zsh syncthing
+# Bootstrap from GitHub:
+curl -fsSL https://raw.githubusercontent.com/T1n777/Tinarchy/main/install.sh | bash
 
-# Debian / Ubuntu
-sudo apt update && sudo apt install -y python3 python3-pil nginx tor iptables rclone tmux zsh syncthing
+# Or bootstrap from another Tinarchy server on your LAN or Tailnet:
+curl -fsSL http://<server>:8085/install.sh | bash
 ```
 
-### 2. Clone the Repository
- 
+The bootstrap script automatically installs git if missing, clones the repository to `~/Tinarchy`, and launches the interactive installer.
+
+### 💻 Method 3: Git Clone & Interactive Installation
+
 ```bash
 git clone https://github.com/T1n777/Tinarchy.git ~/Tinarchy
 cd ~/Tinarchy
-
-# Optional backward-compatibility symlink for existing scripts
-ln -s ~/Tinarchy ~/server-dashboard
+./install.sh
 ```
 
-### 3. Automated Interactive Installation (Recommended)
-
-Run the master interactive installer to configure your server with complete freedom:
-
+#### CLI Installer Flags:
 ```bash
-cd ~/Tinarchy
-./install.sh
+./install.sh --help          # Display all options
+./install.sh --yes           # Unattended mode accepting defaults / existing configs
+./install.sh --update        # Pull latest Git commits and re-apply configs & systemd units
+./install.sh --dry-run       # Simulate checks and print configuration without changing the system
+./install.sh --iso-mode      # Offline chroot mode for ISO installation
+./install.sh --dir <PATH>    # Custom installation destination directory
 ```
 
 #### 🛠️ What the Installer Provides:

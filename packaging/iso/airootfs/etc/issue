@@ -1,0 +1,13 @@
+  🍍  ═══════════════════════════════════════════════════════════════════
+        _____ _                      _           
+       |_   _(_)_ __   __ _ _ __ ___| |__  _   _ 
+         | | | | '_ \ / _` | '__/ __| '_ \| | | |
+         | | | | | | | (_| | | | (__| | | | |_| |
+         |_| |_|_| |_|\__,_|_|  \___|_| |_|\__, |
+                                           |___/ 
+        Tinarchy OS Live Installation & Appliance Environment
+  ═══════════════════════════════════════════════════════════════════════
+  • Launch Installer : Type 'tinarchy-installer' and press Enter.
+  • Wi-Fi Connect    : Run 'iwctl station wlan0 connect <SSID>'.
+  • Terminal Session : Pastel pink tmux (:main) auto-attaches on TTY1.
+

@@ -23,40 +23,139 @@ NC='\033[0m'
 
 # ─── Command-line Arguments ───────────────────────────────────────────────────
 AUTO_YES=false
-for arg in "$@"; do
-    case "$arg" in
+ISO_MODE=false
+UPDATE_MODE=false
+DRY_RUN=false
+TARGET_INSTALL_DIR=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
         -h|--help)
             echo "Usage: ./install.sh [OPTIONS]"
             echo ""
-            echo "Interactive server installer for Tinarchy / Pinedash ecosystem."
+            echo "Interactive and automated server installer for Tinarchy OS / Pinedash."
             echo "Gives complete freedom in choosing dashboard branding and services."
             echo "Auto-downloads selected services if not already present, and launches"
             echo "the dashboard immediately when setup is complete."
             echo ""
             echo "Options:"
-            echo "  -h, --help    Show this help message"
-            echo "  -y, --yes     Non-interactive mode (accept all defaults)"
+            echo "  -h, --help           Show this help message and exit"
+            echo "  -y, --yes            Non-interactive mode (accept all defaults or existing configs)"
+            echo "  --iso-mode           Live ISO / chroot installation mode (enables services offline)"
+            echo "  --update, --upgrade  Update existing installation (pulls latest git, refreshes units)"
+            echo "  --dry-run            Simulate checks and configuration without making system changes"
+            echo "  --dir, --install-dir Target directory for installation (default: \$HOME/Tinarchy)"
             exit 0
             ;;
         -y|--yes)
             AUTO_YES=true
+            shift
+            ;;
+        --iso-mode)
+            ISO_MODE=true
+            AUTO_YES=true
+            shift
+            ;;
+        --update|--upgrade)
+            UPDATE_MODE=true
+            AUTO_YES=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            AUTO_YES=true
+            shift
+            ;;
+        --dir|--install-dir)
+            TARGET_INSTALL_DIR="$2"
+            shift 2
+            ;;
+        --dir=*|--install-dir=*)
+            TARGET_INSTALL_DIR="${1#*=}"
+            shift
+            ;;
+        *)
+            shift
             ;;
     esac
 done
 
 # ─── Privilege Check ──────────────────────────────────────────────────────────
 if [ "$(id -u)" -ne 0 ]; then
-    echo -e "${YELLOW}⚡ Root privileges required. Escalating with sudo...${NC}"
-    exec sudo "$0" "$@"
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "${YELLOW}⚡ [Dry Run] Running without root privileges.${NC}"
+    else
+        echo -e "${YELLOW}⚡ Root privileges required. Escalating with sudo...${NC}"
+        exec sudo "$0" "$@"
+    fi
 fi
 
 TARGET_USER="${SUDO_USER:-$USER}"
 [ -z "$TARGET_USER" ] && TARGET_USER=$(id -un)
-USER_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+USER_HOME=$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || true)
 [ -z "$USER_HOME" ] && USER_HOME="$HOME"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$SCRIPT_DIR"
+# Resolve SCRIPT_DIR and REPO_ROOT
+SCRIPT_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+fi
+REPO_ROOT="${SCRIPT_DIR:-}"
+
+# ─── Piped / Remote Bootstrap Execution Detection ─────────────────────────────
+if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/server.py" ]; then
+    echo -e "${CYAN}📦 Remote or piped bootstrap execution detected...${NC}"
+    CLONE_DIR="${TARGET_INSTALL_DIR:-$USER_HOME/Tinarchy}"
+    if [ "$TARGET_USER" = "root" ] && [ -z "$TARGET_INSTALL_DIR" ]; then
+        CLONE_DIR="/opt/tinarchy"
+    fi
+
+    if [ "$DRY_RUN" = "true" ]; then
+        echo -e "${YELLOW}⚡ [Dry Run] Would clone Tinarchy repository to: ${CLONE_DIR}${NC}"
+        echo -e "${GREEN}✔ Piped bootstrap pre-flight check passed.${NC}"
+        exit 0
+    fi
+
+    if ! command -v git >/dev/null 2>&1; then
+        echo -e "${YELLOW}Git not found. Attempting to install git...${NC}"
+        if command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm git
+        elif command -v apt-get >/dev/null 2>&1; then
+            apt-get update -y && apt-get install -y git
+        elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y git
+        fi
+    fi
+
+    if [ -d "$CLONE_DIR/.git" ]; then
+        echo -e "${CYAN}Updating existing repository in ${CLONE_DIR}...${NC}"
+        git -C "$CLONE_DIR" pull --ff-only 2>/dev/null || true
+    else
+        echo -e "${CYAN}Cloning Tinarchy repository into ${CLONE_DIR}...${NC}"
+        mkdir -p "$(dirname "$CLONE_DIR")"
+        git clone https://github.com/T1n777/Tinarchy.git "$CLONE_DIR"
+    fi
+
+    if [ -n "$TARGET_USER" ] && [ "$TARGET_USER" != "root" ]; then
+        chown -R "${TARGET_USER}:${TARGET_USER}" "$CLONE_DIR" 2>/dev/null || true
+    fi
+
+    echo -e "${GREEN}✔ Repository ready at ${CLONE_DIR}. Executing installer...${NC}"
+    cd "$CLONE_DIR"
+    if [ -t 0 ] || [ -e /dev/tty ]; then
+        exec "$CLONE_DIR/install.sh" "$@" < /dev/tty
+    else
+        exec "$CLONE_DIR/install.sh" "$@"
+    fi
+fi
+
+# If update mode is requested and we are inside a git repository, pull latest
+if [ "$UPDATE_MODE" = "true" ]; then
+    echo -e "${CYAN}🔄 Update mode active: Pulling latest changes from Git...${NC}"
+    if [ -d "$REPO_ROOT/.git" ]; then
+        git -C "$REPO_ROOT" pull --ff-only 2>/dev/null || echo -e "${YELLOW}Note: Git pull skipped or unmerged changes present.${NC}"
+    fi
+fi
 
 # ─── OS & Architecture Detection ──────────────────────────────────────────────
 ARCH="$(uname -m)"
@@ -422,6 +521,19 @@ format_summary "Display Inactivity Sleep & DPMS 0W"  "$INSTALL_POWERDOWN"
 
 echo -e "${CYAN}───────────────────────────────────────────────────────────────────────${NC}"
 
+if [ "$DRY_RUN" = "true" ]; then
+    echo ""
+    echo -e "${GREEN}${BOLD}✔ [Dry Run] Pre-flight system check and configuration verified successfully.${NC}"
+    echo -e "  Target User       : ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
+    echo -e "  Repository Root   : ${BOLD}${REPO_ROOT}${NC}"
+    echo -e "  Project Name      : ${BOLD}${CFG_PROJECT_NAME}${NC}"
+    echo -e "  Dashboard Port    : ${BOLD}${CFG_PORT}${NC}"
+    echo -e "  ISO Mode Active   : ${BOLD}${ISO_MODE}${NC}"
+    echo -e "  Update Mode Active: ${BOLD}${UPDATE_MODE}${NC}"
+    echo -e "  ${DIM}No packages were downloaded and no system changes were applied.${NC}"
+    exit 0
+fi
+
 ask_choice "Proceed with batch installation, auto-downloads, and deployment?" "y" PROCEED_INSTALL
 if [ "$PROCEED_INSTALL" != "true" ]; then
     echo -e "${YELLOW}Installation aborted by user. No changes were made.${NC}"
@@ -640,9 +752,15 @@ if [ "$INSTALL_SUWAYOMI" = "true" ]; then
     fi
     if [ -f "$REPO_ROOT/configs/systemd/xvfb.service" ]; then
         cp "$REPO_ROOT/configs/systemd/xvfb.service" /etc/systemd/system/
-        systemctl daemon-reload 2>/dev/null || true
+        if [ "$ISO_MODE" != "true" ]; then
+            systemctl daemon-reload 2>/dev/null || true
+        fi
         if command -v Xvfb >/dev/null 2>&1; then
-            systemctl enable --now xvfb.service 2>/dev/null || true
+            if [ "$ISO_MODE" = "true" ]; then
+                systemctl enable xvfb.service 2>/dev/null || true
+            else
+                systemctl enable --now xvfb.service 2>/dev/null || true
+            fi
         fi
     fi
 
@@ -671,7 +789,11 @@ if [ "$INSTALL_SYNCYOMI" = "true" ]; then
     fi
     if [ -f "$REPO_ROOT/configs/systemd/syncyomi-suwayomi-bridge.service" ]; then
         cp "$REPO_ROOT/configs/systemd/syncyomi-suwayomi-bridge.service" /etc/systemd/system/
-        systemctl enable --now syncyomi-suwayomi-bridge.service 2>/dev/null || true
+        if [ "$ISO_MODE" = "true" ]; then
+            systemctl enable syncyomi-suwayomi-bridge.service 2>/dev/null || true
+        else
+            systemctl enable --now syncyomi-suwayomi-bridge.service 2>/dev/null || true
+        fi
     fi
 fi
 
@@ -852,10 +974,12 @@ fi
 if [ "$INSTALL_SYNCTHING" = "true" ]; then
     echo -e "${CYAN}🔄 Configuring Syncthing full drive sync with compression...${NC}"
     systemctl enable "syncthing@$TARGET_USER.service" 2>/dev/null || true
-    systemctl start "syncthing@$TARGET_USER.service" 2>/dev/null || true
+    if [ "$ISO_MODE" != "true" ]; then
+        systemctl start "syncthing@$TARGET_USER.service" 2>/dev/null || true
+        sleep 2
+    fi
 
-    sleep 2
-    if command -v syncthing >/dev/null 2>&1; then
+    if [ "$ISO_MODE" != "true" ] && command -v syncthing >/dev/null 2>&1; then
         sudo -u "$TARGET_USER" syncthing cli config defaults device compression set always 2>/dev/null || true
         sudo -u "$TARGET_USER" syncthing cli config defaults folder path set "$DRIVE_ROOT" 2>/dev/null || true
         sudo -u "$TARGET_USER" syncthing cli config options local-ann-enabled set false 2>/dev/null || true
@@ -1078,7 +1202,9 @@ fi
 # ─── PHASE 5: Reload and Manage Systemd Services ──────────────────────────────
 echo ""
 echo -e "${CYAN}⚡ Managing systemd services...${NC}"
-systemctl daemon-reload
+if [ "$ISO_MODE" != "true" ]; then
+    systemctl daemon-reload 2>/dev/null || true
+fi
 
 manage_service() {
     local svc="$1"
@@ -1087,17 +1213,22 @@ manage_service() {
 
     if [ "$enabled" = "true" ]; then
         if systemctl list-unit-files "$svc" >/dev/null 2>&1 || [ -f "/etc/systemd/system/$svc" ] || [ -f "/usr/lib/systemd/system/$svc" ]; then
-            echo -ne "  Starting ${BOLD}${name}${NC} (${svc})... "
-            systemctl enable --now "$svc" 2>/dev/null || true
-            if systemctl is-active --quiet "$svc" 2>/dev/null; then
-                echo -e "${GREEN}active (running)${NC}"
+            if [ "$ISO_MODE" = "true" ]; then
+                echo -e "  Enabling ${BOLD}${name}${NC} (${svc}) [chroot/iso-mode]..."
+                systemctl enable "$svc" 2>/dev/null || true
             else
-                echo -e "${YELLOW}enabled (queued/inactive)${NC}"
+                echo -ne "  Starting ${BOLD}${name}${NC} (${svc})... "
+                systemctl enable --now "$svc" 2>/dev/null || true
+                if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                    echo -e "${GREEN}active (running)${NC}"
+                else
+                    echo -e "${YELLOW}enabled (queued/inactive)${NC}"
+                fi
             fi
         fi
     else
         # If disabled by user, stop if currently running
-        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        if [ "$ISO_MODE" != "true" ] && systemctl is-active --quiet "$svc" 2>/dev/null; then
             echo -ne "  Stopping unselected ${DIM}${name}${NC} (${svc})... "
             systemctl stop "$svc" 2>/dev/null || true
             systemctl disable "$svc" 2>/dev/null || true
@@ -1276,6 +1407,14 @@ echo -e "  • Dashboard Web UI : ${CYAN}${BOLD}${DASHBOARD_URL}${NC} (Port ${CF
 [ "$INSTALL_FILEBROWSER" = "true" ] && echo -e "  • FileBrowser      : ${CYAN}/files/${NC} (Port 8081/8082)"
 [ "$INSTALL_COUCHDB" = "true" ]     && echo -e "  • CouchDB Fauxton  : ${CYAN}/couchdb/_utils/${NC} (Port 5984)"
 echo ""
+
+if [ "$ISO_MODE" = "true" ]; then
+    echo -e "${GREEN}${BOLD}✔ Live ISO / Chroot installation complete!${NC}"
+    echo -e "  All selected services have been enabled for initial system boot."
+    echo -e "  Reboot system into your newly installed OS to start services automatically."
+    echo ""
+    exit 0
+fi
 
 echo -e "${GREEN}${BOLD}🚀 Launching ${CFG_PROJECT_NAME} Dashboard immediately...${NC}"
 

@@ -1,0 +1,47 @@
+name: Build Tinarchy OS Live ISO
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Arch Linux Pacman Keyring & Mirrors
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm archlinux-keyring
+          pacman -Syu --noconfirm archiso git sudo shadow coreutils
+
+      - name: Build Tinarchy OS ISO
+        run: |
+          bash packaging/iso/build.sh --output dist/ --work /tmp/archiso-tinarchy
+
+      - name: Upload ISO Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinarchy-os-iso
+          path: |
+            dist/*.iso
+            dist/*.sha256
+          retention-days: 14
+
+      - name: Release Assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.iso
+            dist/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

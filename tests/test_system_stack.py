@@ -433,6 +433,124 @@ def test_tmux_pink_top_and_tty_persistence():
 
 run_test("Pink Top Minimal tmux & Shared TTY / SSH Session Persistence", test_tmux_pink_top_and_tty_persistence)
 
+# --- TEST 21: Universal Shell Installer Piped Execution & Dry-Run Mode ---
+def test_shell_installer_flags_and_piped():
+    installer_path = os.path.join(REPO_ROOT, "install.sh")
+    if not os.path.exists(installer_path):
+        raise Exception(f"Missing {installer_path}")
+
+    # Syntax check
+    chk = subprocess.run(["bash", "-n", installer_path], capture_output=True, text=True)
+    if chk.returncode != 0:
+        raise Exception(f"install.sh syntax error: {chk.stderr}")
+
+    # Test --dry-run
+    res_dry = subprocess.run([installer_path, "--dry-run"], capture_output=True, text=True)
+    if res_dry.returncode != 0:
+        raise Exception(f"install.sh --dry-run failed with code {res_dry.returncode}: {res_dry.stderr}")
+    if "Dry Run" not in res_dry.stdout or "Target User" not in res_dry.stdout:
+        raise Exception(f"install.sh --dry-run output missing expected confirmation headers: {res_dry.stdout[:200]}")
+
+    # Test piped invocation simulation
+    with open(installer_path, "r", encoding="utf-8") as f:
+        pipe_input = f.read()
+    res_pipe = subprocess.run(["bash", "-s", "--", "--dry-run"], input=pipe_input, capture_output=True, text=True)
+    if res_pipe.returncode != 0:
+        raise Exception(f"cat install.sh | bash --dry-run failed: {res_pipe.stderr}")
+    if "Remote or piped bootstrap execution detected" not in res_pipe.stdout:
+        raise Exception(f"Piped installer failed to detect remote pipe execution: {res_pipe.stdout[:200]}")
+
+    # Test --help
+    res_help = subprocess.run([installer_path, "--help"], capture_output=True, text=True)
+    if "--iso-mode" not in res_help.stdout or "--dry-run" not in res_help.stdout:
+        raise Exception(f"install.sh --help output missing required options: {res_help.stdout}")
+
+run_test("Universal Shell Installer Flags & Piped Bootstrap Validation", test_shell_installer_flags_and_piped)
+
+# --- TEST 22: Dashboard HTTP Endpoint Serving /install.sh ---
+def test_install_script_http_serving():
+    port = 8085
+    base_url = f"http://127.0.0.1:{port}"
+
+    for ep in ["/install.sh", "/install", "/bootstrap.sh"]:
+        req = urllib.request.Request(f"{base_url}{ep}")
+        try:
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status != 200:
+                    raise Exception(f"Expected HTTP 200 from {ep}, got {resp.status}")
+                ctype = resp.headers.get("Content-Type", "")
+                if "text/x-shellscript" not in ctype:
+                    raise Exception(f"Expected text/x-shellscript Content-Type from {ep}, got {ctype}")
+                body = resp.read().decode("utf-8", errors="replace")
+                if not body.startswith("#!/usr/bin/env bash"):
+                    raise Exception(f"Response from {ep} does not start with '#!/usr/bin/env bash'")
+                if "Tinarchy Server Ecosystem" not in body:
+                    raise Exception(f"Response from {ep} missing Tinarchy header")
+        except urllib.error.URLError as e:
+            raise Exception(f"Failed connecting to {base_url}{ep}: {e}")
+
+run_test("Dashboard HTTP Endpoint Serving /install.sh & Bootstrap Scripts", test_install_script_http_serving)
+
+# --- TEST 23: Bootable Live ISO Profile & Packaging Manifest Validation ---
+def test_iso_packaging_profile():
+    iso_dir = os.path.join(REPO_ROOT, "packaging", "iso")
+    if not os.path.isdir(iso_dir):
+        raise Exception(f"Missing ISO profile directory: {iso_dir}")
+
+    # 1. Profiledef.sh validation
+    profiledef = os.path.join(iso_dir, "profiledef.sh")
+    if not os.path.exists(profiledef):
+        raise Exception("Missing profiledef.sh")
+    res_prof = subprocess.run(["bash", "-n", profiledef], capture_output=True, text=True)
+    if res_prof.returncode != 0:
+        raise Exception(f"profiledef.sh syntax error: {res_prof.stderr}")
+    with open(profiledef, "r", encoding="utf-8") as f:
+        prof_content = f.read()
+    if 'iso_name="tinarchy-os"' not in prof_content:
+        raise Exception("profiledef.sh missing iso_name=\"tinarchy-os\"")
+    if "tinarchy-installer" not in prof_content:
+        raise Exception("profiledef.sh missing file_permissions for tinarchy-installer")
+
+    # 2. Package manifest validation
+    pkg_file = os.path.join(iso_dir, "packages.x86_64")
+    if not os.path.exists(pkg_file):
+        raise Exception("Missing packages.x86_64")
+    with open(pkg_file, "r", encoding="utf-8") as f:
+        packages = {line.strip() for line in f if line.strip() and not line.startswith("#")}
+    required_pkgs = [
+        "base", "base-devel", "linux-lts", "linux-firmware", "arch-install-scripts",
+        "python", "python-pillow", "python-requests", "nginx", "syncthing", "tor",
+        "tailscale", "rclone", "tmux", "fish", "zsh", "starship", "acpid"
+    ]
+    missing = [pkg for pkg in required_pkgs if pkg not in packages]
+    if missing:
+        raise Exception(f"packages.x86_64 missing core packages: {', '.join(missing)}")
+
+    # 3. Guided installer script validation
+    installer_bin = os.path.join(iso_dir, "airootfs", "usr", "local", "bin", "tinarchy-installer")
+    if not os.path.exists(installer_bin):
+        raise Exception(f"Missing live installer: {installer_bin}")
+    res_inst = subprocess.run(["bash", "-n", installer_bin], capture_output=True, text=True)
+    if res_inst.returncode != 0:
+        raise Exception(f"tinarchy-installer syntax error: {res_inst.stderr}")
+    if not os.access(installer_bin, os.X_OK):
+        raise Exception("tinarchy-installer is not executable")
+
+    # 4. Build script validation
+    build_script = os.path.join(iso_dir, "build.sh")
+    if not os.path.exists(build_script):
+        raise Exception("Missing packaging/iso/build.sh")
+    res_bld = subprocess.run(["bash", "-n", build_script], capture_output=True, text=True)
+    if res_bld.returncode != 0:
+        raise Exception(f"build.sh syntax error: {res_bld.stderr}")
+
+    # 5. CI Workflow validation
+    ci_workflow = os.path.join(REPO_ROOT, ".github", "workflows", "build-iso.yml")
+    if not os.path.exists(ci_workflow):
+        raise Exception("Missing .github/workflows/build-iso.yml")
+
+run_test("Bootable Live ISO Profile & Packaging Manifest Validation", test_iso_packaging_profile)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")

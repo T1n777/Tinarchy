@@ -1,0 +1,371 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# 🍍 Tinarchy OS - Guided Interactive System & Platform Installer
+# ==============================================================================
+# Automates:
+# - Disk selection and GPT partitioning (EFI ESP + Root Ext4/Btrfs)
+# - Base system pacstrap (Linux LTS, core utilities, runtimes)
+# - User accounts, locale, hostname, bootloader (UEFI / BIOS)
+# - Pre-seeding and unattended provisioning of Tinarchy platform via install.sh
+# ==============================================================================
+set -eo pipefail
+
+# Visual Styles
+BOLD='\033[1m'
+DIM='\033[2m'
+CYAN='\033[36m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+RED='\033[31m'
+NC='\033[0m'
+PINK='\033[38;2;255;175;211m'
+
+clear 2>/dev/null || true
+echo -e "${PINK}${BOLD}"
+cat << 'EOF'
+ 🍍  ═══════════════════════════════════════════════════════════════════
+       _____ _                      _           
+      |_   _(_)_ __   __ _ _ __ ___| |__  _   _ 
+        | | | | '_ \ / _` | '__/ __| '_ \| | | |
+        | | | | | | | (_| | | | (__| | | | |_| |
+        |_| |_|_| |_|\__,_|_|  \___|_| |_|\__, |
+                                          |___/ 
+        Tinarchy OS Guided System & Platform Installer
+ ═══════════════════════════════════════════════════════════════════════
+EOF
+echo -e "${NC}"
+
+# ─── Privilege & Environment Checks ───────────────────────────────────────────
+if [ "$(id -u)" -ne 0 ]; then
+    echo -e "${RED}❌ Root privileges required. Please run with sudo or as root.${NC}"
+    exit 1
+fi
+
+IS_UEFI=false
+[ -d /sys/firmware/efi ] && IS_UEFI=true
+
+echo -e "  • Boot Mode  : ${BOLD}$([ "$IS_UEFI" = "true" ] && echo "UEFI (ESP Boot)" || echo "Legacy BIOS (MBR Boot)")${NC}"
+echo -e "  • Kernel     : ${BOLD}$(uname -r)${NC}"
+echo -e "  • Arch       : ${BOLD}$(uname -m)${NC}"
+echo ""
+
+# Internet check
+echo -ne "  • Network Connectivity : Checking... "
+if ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1 || curl -sI --max-time 3 https://archlinux.org >/dev/null 2>&1; then
+    echo -e "${GREEN}Online ✔${NC}"
+else
+    echo -e "${YELLOW}Offline ⚠️${NC}"
+    echo -e "    ${YELLOW}Internet access is required to pacstrap system packages.${NC}"
+    echo -e "    ${DIM}To configure Wi-Fi, run: 'iwctl' or use ethernet.${NC}"
+    echo ""
+    read -rp "    Retry network check? [Y/n]: " retry_net </dev/tty || retry_net="y"
+    if [[ "$retry_net" =~ ^[Nn] ]]; then
+        echo -e "${RED}Aborting installation. Connect to network and rerun 'tinarchy-installer'.${NC}"
+        exit 1
+    fi
+fi
+echo ""
+
+# Helper to ask yes/no
+ask_yn() {
+    local prompt="$1"
+    local default="${2:-y}"
+    local yn="[Y/n]"
+    [ "$default" = "n" ] && yn="[y/N]"
+    while true; do
+        echo -ne "  ${BOLD}${prompt}${NC} ${DIM}${yn}${NC}: "
+        local reply=""
+        read -r reply </dev/tty || read -r reply || reply=""
+        reply=$(echo "$reply" | tr '[:upper:]' '[:lower:]' | xargs)
+        [ -z "$reply" ] && reply="$default"
+        case "$reply" in
+            y|yes) return 0 ;;
+            n|no)  return 1 ;;
+            *) echo -e "    ${YELLOW}Please enter 'y' or 'n'.${NC}" ;;
+        esac
+    done
+}
+
+# Helper to ask input
+ask_str() {
+    local prompt="$1"
+    local default="$2"
+    local var_name="$3"
+    local secret="${4:-false}"
+    while true; do
+        if [ "$secret" = "true" ]; then
+            echo -ne "  ${BOLD}${prompt}${NC}: "
+            local reply=""
+            read -r -s reply </dev/tty || reply=""
+            echo ""
+        else
+            echo -ne "  ${BOLD}${prompt}${NC} ${DIM}[${default}]${NC}: "
+            local reply=""
+            read -r reply </dev/tty || reply=""
+        fi
+        reply=$(echo "$reply" | xargs)
+        [ -z "$reply" ] && reply="$default"
+        if [ -n "$reply" ]; then
+            eval "$var_name=\"\$reply\""
+            return 0
+        fi
+    done
+}
+
+# ─── Step 1: Disk Selection ───────────────────────────────────────────────────
+echo -e "${CYAN}─── 1. Target Disk Selection ──────────────────────────────────────────${NC}"
+echo -e "Available block storage devices:"
+echo ""
+
+mapfile -t DISK_LIST < <(lsblk -d -p -n -l -o NAME,SIZE,MODEL,TYPE | grep -E 'disk' | grep -v -E 'loop|zram|airootfs|iso9660' || true)
+
+if [ ${#DISK_LIST[@]} -eq 0 ]; then
+    echo -e "${RED}❌ No eligible hard drives or SSDs found on this system!${NC}"
+    exit 1
+fi
+
+idx=1
+for disk_info in "${DISK_LIST[@]}"; do
+    echo -e "  ${BOLD}[${idx}]${NC} ${disk_info}"
+    idx=$((idx + 1))
+done
+echo ""
+
+SELECTED_DISK=""
+while [ -z "$SELECTED_DISK" ]; do
+    echo -ne "  Select target disk number (1-${#DISK_LIST[@]}): "
+    read -r choice </dev/tty || choice=""
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#DISK_LIST[@]}" ]; then
+        SELECTED_DISK=$(echo "${DISK_LIST[$((choice - 1))]}" | awk '{print $1}')
+    else
+        echo -e "    ${YELLOW}Invalid selection. Please choose a number between 1 and ${#DISK_LIST[@]}.${NC}"
+    fi
+done
+
+echo ""
+echo -e "  ${BOLD}Target Disk Selected:${NC} ${GREEN}${SELECTED_DISK}${NC}"
+echo -e "  ${RED}${BOLD}⚠️  CRITICAL WARNING: ALL DATA ON ${SELECTED_DISK} WILL BE PERMANENTLY ERASED!${NC}"
+echo -e "  ${RED}This will completely destroy all existing partitions, operating systems, and files.${NC}"
+echo ""
+
+echo -ne "  To confirm, type '${BOLD}YES${NC}' in all capital letters: "
+read -r confirm_erase </dev/tty || confirm_erase=""
+if [ "$confirm_erase" != "YES" ]; then
+    echo -e "${YELLOW}Installation aborted by user. No disk modifications were made.${NC}"
+    exit 0
+fi
+
+# ─── Step 2: Filesystem Selection ─────────────────────────────────────────────
+echo ""
+echo -e "${CYAN}─── 2. Root Filesystem Selection ──────────────────────────────────────${NC}"
+echo -e "  ${BOLD}[1]${NC} Ext4  - Standard Linux journaling filesystem (rock-solid, zero maintenance) [Default]"
+echo -e "  ${BOLD}[2]${NC} Btrfs - Advanced copy-on-write filesystem with @ and @home subvolumes"
+echo ""
+
+FS_TYPE="ext4"
+echo -ne "  Choose filesystem [1/2] (default: 1): "
+read -r fs_choice </dev/tty || fs_choice="1"
+[ "$fs_choice" = "2" ] && FS_TYPE="btrfs"
+echo -e "  ${BOLD}Selected Filesystem:${NC} ${GREEN}${FS_TYPE}${NC}"
+echo ""
+
+# ─── Step 3: User Accounts & System Identity ──────────────────────────────────
+echo -e "${CYAN}─── 3. User Accounts & Hostname ───────────────────────────────────────${NC}"
+ask_str "System Hostname" "tinarchy-server" CFG_HOSTNAME
+ask_str "Primary Admin Username" "pineapple" CFG_USERNAME
+
+while true; do
+    ask_str "Password for '${CFG_USERNAME}'" "" CFG_USERPASS true
+    ask_str "Confirm password" "" CFG_USERPASS2 true
+    if [ "$CFG_USERPASS" = "$CFG_USERPASS2" ] && [ -n "$CFG_USERPASS" ]; then
+        break
+    fi
+    echo -e "  ${RED}Passwords do not match or cannot be empty. Try again.${NC}"
+done
+
+ask_yn "Use same password for root account?" "y" SAME_ROOTPASS
+if [ "$SAME_ROOTPASS" = "0" ] || [ "$SAME_ROOTPASS" = "true" ]; then
+    CFG_ROOTPASS="$CFG_USERPASS"
+else
+    while true; do
+        ask_str "Password for 'root'" "" CFG_ROOTPASS true
+        ask_str "Confirm root password" "" CFG_ROOTPASS2 true
+        if [ "$CFG_ROOTPASS" = "$CFG_ROOTPASS2" ] && [ -n "$CFG_ROOTPASS" ]; then
+            break
+        fi
+        echo -e "  ${RED}Passwords do not match. Try again.${NC}"
+    done
+fi
+echo ""
+
+# ─── Step 4: Disk Partitioning & Formatting ───────────────────────────────────
+echo -e "${CYAN}─── 4. Partitioning & Formatting ${SELECTED_DISK} ──────────────────────${NC}"
+
+# Unmount any existing mounts on target disk
+echo -e "  • Unmounting any existing partitions on ${SELECTED_DISK}..."
+umount -R /mnt 2>/dev/null || true
+swapoff -a 2>/dev/null || true
+for part in $(lsblk -l -n -o NAME "${SELECTED_DISK}" | grep -v "^$(basename "${SELECTED_DISK}")$"); do
+    umount -l "/dev/${part}" 2>/dev/null || true
+done
+
+echo -e "  • Wiping partition table signatures..."
+wipefs -a -f "${SELECTED_DISK}"
+
+# Determine partition naming convention
+P_PREFIX="${SELECTED_DISK}"
+if [[ "${SELECTED_DISK}" =~ [0-9]$ ]]; then
+    P_PREFIX="${SELECTED_DISK}p"
+fi
+BOOT_PART="${P_PREFIX}1"
+ROOT_PART="${P_PREFIX}2"
+
+echo -e "  • Creating GPT partition layout..."
+# Partition 1: 1024MB ESP (type EF00)
+# Partition 2: Rest of disk (Linux filesystem)
+if command -v sgdisk >/dev/null 2>&1; then
+    sgdisk -Z "${SELECTED_DISK}"
+    sgdisk -n 1:2048:+1024M -t 1:ef00 -c 1:"EFI System Partition" "${SELECTED_DISK}"
+    sgdisk -n 2:0:0 -t 2:8304 -c 2:"Tinarchy Root" "${SELECTED_DISK}"
+else
+    parted --script "${SELECTED_DISK}" \
+        mklabel gpt \
+        mkpart "ESP" fat32 1MiB 1025MiB \
+        set 1 esp on \
+        mkpart "TinarchyRoot" 1025MiB 100%
+fi
+
+# Inform OS of partition changes
+partprobe "${SELECTED_DISK}" 2>/dev/null || true
+sleep 2
+
+echo -e "  • Formatting EFI System Partition (${BOOT_PART})..."
+mkfs.fat -F32 -n "ESP" "${BOOT_PART}"
+
+echo -e "  • Formatting Root Partition (${ROOT_PART}) as ${FS_TYPE}..."
+if [ "$FS_TYPE" = "btrfs" ]; then
+    mkfs.btrfs -f -L "TINARCHY_ROOT" "${ROOT_PART}"
+    mkdir -p /mnt
+    mount "${ROOT_PART}" /mnt
+    btrfs subvolume create /mnt/@
+    btrfs subvolume create /mnt/@home
+    btrfs subvolume create /mnt/@var
+    umount /mnt
+    mount -o noatime,compress=zstd,subvol=@ "${ROOT_PART}" /mnt
+    mkdir -p /mnt/{boot,home,var}
+    mount -o noatime,compress=zstd,subvol=@home "${ROOT_PART}" /mnt/home
+    mount -o noatime,compress=zstd,subvol=@var "${ROOT_PART}" /mnt/var
+    mount "${BOOT_PART}" /mnt/boot
+else
+    mkfs.ext4 -F -L "TINARCHY_ROOT" "${ROOT_PART}"
+    mkdir -p /mnt
+    mount "${ROOT_PART}" /mnt
+    mkdir -p /mnt/boot
+    mount "${BOOT_PART}" /mnt/boot
+fi
+
+echo -e "  ${GREEN}✔ Partitions formatted and mounted under /mnt.${NC}"
+echo ""
+
+# ─── Step 5: Base System Pacstrap ─────────────────────────────────────────────
+echo -e "${CYAN}─── 5. Installing Arch Linux Base & Core Platform Packages ────────────${NC}"
+echo -e "  ${DIM}This installs Linux LTS kernel, network stack, and Tinarchy dependencies...${NC}"
+
+PACSTRAP_PKGS=(
+    base base-devel linux-lts linux-firmware
+    networkmanager openssh sudo git vim nano curl wget
+    python python-pillow python-requests
+    nginx syncthing tor tailscale rclone
+    tmux fish zsh starship acpid
+    efibootmgr grub dosfstools e2fsprogs
+)
+[ "$FS_TYPE" = "btrfs" ] && PACSTRAP_PKGS+=(btrfs-progs)
+
+pacstrap -K /mnt "${PACSTRAP_PKGS[@]}"
+
+echo -e "  • Generating fstab mount table..."
+genfstab -U /mnt >> /mnt/etc/fstab
+
+echo -e "  ${GREEN}✔ Base system installed.${NC}"
+echo ""
+
+# ─── Step 6: System Configuration in Chroot ───────────────────────────────────
+echo -e "${CYAN}─── 6. Configuring System Locale, Network & Bootloader ─────────────────${NC}"
+
+# Hostname and network
+echo "${CFG_HOSTNAME}" > /mnt/etc/hostname
+cat << EOF > /mnt/etc/hosts
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   ${CFG_HOSTNAME}.localdomain ${CFG_HOSTNAME}
+EOF
+
+# Timezone & Locales
+arch-chroot /mnt ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+arch-chroot /mnt hwclock --systohc
+sed -i 's/^#\(en_US.UTF-8 UTF-8\)/\1/' /mnt/etc/locale.gen
+arch-chroot /mnt locale-gen
+echo "LANG=en_US.UTF-8" > /mnt/etc/locale.conf
+
+# User and Sudo configuration
+echo -e "  • Configuring user accounts..."
+arch-chroot /mnt useradd -m -G wheel,video,audio,storage -s /bin/fish "${CFG_USERNAME}"
+echo "${CFG_USERNAME}:${CFG_USERPASS}" | arch-chroot /mnt chpasswd
+echo "root:${CFG_ROOTPASS}" | arch-chroot /mnt chpasswd
+sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /mnt/etc/sudoers
+
+# Enable essential boot services
+echo -e "  • Enabling core network & hardware services..."
+arch-chroot /mnt systemctl enable NetworkManager.service sshd.service acpid.service
+
+# Install Bootloader (GRUB)
+echo -e "  • Installing bootloader (GRUB)..."
+if [ "$IS_UEFI" = "true" ]; then
+    arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Tinarchy --recheck
+else
+    arch-chroot /mnt grub-install --target=i386-pc "${SELECTED_DISK}"
+fi
+arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+
+echo -e "  ${GREEN}✔ System configuration and bootloader ready.${NC}"
+echo ""
+
+# ─── Step 7: Pre-seed & Provision Tinarchy Platform ───────────────────────────
+echo -e "${CYAN}─── 7. Provisioning Tinarchy Server Ecosystem ─────────────────────────${NC}"
+TARGET_REPO="/mnt/home/${CFG_USERNAME}/Tinarchy"
+
+echo -e "  • Cloning Tinarchy repository into /home/${CFG_USERNAME}/Tinarchy..."
+arch-chroot /mnt git clone https://github.com/T1n777/Tinarchy.git "/home/${CFG_USERNAME}/Tinarchy"
+arch-chroot /mnt chown -R "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/Tinarchy"
+
+echo -e "  • Running Tinarchy platform unattended setup in ISO mode..."
+arch-chroot /mnt bash -c "cd /home/${CFG_USERNAME}/Tinarchy && ./install.sh --iso-mode --yes"
+
+# Pre-configure user tmux pastel theme
+if [ -f "/mnt/home/${CFG_USERNAME}/Tinarchy/configs/tmux/tmux.conf" ]; then
+    cp "/mnt/home/${CFG_USERNAME}/Tinarchy/configs/tmux/tmux.conf" "/mnt/home/${CFG_USERNAME}/.tmux.conf"
+    arch-chroot /mnt chown "${CFG_USERNAME}:${CFG_USERNAME}" "/mnt/home/${CFG_USERNAME}/.tmux.conf"
+fi
+
+echo -e "  ${GREEN}✔ Tinarchy ecosystem provisioned and enabled for first boot.${NC}"
+echo ""
+
+# ─── Step 8: Finalize & Clean Unmount ──────────────────────────────────────────
+echo -e "${CYAN}─── 8. Finalizing Installation ────────────────────────────────────────${NC}"
+echo -e "  • Unmounting filesystem tree..."
+umount -R /mnt 2>/dev/null || true
+
+echo ""
+echo -e "${GREEN}${BOLD}🎉 Tinarchy OS has been installed successfully to ${SELECTED_DISK}!${NC}"
+echo -e "  You can now reboot the machine, remove the USB installation media,"
+echo -e "  and boot into your brand new Tinarchy OS instance."
+echo ""
+echo -e "  • Primary User : ${BOLD}${CFG_USERNAME}${NC}"
+echo -e "  • Hostname     : ${BOLD}${CFG_HOSTNAME}${NC}"
+echo -e "  • Dashboard    : ${CYAN}http://127.0.0.1:8085/${NC} (active after boot)"
+echo ""
+
+if ask_yn "Reboot system now?" "y"; then
+    echo -e "${CYAN}Rebooting system...${NC}"
+    systemctl reboot
+fi
