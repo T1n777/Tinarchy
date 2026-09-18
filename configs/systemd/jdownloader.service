@@ -1,0 +1,17 @@
+[Unit]
+Description=JDownloader 2 Headless Download Manager
+After=network.target
+
+[Service]
+Type=simple
+User=tin
+Group=tin
+WorkingDirectory=/home/tin/jdownloader
+ExecStart=/usr/bin/java -Djava.awt.headless=true -jar /home/tin/jdownloader/JDownloader.jar
+PIDFile=/home/tin/jdownloader/JDownloader.pid
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

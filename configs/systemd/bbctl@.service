@@ -1,0 +1,17 @@
+[Unit]
+Description=Beeper Bridge Manager - %I
+After=network.target
+
+[Service]
+Type=simple
+User=tin
+Group=tin
+WorkingDirectory=/home/tin
+ExecStart=/home/tin/.local/bin/bbctl run %I
+Restart=always
+RestartSec=10
+Environment=HOME=/home/tin
+Environment=PATH=/home/tin/.local/bin:/usr/local/bin:/usr/bin
+
+[Install]
+WantedBy=multi-user.target

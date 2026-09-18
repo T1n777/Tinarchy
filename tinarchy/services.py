@@ -195,6 +195,19 @@ if ENABLE_NAVIDROME:
         'category': 'media'
     })
 
+ENABLE_JDOWNLOADER = _resolve_service_toggle('ENABLE_JDOWNLOADER', 'auto', 'jdownloader.service')
+if ENABLE_JDOWNLOADER:
+    SERVICES.append({
+        'id': 'jdownloader',
+        'name': 'JDownloader 2',
+        'systemd': 'jdownloader',
+        'icon': '📥',
+        'description': 'Headless universal download manager via MyJDownloader',
+        'link': 'https://my.jdownloader.org',
+        'link_text': 'my.jdownloader',
+        'category': 'automation'
+    })
+
 
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
@@ -219,7 +232,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader']
 
 def is_tailscale_ssh_active():
     try:
