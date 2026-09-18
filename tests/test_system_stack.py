@@ -581,6 +581,31 @@ def test_jdownloader_and_beeper_stack():
 
 run_test("JDownloader 2 Headless & Beeper bbctl Systemd Stack & CLI", test_jdownloader_and_beeper_stack)
 
+# 25. JDownloader 2 Dashboard Widget & Layout Integration
+def test_jdownloader_widget_integration():
+    from tinarchy import dashboard_layout
+    layout = dashboard_layout.load_dashboard_layout()
+    if 'jdownloader' not in layout.get('widgets', {}):
+        raise Exception("jdownloader widget not in dashboard layout widgets")
+
+    with open(os.path.join(REPO_ROOT, "public", "index.html"), "r", encoding="utf-8") as f:
+        html = f.read()
+    if 'id="widget-jdownloader"' not in html:
+        raise Exception("Missing #widget-jdownloader card in public/index.html")
+    if 'submitJDownloaderLink' not in html:
+        raise Exception("Missing submitJDownloaderLink function in public/index.html")
+
+    # Verify widget API endpoint
+    req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/jdownloader")
+    with urllib.request.urlopen(req, timeout=5.0) as resp:
+        if resp.status != 200:
+            raise Exception(f"HTTP {resp.status} on /api/widgets/jdownloader")
+        data = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(data, dict) or "online" not in data:
+            raise Exception(f"Unexpected response from /api/widgets/jdownloader: {data}")
+
+run_test("JDownloader 2 Dashboard Widget & Layout Integration", test_jdownloader_widget_integration)
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
