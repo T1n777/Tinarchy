@@ -550,6 +550,36 @@ def test_iso_packaging_profile():
         raise Exception("Missing .github/workflows/build-iso.yml")
 
 run_test("Bootable Live ISO Profile & Packaging Manifest Validation", test_iso_packaging_profile)
+    
+# 24. JDownloader 2 Headless & Beeper bbctl Systemd Stack & CLI
+def test_jdownloader_and_beeper_stack():
+    jd_svc = os.path.join(REPO_ROOT, "configs", "systemd", "jdownloader.service")
+    bb_svc = os.path.join(REPO_ROOT, "configs", "systemd", "bbctl@.service")
+    jd_ctl = os.path.join(REPO_ROOT, "configs", "scripts", "jdownloader-ctl.sh")
+
+    if not os.path.exists(jd_svc):
+        raise Exception(f"Missing {jd_svc}")
+    if not os.path.exists(bb_svc):
+        raise Exception(f"Missing {bb_svc}")
+    if not os.path.exists(jd_ctl):
+        raise Exception(f"Missing {jd_ctl}")
+
+    res_syntax = subprocess.run(["bash", "-n", jd_ctl], capture_output=True, text=True)
+    if res_syntax.returncode != 0:
+        raise Exception(f"jdownloader-ctl.sh syntax error: {res_syntax.stderr}")
+
+    from tinarchy.services import get_all_service_ids
+    if 'jdownloader' not in get_all_service_ids():
+        raise Exception("jdownloader missing from get_all_service_ids()")
+
+    if os.path.exists("/usr/local/bin/jdownloader"):
+        if not os.access("/usr/local/bin/jdownloader", os.X_OK):
+            raise Exception("/usr/local/bin/jdownloader is not executable")
+        res_cli = subprocess.run(["/usr/local/bin/jdownloader", "status"], capture_output=True, text=True)
+        if res_cli.returncode != 0:
+            raise Exception(f"/usr/local/bin/jdownloader status exited with {res_cli.returncode}: {res_cli.stderr}")
+
+run_test("JDownloader 2 Headless & Beeper bbctl Systemd Stack & CLI", test_jdownloader_and_beeper_stack)
 
 
 passed = sum(1 for _, ok, _ in tests if ok)

@@ -2,12 +2,10 @@
 
 Beeper Bridge Manager is installed on Tinarchy to run and orchestrate self-hosted bridges for Beeper (Matrix).
 
-- **Binary Path**: `/home/tin/.local/bin/bbctl`
+- **Binary Path**: `~/.local/bin/bbctl`
 - **Data & Bridges Directory**: `~/.local/share/bbctl`
 - **Config Path**: `~/.config/bbctl/config.json`
 - **Systemd Template**: `/etc/systemd/system/bbctl@.service` (linked from `configs/systemd/bbctl@.service`)
-
----
 
 ## 🚀 Initial Login
 
@@ -23,8 +21,6 @@ Verify your login status:
 ```bash
 bbctl whoami
 ```
-
----
 
 ## 🌉 Running Bridges as Systemd Services
 
@@ -43,8 +39,6 @@ sudo systemctl status bbctl@sh-whatsapp
 # Stream logs of a bridge
 journalctl -u bbctl@sh-whatsapp -f
 ```
-
----
 
 ## 📋 Supported Official Bridges
 

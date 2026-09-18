@@ -6,14 +6,20 @@
 
 set -euo pipefail
 
-JD_DIR="/home/tin/jdownloader"
+if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    USER_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+else
+    USER_HOME="${HOME:-/home/tin}"
+fi
+
+JD_DIR="${JD_DIR:-$USER_HOME/jdownloader}"
 JD_CFG="$JD_DIR/cfg/org.jdownloader.api.myjdownloader.MyJDownloaderSettings.json"
 
 case "${1:-status}" in
     start)
         echo "Starting JDownloader 2 service..."
         sudo systemctl start jdownloader.service
-        sudo systemctl status jdownloader.service --no-pager
+        sudo systemctl status jdownloader.service --no-pager || true
         ;;
     stop)
         echo "Stopping JDownloader 2 service..."
@@ -22,10 +28,10 @@ case "${1:-status}" in
     restart)
         echo "Restarting JDownloader 2 service..."
         sudo systemctl restart jdownloader.service
-        sudo systemctl status jdownloader.service --no-pager
+        sudo systemctl status jdownloader.service --no-pager || true
         ;;
     status)
-        sudo systemctl status jdownloader.service --no-pager
+        sudo systemctl status jdownloader.service --no-pager || true
         ;;
     logs)
         exec journalctl -u jdownloader.service -f
@@ -64,8 +70,19 @@ with open(cfg_path, 'w') as f:
         cd "$JD_DIR"
         exec java -Djava.awt.headless=true -jar JDownloader.jar -norestart
         ;;
+    install)
+        echo "=== Installing JDownloader 2 Headless ==="
+        mkdir -p "$JD_DIR/cfg"
+        if [ ! -f "$JD_DIR/JDownloader.jar" ]; then
+            echo "Downloading JDownloader.jar..."
+            curl -fsSL "http://installer.jdownloader.org/JDownloader.jar" -o "$JD_DIR/JDownloader.jar"
+        fi
+        echo "Initializing JDownloader 2 core..."
+        (cd "$JD_DIR" && java -Djava.awt.headless=true -jar JDownloader.jar -norestart || true)
+        echo "Installation complete! Run 'jdownloader login' to connect your MyJDownloader account."
+        ;;
     *)
-        echo "Usage: $(basename "$0") {start|stop|restart|status|logs|login|console}"
+        echo "Usage: $(basename "$0") {start|stop|restart|status|logs|login|console|install}"
         exit 1
         ;;
 esac

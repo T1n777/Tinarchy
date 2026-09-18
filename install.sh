@@ -1370,6 +1370,32 @@ if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/syste
     fi
     manage_service "qbittorrent-nox@$TARGET_USER.service" "qBittorrent Daemon" "true"
 fi
+
+# JDownloader 2 Headless Service & CLI
+if [ -f "$REPO_ROOT/configs/systemd/jdownloader.service" ]; then
+    sed -e "s|User=tin|User=${TARGET_USER}|g" \
+        -e "s|Group=tin|Group=${TARGET_USER}|g" \
+        -e "s|/home/tin|${USER_HOME}|g" \
+        "$REPO_ROOT/configs/systemd/jdownloader.service" > /etc/systemd/system/jdownloader.service
+fi
+
+if [ -f "$REPO_ROOT/configs/scripts/jdownloader-ctl.sh" ]; then
+    install -m 755 "$REPO_ROOT/configs/scripts/jdownloader-ctl.sh" /usr/local/bin/jdownloader
+    ln -sfn /usr/local/bin/jdownloader /usr/local/bin/jdownloader-ctl
+fi
+
+if [ -f "${USER_HOME}/jdownloader/JDownloader.jar" ]; then
+    manage_service "jdownloader.service" "JDownloader 2 Headless" "true"
+fi
+
+# Beeper Bridge Manager (bbctl) Template Service
+if [ -f "$REPO_ROOT/configs/systemd/bbctl@.service" ]; then
+    sed -e "s|User=tin|User=${TARGET_USER}|g" \
+        -e "s|Group=tin|Group=${TARGET_USER}|g" \
+        -e "s|/home/tin|${USER_HOME}|g" \
+        "$REPO_ROOT/configs/systemd/bbctl@.service" > /etc/systemd/system/bbctl@.service
+fi
+
 manage_service "syncyomi.service" "SyncYomi Manga Sync" "$INSTALL_SYNCYOMI"
 manage_service "syncyomi-suwayomi-bridge.service" "SyncYomi-Suwayomi Bridge" "$INSTALL_SYNCYOMI"
 manage_service "tinarchy-resource-governor.service" "Autonomous Resource Governor" "true"
@@ -1406,6 +1432,8 @@ echo -e "  ⚡ ${BOLD}tmux${NC}                   : ${GREEN}Nicholas Marriott & 
 echo -e "  🐚 ${BOLD}Zsh${NC}                    : ${GREEN}Paul Falstad & Zsh Development Group${NC} (https://zsh.org)"
 echo -e "  ☁️  ${BOLD}Rclone${NC}                 : ${GREEN}Nick Craig-Wood & Contributors${NC} (https://rclone.org)"
   echo -e "  🛡️  ${BOLD}FlareSolverr${NC}           : ${GREEN}The FlareSolverr Community${NC} (https://github.com/FlareSolverr/FlareSolverr)"
+  echo -e "  📥 ${BOLD}JDownloader 2${NC}          : ${GREEN}Appwork GmbH & Community${NC} (https://jdownloader.org)"
+  echo -e "  🌉 ${BOLD}Beeper Bridge Manager${NC}  : ${GREEN}Beeper Inc. & Matrix.org${NC} (https://beeper.com)"
 echo -e "${CYAN} ═══════════════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${GREEN}${BOLD}🎉 Installation and configuration finished successfully!${NC}"
