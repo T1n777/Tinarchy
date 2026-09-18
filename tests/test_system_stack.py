@@ -710,6 +710,17 @@ def test_suwayomi_tabbed_widget():
             if "chapterName" not in top_update:
                 raise Exception("Expected 'chapterName' in top update node")
 
+        # 5. Verify library mangas belong to 'Reading' category
+        if data.get("library"):
+            first_manga_id = data["library"][0]["id"]
+            q_cat = json.dumps({"query": f"{{ manga(id: {first_manga_id}) {{ categories {{ nodes {{ name }} }} }} }}"}).encode("utf-8")
+            r_cat = urllib.request.Request("http://127.0.0.1:4567/manga/api/graphql", data=q_cat, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(r_cat, timeout=3.0) as resp_cat:
+                cat_data = json.loads(resp_cat.read().decode("utf-8"))
+                cats = [c["name"].strip().lower() for c in (cat_data.get("data", {}).get("manga", {}).get("categories", {}).get("nodes", []))]
+                if "reading" not in cats:
+                    raise Exception(f"First library manga id {first_manga_id} does not have 'Reading' category: {cats}")
+
 run_test("Suwayomi Tabbed Manga Shelf & Stacking Exclusion", test_suwayomi_tabbed_widget)
 
 

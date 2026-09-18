@@ -2115,7 +2115,7 @@
                     <input type="checkbox" id="toggle-widget-jd" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('jdownloader', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
-                    <span>📚 Suwayomi Manga Shelf (Library / History / Updates)</span>
+                    <span>📚 Suwayomi Manga Shelf (Reading / History / Updates)</span>
                     <input type="checkbox" id="toggle-widget-manga" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('manga_shelf', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
@@ -2134,7 +2134,7 @@
                     <strong style="font-size: 0.88rem; color: var(--text);">Widget Stacking & Tabs</strong>
                     <span style="font-size: 0.72rem; color: var(--text-muted);">Combine download clients</span>
                 </div>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Group download clients into a single card with tabs and a slider toggle to save dashboard space. (Suwayomi Manga Shelf features built-in Library, History, and Updates tabs and stays standalone).</p>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Group download clients into a single card with tabs and a slider toggle to save dashboard space. (Suwayomi Manga Shelf features built-in Reading, History, and Updates tabs and stays standalone).</p>
                 
                 <!-- Quick Presets -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -2683,7 +2683,7 @@
             pillsWrap.id = 'suwayomi-tabs';
 
             const tabs = [
-                { id: 'library', title: 'Library', icon: '📚', elementId: 'tab-manga-library' },
+                { id: 'library', title: 'Reading', icon: '📚', elementId: 'tab-manga-library' },
                 { id: 'history', title: 'History', icon: '🕒', elementId: 'tab-manga-history' },
                 { id: 'updates', title: 'Updates', icon: '🔔', elementId: 'tab-manga-updates' }
             ];
@@ -2703,7 +2703,7 @@
             const cycleBtn = document.createElement('button');
             cycleBtn.type = 'button';
             cycleBtn.className = 'stack-cycle-btn';
-            cycleBtn.title = 'Cycle shelf: Library → History → Updates';
+            cycleBtn.title = 'Cycle shelf: Reading → History → Updates';
             cycleBtn.textContent = '⇄';
             cycleBtn.onclick = () => cycleSuwayomiActiveTab();
             headerLeft.appendChild(cycleBtn);
@@ -2764,7 +2764,7 @@
             } else if (SUWAYOMI_ACTIVE_TAB === 'updates') {
                 linkDiv.innerHTML = '<a href="/manga/updates" target="_blank" class="widget-link" title="Open Suwayomi Updates">Updates ↗</a>';
             } else {
-                linkDiv.innerHTML = '<a href="/manga" target="_blank" class="widget-link" title="Open Suwayomi Library">Library ↗</a>';
+                linkDiv.innerHTML = '<a href="/manga" target="_blank" class="widget-link" title="Open Suwayomi Library (Reading)">Reading ↗</a>';
             }
         }
 
@@ -2782,7 +2782,7 @@
             const items = LATEST_SUWAYOMI_DATA[SUWAYOMI_ACTIVE_TAB] || [];
             if (items.length === 0) {
                 const labels = {
-                    library: 'Suwayomi Library is empty',
+                    library: "No manga found in 'Reading' category",
                     history: 'No reading history yet',
                     updates: 'No recent chapter updates'
                 };

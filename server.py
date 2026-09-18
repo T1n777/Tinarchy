@@ -702,7 +702,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                             }
                         }
                     }
-                    library: mangas(filter: { inLibrary: { equalTo: true } }, order: { by: IN_LIBRARY_AT, byType: DESC_NULLS_LAST }, first: 100) {
+                    library: mangas(filter: { inLibrary: { equalTo: true } }, order: { by: IN_LIBRARY_AT, byType: DESC_NULLS_LAST }, first: 300) {
                         nodes {
                             id
                             title
@@ -773,7 +773,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                 if len(clean_updates) >= 24:
                                     break
 
-                            # 3. Library (Favorited / in-library collection)
+                            # 3. Library (Only mangas in the 'Reading' category)
                             clean_library = []
                             seen_l = set()
                             for m in l_nodes:
@@ -781,6 +781,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     continue
                                 mid = m["id"]
                                 if mid in seen_l or is_private_manga(m):
+                                    continue
+                                cats = [c.get("name", "").strip() for c in (m.get("categories") or {}).get("nodes", [])]
+                                if not any(c.lower() == "reading" for c in cats):
                                     continue
                                 seen_l.add(mid)
                                 clean_library.append({
@@ -791,6 +794,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                 })
                                 if len(clean_library) >= 24:
                                     break
+
+                            # Fallback: if user has no mangas categorized as 'Reading', show in-library mangas
+                            if len(clean_library) == 0:
+                                for m in l_nodes:
+                                    if not m or not m.get("id"):
+                                        continue
+                                    mid = m["id"]
+                                    if mid in seen_l or is_private_manga(m):
+                                        continue
+                                    seen_l.add(mid)
+                                    clean_library.append({
+                                        "id": mid,
+                                        "title": m.get("title", ""),
+                                        "cover": f"/api/suwayomi/thumbnail/{mid}",
+                                        "link": f"/manga/{mid}"
+                                    })
+                                    if len(clean_library) >= 24:
+                                        break
 
                             # Backwards-compatible default list
                             clean_mangas = clean_history if clean_history else clean_library

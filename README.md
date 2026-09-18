@@ -47,7 +47,7 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **Interactive Drag-and-Drop Reordering**: Fully customizable, draggable service grid and widget cards with smooth layout persistence.
   - **Customizable Widget Stacking & Tabbed Slider Controls**: Group download clients (e.g. qBittorrent and JDownloader into a unified "Transfers" card) into a single compact view with pill tabs and an interactive cycle/slider button (`⇄`).
   - **1-Click Stacking Presets & Granular Assignment**: Instant presets (`⚡ Stack Transfers`, `🔲 Separate (Unstack)`) plus per-widget dropdown selectors in the widget settings modal.
-  - **Suwayomi Tabbed Manga Shelf (Library / History / Updates)**: Dedicated standalone shelf featuring segmented pill tabs and an interactive cycle button (`⇄`) to instantly switch between **Library** (`mangas(inLibrary: true)`), **History** (`chapters(order: LAST_READ_AT)`), and **Updates** (`chapters(order: FETCHED_AT)` with chapter badges). Excluded from cross-widget stacking to guarantee a pristine, full-width shelf layout without dual-tab nesting conflicts.
+  - **Suwayomi Tabbed Manga Shelf (Reading / History / Updates)**: Dedicated standalone shelf featuring segmented pill tabs and an interactive cycle button (`⇄`) to instantly switch between **Reading** (filtered specifically to active mangas in the `Reading` category), **History** (`chapters(order: LAST_READ_AT)`), and **Updates** (`chapters(order: FETCHED_AT)` with chapter badges). Excluded from cross-widget stacking to guarantee a pristine, full-width shelf layout without dual-tab nesting conflicts.
   - **Personal Viewer Styling & Custom Wallpapers**: Viewers can select presets or upload personal wallpapers with immediate client-side application.
 
 - **📥 JDownloader 2 Headless & Remote Download Link Grabber**:
@@ -828,8 +828,8 @@ The dashboard features a modular, customizable widget stacking engine that allow
   - `🔲 Separate (Unstack)`: Expands qBittorrent and JDownloader into individual standalone cards.
 - **Custom Widget Assignment**: Assign any transfer widget to a custom stack group or standalone mode via the **Widget Stacking & Tabs** section in the dashboard widget settings modal.
 - **📚 Suwayomi Tabbed Manga Shelf (Standalone & Tabbed)**:
-  - **Internal Multi-Tab Switcher**: Features segmented pill tabs (`📚 Library`, `🕒 History`, `🔔 Updates`) and a cycle button (`⇄`).
-  - **Live Shelves**: Displays favorited manga (`Library`), recently read manhwa (`History`), or recently downloaded chapters (`Updates` with chapter badges such as *Chapter 41.5*).
+  - **Internal Multi-Tab Switcher**: Features segmented pill tabs (`📚 Reading`, `🕒 History`, `🔔 Updates`) and a cycle button (`⇄`).
+  - **Live Shelves**: Displays active mangas in the `Reading` category (`Reading`), recently read manhwa (`History`), or recently downloaded chapters (`Updates` with chapter badges such as *Chapter 41.5*).
   - **Direct Manhwa Linking**: Every cover art links directly to `/manga/:id`.
   - **Stacking Exclusion**: Suwayomi is deliberately kept standalone and excluded from cross-widget stacking to ensure the full-width horizontal scrolling shelf displays cleanly without nested tab conflicts.
 - **Flicker-Free Live Polling**: State-preserving DOM architecture ensures that background telemetry polling (every 4s) updates speeds and metrics smoothly without flickering, closing tabs, or disrupting active input fields.
