@@ -25,12 +25,17 @@ if status is-interactive
   end
 
   # branded system readout on terminal open (skipped in embedded terminals like Dolphin/Konsole).
-  if command -v ryoku-fastfetch >/dev/null 2>&1
-    and not set -q KONSOLE_VERSION
+  if not set -q KONSOLE_VERSION
     and not set -q KONSOLE_DBUS_SERVICE
     and not set -q DOLPHIN_CONTROL_PID
     and not set -q NO_FASTFETCH
-    ryoku-fastfetch
+    if command -v tinarchy-fetch >/dev/null 2>&1
+      tinarchy-fetch
+    else if command -v ryoku-fastfetch >/dev/null 2>&1
+      ryoku-fastfetch
+    else if command -v fastfetch >/dev/null 2>&1
+      fastfetch
+    end
   end
 
   # prompt.

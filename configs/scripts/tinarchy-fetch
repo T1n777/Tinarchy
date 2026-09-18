@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# 🍍 Tinarchy OS - Branded System Telemetry & Rice Readout (tinarchy-fetch)
+# ==============================================================================
+set -eo pipefail
+
+# Matugen Pastel Palette
+PINK='\033[38;2;255;175;211m'
+MAUVE='\033[38;2;237;184;206m'
+SAGE='\033[38;2;148;215;129m'
+PEACH='\033[38;2;242;162;120m'
+GREY='\033[38;2;160;139;147m'
+DARK_GREY='\033[38;2;83;66;73m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# System Telemetry Gathering
+HOSTNAME="$(cat /etc/hostname 2>/dev/null || uname -n)"
+KERNEL="$(uname -r)"
+UPTIME="$(uptime -p 2>/dev/null | sed 's/up //g' || uptime | awk '{print $3,$4}' | tr -d ',')"
+
+# Memory & ZRAM
+MEM_TOTAL_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+MEM_AVAIL_KB=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+MEM_USED_MB=$(( (MEM_TOTAL_KB - MEM_AVAIL_KB) / 1024 ))
+MEM_TOTAL_MB=$(( MEM_TOTAL_KB / 1024 ))
+MEM_STR="${MEM_USED_MB}M / ${MEM_TOTAL_MB}M"
+if [ -b /dev/zram0 ]; then
+    ZRAM_DEV="/dev/zram0"
+    ZRAM_SIZE=$(lsblk -b -n -o SIZE "$ZRAM_DEV" 2>/dev/null | awk '{print int($1/1024/1024)}' || true)
+    [ -n "$ZRAM_SIZE" ] && MEM_STR="${MEM_STR} (zram: ${ZRAM_SIZE}M)"
+fi
+
+# CPU Temp
+TEMP="N/A"
+for t_path in /sys/class/thermal/thermal_zone*/temp /sys/class/hwmon/hwmon*/temp1_input; do
+    if [ -f "$t_path" ]; then
+        raw_t=$(cat "$t_path" 2>/dev/null || true)
+        if [ -n "$raw_t" ] && [ "$raw_t" -gt 1000 ]; then
+            TEMP="$(( raw_t / 1000 ))°C"
+            break
+        fi
+    fi
+done
+
+# Chassis / Model
+CHASSIS="Desktop"
+if [ -d /sys/class/power_supply ] && ls /sys/class/power_supply/BAT* >/dev/null 2>&1; then
+    CHASSIS="Laptop"
+fi
+MODEL=$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null || uname -m)
+
+# Active Services Indicators
+check_svc() {
+    local svc="$1"
+    if systemctl is-active --quiet "$svc" 2>/dev/null; then
+        echo -ne "${SAGE}●${NC} "
+    else
+        echo -ne "${DARK_GREY}○${NC} "
+    fi
+}
+
+SERVICES_STR="$(check_svc tinarchy.service)Dashboard $(check_svc nginx.service)Nginx $(check_svc syncthing@*.service)Sync $(check_svc suwayomi-server.service)Manga $(check_svc jellyfin.service)Media $(check_svc tailscaled.service)Tailscale"
+
+# Print Output with ASCII Logo Side-by-Side
+echo -e "${SAGE}      \\ /       ${PINK}${BOLD}${HOSTNAME}${NC}"
+echo -e "${SAGE}    -- * --     ${DARK_GREY}─────────────────────────────────────────${NC}"
+echo -e "${SAGE}      / \\       ${GREY}OS       :${NC} ${BOLD}Tinarchy OS${NC} (Arch Linux LTS)"
+echo -e "${PEACH}     /   \\      ${GREY}Host     :${NC} ${MODEL} (${CHASSIS})"
+echo -e "${PEACH}    /     \\     ${GREY}Kernel   :${NC} ${KERNEL}"
+echo -e "${PINK}   | () () |    ${GREY}Uptime   :${NC} ${UPTIME}"
+echo -e "${PINK}    \\  ~  /     ${GREY}Memory   :${NC} ${MEM_STR}"
+echo -e "${PINK}     '---'      ${GREY}Thermal  :${NC} ${TEMP}"
+echo -e "${DARK_GREY}                ${GREY}Services :${NC} ${SERVICES_STR}"
+echo -e "${DARK_GREY}                ${GREY}Rice     :${NC} Pastel Pink Matugen / Glassmorphic"
+echo -e "${DARK_GREY}                ${DARK_GREY}─────────────────────────────────────────${NC}"
+echo -e "${DARK_GREY}                ${PINK}███${MAUVE}███${SAGE}███${PEACH}███${GREY}███${DARK_GREY}███${NC}"
+echo ""

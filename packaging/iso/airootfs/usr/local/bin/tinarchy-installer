@@ -1,72 +1,82 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# 🍍 Tinarchy OS - Guided Interactive System & Platform Installer
+# 🍍 Tinarchy OS - Guided Interactive System & Rice Installer
 # ==============================================================================
-# Automates:
-# - Disk selection and GPT partitioning (EFI ESP + Root Ext4/Btrfs)
-# - Base system pacstrap (Linux LTS, core utilities, runtimes)
-# - User accounts, locale, hostname, bootloader (UEFI / BIOS)
-# - Pre-seeding and unattended provisioning of Tinarchy platform via install.sh
+# Inspired by Ryoku Arch:
+# - Boxed BubbleTea-style TUI aesthetics with Matugen pastel accents
+# - Automated CPU microcode & GPU driver policy selection
+# - Modern Btrfs subvolumes (@, @home, @var, @snapshots) with Zstd compression
+# - Pre-riced terminal ecosystem: Fish + Starship + Pastel tmux + tinarchy-fetch
+# - Unattended pre-seeding of Tinarchy glassmorphic server control center
 # ==============================================================================
 set -eo pipefail
 
-# Visual Styles
+# Matugen Pastel Palette
+PINK='\033[38;2;255;175;211m'
+MAUVE='\033[38;2;237;184;206m'
+SAGE='\033[38;2;148;215;129m'
+PEACH='\033[38;2;242;162;120m'
+GREY='\033[38;2;160;139;147m'
+DARK_GREY='\033[38;2;83;66;73m'
+RED='\033[38;2;230;69;83m'
+YELLOW='\033[38;2;226;123;117m'
 BOLD='\033[1m'
 DIM='\033[2m'
-CYAN='\033[36m'
-GREEN='\033[32m'
-YELLOW='\033[33m'
-RED='\033[31m'
 NC='\033[0m'
-PINK='\033[38;2;255;175;211m'
 
-clear 2>/dev/null || true
-echo -e "${PINK}${BOLD}"
-cat << 'EOF'
- 🍍  ═══════════════════════════════════════════════════════════════════
-       _____ _                      _           
-      |_   _(_)_ __   __ _ _ __ ___| |__  _   _ 
-        | | | | '_ \ / _` | '__/ __| '_ \| | | |
-        | | | | | | | (_| | | | (__| | | | |_| |
-        |_| |_|_| |_|\__,_|_|  \___|_| |_|\__, |
-                                          |___/ 
-        Tinarchy OS Guided System & Platform Installer
- ═══════════════════════════════════════════════════════════════════════
+# Visual Notification Helpers (Ryoku Style)
+say()     { echo -e "  ${PINK}==>${NC} ${BOLD}$*${NC}"; }
+success() { echo -e "  ${SAGE}[✔]${NC} $*"; }
+warn()    { echo -e "  ${YELLOW}[⚠️]${NC} $*"; }
+die()     { echo -e "  ${RED}[❌]${NC} $*" >&2; exit 1; }
+
+box_header() {
+    clear 2>/dev/null || true
+    echo -e "${PINK}"
+    cat << 'EOF'
+ ╭──────────────────────────────────────────────────────────────────────────╮
+ │  🍍  TINARCHY OS  ──  Autonomous Server & Translucent Glass Center       │
+ ╰──────────────────────────────────────────────────────────────────────────╯
 EOF
-echo -e "${NC}"
+    echo -e "${NC}"
+}
 
-# ─── Privilege & Environment Checks ───────────────────────────────────────────
-if [ "$(id -u)" -ne 0 ]; then
-    echo -e "${RED}❌ Root privileges required. Please run with sudo or as root.${NC}"
-    exit 1
-fi
+step_banner() {
+    local num="$1"
+    local title="$2"
+    echo ""
+    echo -e "${DARK_GREY}╭─ ${PINK}[${num}/6]${NC} ${BOLD}${title}${NC} ${DARK_GREY}───────────────────────────────────────────────────╮${NC}"
+}
 
+box_close() {
+    echo -e "${DARK_GREY}╰──────────────────────────────────────────────────────────────────────────╯${NC}"
+}
+
+box_header
+
+# ─── Privilege Check ──────────────────────────────────────────────────────────
+[[ $(id -u) -eq 0 ]] || die "Root privileges required. Run as root or with sudo."
+
+# ─── Firmware / Boot Check ────────────────────────────────────────────────────
 IS_UEFI=false
 [ -d /sys/firmware/efi ] && IS_UEFI=true
 
-echo -e "  • Boot Mode  : ${BOLD}$([ "$IS_UEFI" = "true" ] && echo "UEFI (ESP Boot)" || echo "Legacy BIOS (MBR Boot)")${NC}"
-echo -e "  • Kernel     : ${BOLD}$(uname -r)${NC}"
-echo -e "  • Arch       : ${BOLD}$(uname -m)${NC}"
-echo ""
-
-# Internet check
+# ─── Network Connectivity Check ───────────────────────────────────────────────
 echo -ne "  • Network Connectivity : Checking... "
 if ping -c 1 -W 3 1.1.1.1 >/dev/null 2>&1 || curl -sI --max-time 3 https://archlinux.org >/dev/null 2>&1; then
-    echo -e "${GREEN}Online ✔${NC}"
+    echo -e "${SAGE}Online [✔]${NC}"
 else
-    echo -e "${YELLOW}Offline ⚠️${NC}"
-    echo -e "    ${YELLOW}Internet access is required to pacstrap system packages.${NC}"
-    echo -e "    ${DIM}To configure Wi-Fi, run: 'iwctl' or use ethernet.${NC}"
+    echo -e "${YELLOW}Offline [⚠️]${NC}"
+    warn "Internet connection required to download base packages."
+    echo -e "    Run 'iwctl' for Wi-Fi or plug in Ethernet."
     echo ""
-    read -rp "    Retry network check? [Y/n]: " retry_net </dev/tty || retry_net="y"
+    read -rp "    Retry connection check? [Y/n]: " retry_net </dev/tty || retry_net="y"
     if [[ "$retry_net" =~ ^[Nn] ]]; then
-        echo -e "${RED}Aborting installation. Connect to network and rerun 'tinarchy-installer'.${NC}"
-        exit 1
+        die "Aborted. Connect to the internet and relaunch 'tinarchy-installer'."
     fi
 fi
-echo ""
 
-# Helper to ask yes/no
+# Input helpers with safe /dev/tty reading
 ask_yn() {
     local prompt="$1"
     local default="${2:-y}"
@@ -86,7 +96,6 @@ ask_yn() {
     done
 }
 
-# Helper to ask input
 ask_str() {
     local prompt="$1"
     local default="$2"
@@ -112,67 +121,106 @@ ask_str() {
     done
 }
 
-# ─── Step 1: Disk Selection ───────────────────────────────────────────────────
-echo -e "${CYAN}─── 1. Target Disk Selection ──────────────────────────────────────────${NC}"
-echo -e "Available block storage devices:"
+# ─── STEP 1: Hardware & Driver Policy Detection (Ryoku-Style) ─────────────────
+step_banner "1" "Hardware & Driver Policy Detection"
+
+# CPU Microcode
+CPU_VENDOR="$(grep -m1 'vendor_id' /proc/cpuinfo | awk '{print $3}')"
+CPU_MODEL="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+UCODE_PKG=""
+if [[ "$CPU_VENDOR" == *"Intel"* ]]; then
+    UCODE_PKG="intel-ucode"
+elif [[ "$CPU_VENDOR" == *"AMD"* ]]; then
+    UCODE_PKG="amd-ucode"
+fi
+
+# GPU / Graphics Drivers
+GPU_INFO="$(lspci 2>/dev/null | grep -i -E 'vga|3d|display' || true)"
+GPU_PKGS=()
+if echo "$GPU_INFO" | grep -qi "Intel"; then
+    GPU_NAME="Intel Integrated Graphics (i915/Xe)"
+    GPU_PKGS+=("mesa" "intel-media-driver" "vulkan-intel")
+elif echo "$GPU_INFO" | grep -qi "NVIDIA"; then
+    GPU_NAME="NVIDIA GeForce / Quadro"
+    GPU_PKGS+=("nvidia-dkms" "nvidia-utils" "mesa")
+elif echo "$GPU_INFO" | grep -qi "AMD"; then
+    GPU_NAME="AMD Radeon Graphics"
+    GPU_PKGS+=("mesa" "vulkan-radeon" "xf86-video-amdgpu")
+elif echo "$GPU_INFO" | grep -qi -E 'virtio|vmware|qemu|virtualbox'; then
+    GPU_NAME="Virtual Machine Hypervisor"
+    GPU_PKGS+=("mesa" "qemu-guest-agent" "open-vm-tools")
+else
+    GPU_NAME="Generic Video Controller"
+    GPU_PKGS+=("mesa")
+fi
+
+# Chassis Type
+IS_LAPTOP=false
+if [ -d /sys/class/power_supply ] && ls /sys/class/power_supply/BAT* >/dev/null 2>&1; then
+    IS_LAPTOP=true
+fi
+CHASSIS_NAME="Desktop / Mini-PC"
+[ "$IS_LAPTOP" = "true" ] && CHASSIS_NAME="Laptop / Notebook (Battery & Display Sleep Active)"
+
+echo -e "  • CPU Platform : ${BOLD}${CPU_MODEL}${NC} (${CPU_VENDOR})"
+echo -e "  • Microcode    : ${SAGE}${UCODE_PKG:-None Required}${NC} [Auto-Selected]"
+echo -e "  • GPU Engine   : ${BOLD}${GPU_NAME}${NC}"
+echo -e "  • GPU Drivers  : ${SAGE}${GPU_PKGS[*]}${NC}"
+echo -e "  • Chassis      : ${BOLD}${CHASSIS_NAME}${NC}"
+echo -e "  • Boot Mode    : ${BOLD}$([ "$IS_UEFI" = "true" ] && echo "UEFI (ESP Bootloader)" || echo "Legacy BIOS (MBR Bootloader)")${NC}"
+box_close
+
+# ─── STEP 2: Target Storage & Modern Partitioning Layout ─────────────────────
+step_banner "2" "Storage & Partitioning Engine"
+echo -e "Available disk drives:"
 echo ""
 
-mapfile -t DISK_LIST < <(lsblk -d -p -n -l -o NAME,SIZE,MODEL,TYPE | grep -E 'disk' | grep -v -E 'loop|zram|airootfs|iso9660' || true)
+mapfile -t DISK_LIST < <(lsblk -d -p -n -l -o NAME,SIZE,MODEL,TYPE,TRAN | grep -E 'disk' | grep -v -E 'loop|zram|airootfs|iso9660' || true)
 
-if [ ${#DISK_LIST[@]} -eq 0 ]; then
-    echo -e "${RED}❌ No eligible hard drives or SSDs found on this system!${NC}"
-    exit 1
-fi
+[[ ${#DISK_LIST[@]} -gt 0 ]] || die "No eligible hard drives or SSDs found on this system!"
 
 idx=1
 for disk_info in "${DISK_LIST[@]}"; do
-    echo -e "  ${BOLD}[${idx}]${NC} ${disk_info}"
+    echo -e "  ${PINK}[${idx}]${NC} ${disk_info}"
     idx=$((idx + 1))
 done
 echo ""
 
 SELECTED_DISK=""
 while [ -z "$SELECTED_DISK" ]; do
-    echo -ne "  Select target disk number (1-${#DISK_LIST[@]}): "
+    echo -ne "  Select target disk (1-${#DISK_LIST[@]}): "
     read -r choice </dev/tty || choice=""
     if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "${#DISK_LIST[@]}" ]; then
         SELECTED_DISK=$(echo "${DISK_LIST[$((choice - 1))]}" | awk '{print $1}')
     else
-        echo -e "    ${YELLOW}Invalid selection. Please choose a number between 1 and ${#DISK_LIST[@]}.${NC}"
+        warn "Invalid disk choice. Enter a number between 1 and ${#DISK_LIST[@]}."
     fi
 done
 
 echo ""
-echo -e "  ${BOLD}Target Disk Selected:${NC} ${GREEN}${SELECTED_DISK}${NC}"
-echo -e "  ${RED}${BOLD}⚠️  CRITICAL WARNING: ALL DATA ON ${SELECTED_DISK} WILL BE PERMANENTLY ERASED!${NC}"
-echo -e "  ${RED}This will completely destroy all existing partitions, operating systems, and files.${NC}"
-echo ""
-
-echo -ne "  To confirm, type '${BOLD}YES${NC}' in all capital letters: "
+say "Target Disk: ${GREEN}${SELECTED_DISK}${NC}"
+echo -e "  ${RED}${BOLD}⚠️  CRITICAL WARNING: ALL DATA ON ${SELECTED_DISK} WILL BE PERMANENTLY WIPED!${NC}"
+echo -ne "  Type '${BOLD}YES${NC}' in uppercase to confirm drive erasure: "
 read -r confirm_erase </dev/tty || confirm_erase=""
-if [ "$confirm_erase" != "YES" ]; then
-    echo -e "${YELLOW}Installation aborted by user. No disk modifications were made.${NC}"
-    exit 0
-fi
+[[ "$confirm_erase" == "YES" ]] || die "Aborted by user. No disk modifications were made."
 
-# ─── Step 2: Filesystem Selection ─────────────────────────────────────────────
 echo ""
-echo -e "${CYAN}─── 2. Root Filesystem Selection ──────────────────────────────────────${NC}"
-echo -e "  ${BOLD}[1]${NC} Ext4  - Standard Linux journaling filesystem (rock-solid, zero maintenance) [Default]"
-echo -e "  ${BOLD}[2]${NC} Btrfs - Advanced copy-on-write filesystem with @ and @home subvolumes"
+echo -e "  ${BOLD}Filesystem Architecture:${NC}"
+echo -e "  ${PINK}[1]${NC} Btrfs  - Subvolumes (@, @home, @var, @snapshots) with Zstd:3 [Ryoku Default]"
+echo -e "  ${PINK}[2]${NC} Ext4   - Journaling, rock-solid reliability, zero maintenance"
 echo ""
 
-FS_TYPE="ext4"
+FS_TYPE="btrfs"
 echo -ne "  Choose filesystem [1/2] (default: 1): "
 read -r fs_choice </dev/tty || fs_choice="1"
-[ "$fs_choice" = "2" ] && FS_TYPE="btrfs"
-echo -e "  ${BOLD}Selected Filesystem:${NC} ${GREEN}${FS_TYPE}${NC}"
-echo ""
+[ "$fs_choice" = "2" ] && FS_TYPE="ext4"
+success "Selected filesystem: ${BOLD}${FS_TYPE}${NC}"
+box_close
 
-# ─── Step 3: User Accounts & System Identity ──────────────────────────────────
-echo -e "${CYAN}─── 3. User Accounts & Hostname ───────────────────────────────────────${NC}"
+# ─── STEP 3: System Identity, Hostname & User Accounts ───────────────────────
+step_banner "3" "System Identity & User Accounts"
 ask_str "System Hostname" "tinarchy-server" CFG_HOSTNAME
-ask_str "Primary Admin Username" "pineapple" CFG_USERNAME
+ask_str "Primary User Account" "pineapple" CFG_USERNAME
 
 while true; do
     ask_str "Password for '${CFG_USERNAME}'" "" CFG_USERPASS true
@@ -180,49 +228,40 @@ while true; do
     if [ "$CFG_USERPASS" = "$CFG_USERPASS2" ] && [ -n "$CFG_USERPASS" ]; then
         break
     fi
-    echo -e "  ${RED}Passwords do not match or cannot be empty. Try again.${NC}"
+    warn "Passwords do not match or cannot be empty. Try again."
 done
 
-ask_yn "Use same password for root account?" "y" SAME_ROOTPASS
+ask_yn "Use same password for root?" "y" SAME_ROOTPASS
 if [ "$SAME_ROOTPASS" = "0" ] || [ "$SAME_ROOTPASS" = "true" ]; then
     CFG_ROOTPASS="$CFG_USERPASS"
 else
     while true; do
-        ask_str "Password for 'root'" "" CFG_ROOTPASS true
-        ask_str "Confirm root password" "" CFG_ROOTPASS2 true
-        if [ "$CFG_ROOTPASS" = "$CFG_ROOTPASS2" ] && [ -n "$CFG_ROOTPASS" ]; then
-            break
-        fi
-        echo -e "  ${RED}Passwords do not match. Try again.${NC}"
+        ask_str "Root Password" "" CFG_ROOTPASS true
+        ask_str "Confirm Root Password" "" CFG_ROOTPASS2 true
+        [ "$CFG_ROOTPASS" = "$CFG_ROOTPASS2" ] && [ -n "$CFG_ROOTPASS" ] && break
+        warn "Passwords do not match. Try again."
     done
 fi
-echo ""
+box_close
 
-# ─── Step 4: Disk Partitioning & Formatting ───────────────────────────────────
-echo -e "${CYAN}─── 4. Partitioning & Formatting ${SELECTED_DISK} ──────────────────────${NC}"
-
-# Unmount any existing mounts on target disk
-echo -e "  • Unmounting any existing partitions on ${SELECTED_DISK}..."
+# ─── STEP 4: Disk Partitioning, Subvolumes & Mounting ────────────────────────
+step_banner "4" "Partitioning, Formatting & Subvolume Construction"
+say "Unmounting partitions on ${SELECTED_DISK}..."
 umount -R /mnt 2>/dev/null || true
 swapoff -a 2>/dev/null || true
 for part in $(lsblk -l -n -o NAME "${SELECTED_DISK}" | grep -v "^$(basename "${SELECTED_DISK}")$"); do
     umount -l "/dev/${part}" 2>/dev/null || true
 done
 
-echo -e "  • Wiping partition table signatures..."
+say "Wiping partition tables and signatures..."
 wipefs -a -f "${SELECTED_DISK}"
 
-# Determine partition naming convention
 P_PREFIX="${SELECTED_DISK}"
-if [[ "${SELECTED_DISK}" =~ [0-9]$ ]]; then
-    P_PREFIX="${SELECTED_DISK}p"
-fi
+[[ "${SELECTED_DISK}" =~ [0-9]$ ]] && P_PREFIX="${SELECTED_DISK}p"
 BOOT_PART="${P_PREFIX}1"
 ROOT_PART="${P_PREFIX}2"
 
-echo -e "  • Creating GPT partition layout..."
-# Partition 1: 1024MB ESP (type EF00)
-# Partition 2: Rest of disk (Linux filesystem)
+say "Constructing GPT partition table..."
 if command -v sgdisk >/dev/null 2>&1; then
     sgdisk -Z "${SELECTED_DISK}"
     sgdisk -n 1:2048:+1024M -t 1:ef00 -c 1:"EFI System Partition" "${SELECTED_DISK}"
@@ -235,41 +274,49 @@ else
         mkpart "TinarchyRoot" 1025MiB 100%
 fi
 
-# Inform OS of partition changes
 partprobe "${SELECTED_DISK}" 2>/dev/null || true
 sleep 2
 
-echo -e "  • Formatting EFI System Partition (${BOOT_PART})..."
+say "Formatting EFI System Partition (FAT32)..."
 mkfs.fat -F32 -n "ESP" "${BOOT_PART}"
 
-echo -e "  • Formatting Root Partition (${ROOT_PART}) as ${FS_TYPE}..."
 if [ "$FS_TYPE" = "btrfs" ]; then
+    say "Formatting Root Partition (Btrfs with Ryoku subvolumes)..."
     mkfs.btrfs -f -L "TINARCHY_ROOT" "${ROOT_PART}"
     mkdir -p /mnt
     mount "${ROOT_PART}" /mnt
+
+    say "Creating Btrfs subvolumes (@, @home, @var, @snapshots)..."
     btrfs subvolume create /mnt/@
     btrfs subvolume create /mnt/@home
     btrfs subvolume create /mnt/@var
+    btrfs subvolume create /mnt/@snapshots
     umount /mnt
-    mount -o noatime,compress=zstd,subvol=@ "${ROOT_PART}" /mnt
-    mkdir -p /mnt/{boot,home,var}
-    mount -o noatime,compress=zstd,subvol=@home "${ROOT_PART}" /mnt/home
-    mount -o noatime,compress=zstd,subvol=@var "${ROOT_PART}" /mnt/var
+
+    # Mount subvolumes with tuned Zstd compression
+    BTRFS_OPTS="noatime,compress=zstd:3,space_cache=v2"
+    mount -o "${BTRFS_OPTS},subvol=@" "${ROOT_PART}" /mnt
+    mkdir -p /mnt/{boot,home,var,.snapshots}
+    mount -o "${BTRFS_OPTS},subvol=@home" "${ROOT_PART}" /mnt/home
+    mount -o "${BTRFS_OPTS},subvol=@var" "${ROOT_PART}" /mnt/var
+    mount -o "${BTRFS_OPTS},subvol=@snapshots" "${ROOT_PART}" /mnt/.snapshots
     mount "${BOOT_PART}" /mnt/boot
 else
+    say "Formatting Root Partition (Ext4 journaled)..."
     mkfs.ext4 -F -L "TINARCHY_ROOT" "${ROOT_PART}"
+    tune2fs -m 1 "${ROOT_PART}" 2>/dev/null || true
     mkdir -p /mnt
     mount "${ROOT_PART}" /mnt
     mkdir -p /mnt/boot
     mount "${BOOT_PART}" /mnt/boot
 fi
 
-echo -e "  ${GREEN}✔ Partitions formatted and mounted under /mnt.${NC}"
-echo ""
+success "Partition layout and filesystems mounted at /mnt"
+box_close
 
-# ─── Step 5: Base System Pacstrap ─────────────────────────────────────────────
-echo -e "${CYAN}─── 5. Installing Arch Linux Base & Core Platform Packages ────────────${NC}"
-echo -e "  ${DIM}This installs Linux LTS kernel, network stack, and Tinarchy dependencies...${NC}"
+# ─── STEP 5: Pacstrapping Base System & Rice Packages ─────────────────────────
+step_banner "5" "Installing Base System, Kernel & Rice Ecosystem"
+say "Pacstrapping base packages, Linux LTS, microcode & drivers..."
 
 PACSTRAP_PKGS=(
     base base-devel linux-lts linux-firmware
@@ -277,22 +324,19 @@ PACSTRAP_PKGS=(
     python python-pillow python-requests
     nginx syncthing tor tailscale rclone
     tmux fish zsh starship acpid
-    efibootmgr grub dosfstools e2fsprogs
+    efibootmgr grub dosfstools e2fsprogs zram-generator
 )
-[ "$FS_TYPE" = "btrfs" ] && PACSTRAP_PKGS+=(btrfs-progs)
+
+[ -n "$UCODE_PKG" ] && PACSTRAP_PKGS+=("$UCODE_PKG")
+[ "$FS_TYPE" = "btrfs" ] && PACSTRAP_PKGS+=("btrfs-progs")
+PACSTRAP_PKGS+=("${GPU_PKGS[@]}")
 
 pacstrap -K /mnt "${PACSTRAP_PKGS[@]}"
 
-echo -e "  • Generating fstab mount table..."
+say "Generating filesystem mount table (fstab)..."
 genfstab -U /mnt >> /mnt/etc/fstab
 
-echo -e "  ${GREEN}✔ Base system installed.${NC}"
-echo ""
-
-# ─── Step 6: System Configuration in Chroot ───────────────────────────────────
-echo -e "${CYAN}─── 6. Configuring System Locale, Network & Bootloader ─────────────────${NC}"
-
-# Hostname and network
+say "Configuring system locale, timezone, hostname and accounts..."
 echo "${CFG_HOSTNAME}" > /mnt/etc/hostname
 cat << EOF > /mnt/etc/hosts
 127.0.0.1   localhost
@@ -300,26 +344,30 @@ cat << EOF > /mnt/etc/hosts
 127.0.1.1   ${CFG_HOSTNAME}.localdomain ${CFG_HOSTNAME}
 EOF
 
-# Timezone & Locales
 arch-chroot /mnt ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 arch-chroot /mnt hwclock --systohc
 sed -i 's/^#\(en_US.UTF-8 UTF-8\)/\1/' /mnt/etc/locale.gen
 arch-chroot /mnt locale-gen
 echo "LANG=en_US.UTF-8" > /mnt/etc/locale.conf
 
-# User and Sudo configuration
-echo -e "  • Configuring user accounts..."
+# Configure ZRAM Generator (Ryoku / Systemd Standard)
+mkdir -p /mnt/etc/systemd/zram-generator.conf.d
+cat << 'EOF' > /mnt/etc/systemd/zram-generator.conf
+[zram0]
+zram-size = min(ram / 2, 8192)
+compression-algorithm = zstd
+EOF
+
+# User Creation & Sudo Access
 arch-chroot /mnt useradd -m -G wheel,video,audio,storage -s /bin/fish "${CFG_USERNAME}"
 echo "${CFG_USERNAME}:${CFG_USERPASS}" | arch-chroot /mnt chpasswd
 echo "root:${CFG_ROOTPASS}" | arch-chroot /mnt chpasswd
 sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /mnt/etc/sudoers
 
-# Enable essential boot services
-echo -e "  • Enabling core network & hardware services..."
+# Enable Base System Services
 arch-chroot /mnt systemctl enable NetworkManager.service sshd.service acpid.service
 
-# Install Bootloader (GRUB)
-echo -e "  • Installing bootloader (GRUB)..."
+say "Installing bootloader (GRUB)..."
 if [ "$IS_UEFI" = "true" ]; then
     arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Tinarchy --recheck
 else
@@ -327,45 +375,79 @@ else
 fi
 arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 
-echo -e "  ${GREEN}✔ System configuration and bootloader ready.${NC}"
-echo ""
+success "Base operating system and bootloader deployed."
+box_close
 
-# ─── Step 7: Pre-seed & Provision Tinarchy Platform ───────────────────────────
-echo -e "${CYAN}─── 7. Provisioning Tinarchy Server Ecosystem ─────────────────────────${NC}"
-TARGET_REPO="/mnt/home/${CFG_USERNAME}/Tinarchy"
+# ─── STEP 6: Pre-seeding & Provisioning Tinarchy Ecosystem ───────────────────
+step_banner "6" "Pre-seeding Tinarchy Server Control Center & Rice"
+TARGET_HOME="/mnt/home/${CFG_USERNAME}"
+TARGET_REPO="${TARGET_HOME}/Tinarchy"
 
-echo -e "  • Cloning Tinarchy repository into /home/${CFG_USERNAME}/Tinarchy..."
+say "Cloning Tinarchy repository into ${TARGET_REPO}..."
 arch-chroot /mnt git clone https://github.com/T1n777/Tinarchy.git "/home/${CFG_USERNAME}/Tinarchy"
 arch-chroot /mnt chown -R "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/Tinarchy"
 
-echo -e "  • Running Tinarchy platform unattended setup in ISO mode..."
-arch-chroot /mnt bash -c "cd /home/${CFG_USERNAME}/Tinarchy && ./install.sh --iso-mode --yes"
-
-# Pre-configure user tmux pastel theme
-if [ -f "/mnt/home/${CFG_USERNAME}/Tinarchy/configs/tmux/tmux.conf" ]; then
-    cp "/mnt/home/${CFG_USERNAME}/Tinarchy/configs/tmux/tmux.conf" "/mnt/home/${CFG_USERNAME}/.tmux.conf"
-    arch-chroot /mnt chown "${CFG_USERNAME}:${CFG_USERNAME}" "/mnt/home/${CFG_USERNAME}/.tmux.conf"
+say "Deploying pre-riced configuration profiles (Fish, Starship, tmux)..."
+# 1. Pastel Pink tmux Configuration
+if [ -f "${TARGET_REPO}/configs/tmux/tmux.conf" ]; then
+    cp "${TARGET_REPO}/configs/tmux/tmux.conf" "${TARGET_HOME}/.tmux.conf"
+    arch-chroot /mnt chown "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/.tmux.conf"
 fi
 
-echo -e "  ${GREEN}✔ Tinarchy ecosystem provisioned and enabled for first boot.${NC}"
-echo ""
+# 2. Starship Configuration
+mkdir -p "${TARGET_HOME}/.config"
+if [ -f "${TARGET_REPO}/configs/starship.toml" ]; then
+    cp "${TARGET_REPO}/configs/starship.toml" "${TARGET_HOME}/.config/starship.toml"
+    arch-chroot /mnt chown -R "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/.config"
+fi
 
-# ─── Step 8: Finalize & Clean Unmount ──────────────────────────────────────────
-echo -e "${CYAN}─── 8. Finalizing Installation ────────────────────────────────────────${NC}"
-echo -e "  • Unmounting filesystem tree..."
+# 3. Fish Shell Configuration with Rice Hook & User Overrides
+mkdir -p "${TARGET_HOME}/.config/fish"
+if [ -f "${TARGET_REPO}/configs/fish/config.fish" ]; then
+    cp "${TARGET_REPO}/configs/fish/config.fish" "${TARGET_HOME}/.config/fish/config.fish"
+    arch-chroot /mnt chown -R "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/.config/fish"
+fi
+
+# 4. Install tinarchy-fetch into target system
+if [ -f "${TARGET_REPO}/configs/scripts/tinarchy-fetch" ]; then
+    cp "${TARGET_REPO}/configs/scripts/tinarchy-fetch" /mnt/usr/local/bin/tinarchy-fetch
+    chmod 755 /mnt/usr/local/bin/tinarchy-fetch
+fi
+
+# 5. Pre-create curated drive structure
+mkdir -p "${TARGET_HOME}/drive/Wallpapers" "${TARGET_HOME}/drive/Manga"
+arch-chroot /mnt chown -R "${CFG_USERNAME}:${CFG_USERNAME}" "/home/${CFG_USERNAME}/drive"
+
+say "Running Tinarchy installer in ISO mode..."
+arch-chroot /mnt bash -c "cd /home/${CFG_USERNAME}/Tinarchy && ./install.sh --iso-mode --yes"
+
+success "Tinarchy platform provisioned and configured for initial boot."
+box_close
+
+# ─── Post-Install Summary & Clean Unmount ─────────────────────────────────────
+say "Unmounting filesystem hierarchy..."
 umount -R /mnt 2>/dev/null || true
 
 echo ""
-echo -e "${GREEN}${BOLD}🎉 Tinarchy OS has been installed successfully to ${SELECTED_DISK}!${NC}"
-echo -e "  You can now reboot the machine, remove the USB installation media,"
-echo -e "  and boot into your brand new Tinarchy OS instance."
-echo ""
-echo -e "  • Primary User : ${BOLD}${CFG_USERNAME}${NC}"
-echo -e "  • Hostname     : ${BOLD}${CFG_HOSTNAME}${NC}"
-echo -e "  • Dashboard    : ${CYAN}http://127.0.0.1:8085/${NC} (active after boot)"
+echo -e "${PINK}${BOLD}"
+cat << 'EOF'
+ ╭──────────────────────────────────────────────────────────────────────────╮
+ │  🎉  TINARCHY OS INSTALLATION FINISHED SUCCESSFULLY!                     │
+ ╰──────────────────────────────────────────────────────────────────────────╯
+EOF
+echo -e "${NC}"
+echo -e "  ${DARK_GREY}╭──────────────────────────────────────────────────────────────────────╮${NC}"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Primary Admin User :${NC} ${SAGE}${CFG_USERNAME}${NC} (Default Shell: Fish)"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}System Hostname    :${NC} ${CFG_HOSTNAME}"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Filesystem Layout  :${NC} ${FS_TYPE^} ($([ "$FS_TYPE" = "btrfs" ] && echo "Subvolumes @, @home, @var, @snapshots" || echo "Journaled Ext4"))"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Hardware Microcode :${NC} ${UCODE_PKG:-None}"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Graphics & Video   :${NC} ${GPU_NAME}"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Terminal Rice      :${NC} Pastel Pink Matugen tmux + Starship + Fish"
+echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Dashboard Web UI   :${NC} ${PINK}http://127.0.0.1:8085/${NC} (active after boot)"
+echo -e "  ${DARK_GREY}╰──────────────────────────────────────────────────────────────────────╯${NC}"
 echo ""
 
 if ask_yn "Reboot system now?" "y"; then
-    echo -e "${CYAN}Rebooting system...${NC}"
+    say "Rebooting system..."
     systemctl reboot
 fi

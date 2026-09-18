@@ -21,6 +21,19 @@ MAGENTA='\033[35m'
 BLUE='\033[34m'
 NC='\033[0m'
 
+# Matugen Pastel Palette & Helpers (Inspired by Ryoku)
+PINK='\033[38;2;255;175;211m'
+MAUVE='\033[38;2;237;184;206m'
+SAGE='\033[38;2;148;215;129m'
+PEACH='\033[38;2;242;162;120m'
+GREY='\033[38;2;160;139;147m'
+DARK_GREY='\033[38;2;83;66;73m'
+
+say()     { echo -e "  ${PINK}==>${NC} ${BOLD}$*${NC}"; }
+success() { echo -e "  ${SAGE}[✔]${NC} $*"; }
+warn()    { echo -e "  ${YELLOW}[⚠️]${NC} $*"; }
+die()     { echo -e "  ${RED}[❌]${NC} $*" >&2; exit 1; }
+
 # ─── Command-line Arguments ───────────────────────────────────────────────────
 AUTO_YES=false
 ISO_MODE=false
@@ -101,6 +114,16 @@ if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 fi
 REPO_ROOT="${SCRIPT_DIR:-}"
+
+# Architecture & systemd pre-flight checks (Ryoku-Style)
+if [ "$(uname -m)" != "x86_64" ]; then
+    warn "Non-x86_64 architecture detected ($(uname -m)). Some binary extensions may require source builds."
+fi
+if [ "$DRY_RUN" != "true" ] && [ "$ISO_MODE" != "true" ]; then
+    if [ ! -d /run/systemd/system ]; then
+        die "Tinarchy requires systemd as the active init system."
+    fi
+fi
 
 # ─── Piped / Remote Bootstrap Execution Detection ─────────────────────────────
 if [ -z "$REPO_ROOT" ] || [ ! -f "$REPO_ROOT/server.py" ]; then
@@ -223,22 +246,16 @@ fi
 
 # ─── Header Banner ────────────────────────────────────────────────────────────
 clear 2>/dev/null || true
-echo -e "${CYAN}${BOLD}"
+echo -e "${PINK}"
 cat << 'EOF'
- 🍍  ═══════════════════════════════════════════════════════════════════
-       _____ _                      _           
-      |_   _(_)_ __   __ _ _ __ ___| |__  _   _ 
-        | | | | '_ \ / _` | '__/ __| '_ \| | | |
-        | | | | | | | (_| | | | (__| | | | |_| |
-        |_| |_|_| |_|\__,_|_|  \___|_| |_|\__, |
-                                          |___/ 
-      Translucent Glassmorphic Linux Server Control Center
- ═══════════════════════════════════════════════════════════════════════
+ ╭──────────────────────────────────────────────────────────────────────────╮
+ │  🍍  TINARCHY OS  ──  Autonomous Server & Translucent Glass Center       │
+ ╰──────────────────────────────────────────────────────────────────────────╯
 EOF
 echo -e "${NC}"
-echo -e "  ${DIM}Detected Host:${NC}  ${BOLD}${SYS_HOST}${NC} (${OS_FAMILY^} Linux on ${ARCH})"
-echo -e "  ${DIM}Target User:${NC}    ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
-echo -e "  ${DIM}Repository:${NC}     ${BOLD}${REPO_ROOT}${NC}"
+echo -e "  ${GREY}• Detected Host :${NC} ${BOLD}${SYS_HOST}${NC} (${OS_FAMILY^} Linux on ${ARCH})"
+echo -e "  ${GREY}• Target User   :${NC} ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
+echo -e "  ${GREY}• Repository    :${NC} ${BOLD}${REPO_ROOT}${NC}"
 echo ""
 
 # Helper to ask yes/no question
@@ -481,30 +498,30 @@ ask_choice "Install Display Inactivity Sleep & ACPI Power Management?" "$DEF_POW
 echo ""
 
 # ─── Summary Table ────────────────────────────────────────────────────────────
-echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════${NC}"
-echo -e " ${BOLD}INSTALLATION & PERSONALIZATION SUMMARY${NC}"
-echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════${NC}"
+echo -e "${DARK_GREY}╭──────────────────────────────────────────────────────────────────────╮${NC}"
+echo -e "${DARK_GREY}│${NC}  ${PINK}${BOLD}INSTALLATION & PERSONALIZATION SUMMARY${NC}"
+echo -e "${DARK_GREY}├──────────────────────────────────────────────────────────────────────┤${NC}"
 format_summary() {
     local name="$1"
     local flag="$2"
     if [ "$flag" = "true" ]; then
-        echo -e "   ${GREEN}✔${NC}  ${BOLD}${name}${NC}"
+        echo -e "${DARK_GREY}│${NC}   ${SAGE}[✔]${NC}  ${BOLD}${name}${NC}"
     else
-        echo -e "   ${DIM}✖  ${name} (Skipped)${NC}"
+        echo -e "${DARK_GREY}│${NC}   ${DARK_GREY}[○]  ${name} (Skipped)${NC}"
     fi
 }
-echo -e " ${BOLD}Personal Server Settings:${NC}"
-echo -e "   • Project Suite Name  : ${BOLD}${CFG_PROJECT_NAME}${NC}"
-echo -e "   • Server Display Name : ${BOLD}${CFG_SERVER_NAME}${NC} (${CFG_APP_ICON})"
-echo -e "   • Branding Subtitle   : ${BOLD}${CFG_BRANDING_SUBTITLE}${NC}"
-echo -e "   • Dashboard HTTP Port : ${BOLD}${CFG_PORT}${NC}"
-echo -e "   • Primary System User : ${BOLD}${CFG_SSH_USER}${NC}"
-echo -e "   • Drive Storage Path  : ${BOLD}${CFG_STORAGE_DIR}${NC}"
-echo -e "   • Tailscale Domain    : ${BOLD}${CFG_TAILSCALE_DOMAIN:-None}${NC}"
-echo -e "   • Owner Email         : ${BOLD}${CFG_OWNER_EMAIL:-None}${NC}"
-echo -e "   • Web Admin Password  : ${BOLD}********${NC}"
-echo ""
-echo -e " ${BOLD}Selected Services & Modules:${NC}"
+echo -e "${DARK_GREY}│${NC}  ${BOLD}Personal Server Settings:${NC}"
+echo -e "${DARK_GREY}│${NC}   • Project Suite Name  : ${BOLD}${CFG_PROJECT_NAME}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Server Display Name : ${BOLD}${CFG_SERVER_NAME}${NC} (${CFG_APP_ICON})"
+echo -e "${DARK_GREY}│${NC}   • Branding Subtitle   : ${BOLD}${CFG_BRANDING_SUBTITLE}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Dashboard HTTP Port : ${BOLD}${CFG_PORT}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Primary System User : ${BOLD}${CFG_SSH_USER}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Drive Storage Path  : ${BOLD}${CFG_STORAGE_DIR}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Tailscale Domain    : ${BOLD}${CFG_TAILSCALE_DOMAIN:-None}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Owner Email         : ${BOLD}${CFG_OWNER_EMAIL:-None}${NC}"
+echo -e "${DARK_GREY}│${NC}   • Web Admin Password  : ${BOLD}********${NC}"
+echo -e "${DARK_GREY}│${NC}"
+echo -e "${DARK_GREY}│${NC}  ${BOLD}Selected Services & Rice Modules:${NC}"
 format_summary "Tinarchy Dashboard Backend (:8085)" "$INSTALL_TINARCHY"
 format_summary "Nginx Reverse Proxy & SSL (:80, :443)" "$INSTALL_NGINX"
 format_summary "Syncthing Full Drive Sync (:8384)"   "$INSTALL_SYNCTHING"
@@ -513,24 +530,31 @@ format_summary "SyncYomi Manga Sync Daemon (:8282)"  "$INSTALL_SYNCYOMI"
 format_summary "Jellyfin Media Server (:8096)"       "$INSTALL_JELLYFIN"
 format_summary "Tor Proxy & Exit Node (:9050)"       "$INSTALL_TOR"
 format_summary "Tailscale & Tailscale SSH (:22)"     "$INSTALL_TAILSCALE"
-format_summary "Persistent Terminal (tmux + Zsh)"    "$INSTALL_TERMINAL"
+format_summary "Persistent Rice (Fish, Starship, tmux)" "$INSTALL_TERMINAL"
 format_summary "Unified Drive Sync & Rclone Backups" "$INSTALL_DRIVE_ENGINE"
 format_summary "FileBrowser Quantum (:8081 / :8082)" "$INSTALL_FILEBROWSER"
 format_summary "Obsidian LiveSync CouchDB (:5984)"   "$INSTALL_COUCHDB"
 format_summary "Display Inactivity Sleep & DPMS 0W"  "$INSTALL_POWERDOWN"
-
-echo -e "${CYAN}───────────────────────────────────────────────────────────────────────${NC}"
+echo -e "${DARK_GREY}╰──────────────────────────────────────────────────────────────────────╯${NC}"
 
 if [ "$DRY_RUN" = "true" ]; then
     echo ""
-    echo -e "${GREEN}${BOLD}✔ [Dry Run] Pre-flight system check and configuration verified successfully.${NC}"
-    echo -e "  Target User       : ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
-    echo -e "  Repository Root   : ${BOLD}${REPO_ROOT}${NC}"
-    echo -e "  Project Name      : ${BOLD}${CFG_PROJECT_NAME}${NC}"
-    echo -e "  Dashboard Port    : ${BOLD}${CFG_PORT}${NC}"
-    echo -e "  ISO Mode Active   : ${BOLD}${ISO_MODE}${NC}"
-    echo -e "  Update Mode Active: ${BOLD}${UPDATE_MODE}${NC}"
-    echo -e "  ${DIM}No packages were downloaded and no system changes were applied.${NC}"
+    echo -e "${PINK}${BOLD}"
+    cat << 'EOF'
+ ╭──────────────────────────────────────────────────────────────────────────╮
+ │  ✔  DRY RUN COMPLETED  ──  Configuration Validated                      │
+ ╰──────────────────────────────────────────────────────────────────────────╯
+EOF
+    echo -e "${NC}"
+    echo -e "  ${DARK_GREY}╭──────────────────────────────────────────────────────────────────────╮${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Target User       :${NC} ${BOLD}${TARGET_USER}${NC} (${USER_HOME})"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Repository Root   :${NC} ${BOLD}${REPO_ROOT}${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Project Name      :${NC} ${BOLD}${CFG_PROJECT_NAME}${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Dashboard Port    :${NC} ${BOLD}${CFG_PORT}${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}ISO Mode Active   :${NC} ${BOLD}${ISO_MODE}${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  • ${BOLD}Update Mode Active:${NC} ${BOLD}${UPDATE_MODE}${NC}"
+    echo -e "  ${DARK_GREY}│${NC}  ${DIM}No packages were downloaded and no system changes were applied.${NC}"
+    echo -e "  ${DARK_GREY}╰──────────────────────────────────────────────────────────────────────╯${NC}"
     exit 0
 fi
 
@@ -934,13 +958,23 @@ STIGNORE_EOF
     echo -e "${GREEN}✅ Unified drive structure initialized at $DRIVE_ROOT${NC}"
 fi
 
-# 3. Persistent Terminal (tmux + Zsh)
+# 3. Persistent Terminal & Rice Ecosystem (tmux + Fish + Starship + Zsh + tinarchy-fetch)
 if [ "$INSTALL_TERMINAL" = "true" ]; then
-    echo -e "${CYAN}🐚 Deploying persistent tmux and low-latency Zsh environment...${NC}"
+    echo -e "${CYAN}🐚 Deploying persistent tmux, Fish, Starship, and Zsh rice environment...${NC}"
     [ -f "$REPO_ROOT/configs/tmux/tmux.conf" ] && cp "$REPO_ROOT/configs/tmux/tmux.conf" "$USER_HOME/.tmux.conf"
     [ -f "$REPO_ROOT/configs/zsh/zshrc" ] && cp "$REPO_ROOT/configs/zsh/zshrc" "$USER_HOME/.zshrc"
-    chown "$TARGET_USER:$TARGET_USER" "$USER_HOME/.tmux.conf" "$USER_HOME/.zshrc" 2>/dev/null || true
-    echo -e "${GREEN}✅ Terminal configurations applied (.tmux.conf, .zshrc)${NC}"
+
+    mkdir -p "$USER_HOME/.config/fish"
+    [ -f "$REPO_ROOT/configs/fish/config.fish" ] && cp "$REPO_ROOT/configs/fish/config.fish" "$USER_HOME/.config/fish/config.fish"
+    [ -f "$REPO_ROOT/configs/starship.toml" ] && cp "$REPO_ROOT/configs/starship.toml" "$USER_HOME/.config/starship.toml"
+
+    if [ -f "$REPO_ROOT/configs/scripts/tinarchy-fetch" ]; then
+        cp "$REPO_ROOT/configs/scripts/tinarchy-fetch" /usr/local/bin/tinarchy-fetch
+        chmod 755 /usr/local/bin/tinarchy-fetch
+    fi
+
+    chown -R "$TARGET_USER:$TARGET_USER" "$USER_HOME/.tmux.conf" "$USER_HOME/.zshrc" "$USER_HOME/.config/fish" "$USER_HOME/.config/starship.toml" 2>/dev/null || true
+    echo -e "${GREEN}✅ Terminal rice configurations deployed (tmux, Fish, Starship, Zsh, tinarchy-fetch)${NC}"
 fi
 
 # 4. Nginx Reverse Proxy

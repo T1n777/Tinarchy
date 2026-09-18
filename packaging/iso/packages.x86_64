@@ -141,4 +141,5 @@ rclone
 fish
 starship
 acpid
+zram-generator
 
