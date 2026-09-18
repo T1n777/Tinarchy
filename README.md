@@ -7,10 +7,12 @@
 [![Nginx](https://img.shields.io/badge/Nginx-009639?logo=nginx&logoColor=white)](https://nginx.org)
 [![Tailscale](https://img.shields.io/badge/Tailscale-WireGuard-000000?logo=tailscale&logoColor=white)](https://tailscale.com)
 [![Syncthing](https://img.shields.io/badge/Syncthing-Continuous_Sync-2196F3?logo=syncthing&logoColor=white)](https://syncthing.net)
+[![JDownloader 2](https://img.shields.io/badge/JDownloader_2-Headless-4A90E2?logo=jdownloader&logoColor=white)](https://jdownloader.org)
+[![Beeper](https://img.shields.io/badge/Beeper-Matrix_Bridges-8A2BE2?logo=matrix&logoColor=white)](https://beeper.com)
 [![tmux](https://img.shields.io/badge/tmux-Persistent_Sessions-1BB954?logo=tmux&logoColor=white)](https://github.com/tmux/tmux)
 [![Cloudflare DoT](https://img.shields.io/badge/Cloudflare-1.1.1.1_DoT-F38020?logo=cloudflare&logoColor=white)](https://1.1.1.1)
 
-A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, encrypted **DNS-over-TLS**, end-to-end encrypted **Syncthing full shared folder sync with LZ4/Zstandard compression**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
+A fast, lightweight, and translucent glassmorphic control center for self-hosted Linux home servers and headless machines. Built with native Python, unified Nginx reverse proxying, dynamic **Pywal** theming, automated **$HOME/drive/** synchronization, **customizable stackable widgets with tabbed slider controls**, headless **JDownloader 2 remote link submission**, **Beeper Matrix bridges (`bbctl`)**, encrypted **DNS-over-TLS**, end-to-end encrypted **Syncthing full shared folder sync with LZ4/Zstandard compression**, **Tor anonymity routing**, persistent **Tailscale SSH & tmux** sessions, and **hardware display power management**.
 
 ## 📸 Interface Previews
 
@@ -41,10 +43,22 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **Nginx Upstream Keepalive & Zero-Buffering**: Persistent connection pool (`keepalive 32;`) eliminates TCP socket churn between Nginx and Python backend, with dedicated unbuffered proxying for real-time SSE streams.
   - **Graceful Fallback Polling**: Client uses native browser `EventSource` with automated fallback to interval polling if disconnected or unsupported.
 
-- **🧩 Homarr-Style Draggable Dashboard & Reading History Shelf**:
+- **🧩 Homarr-Style Draggable Dashboard & Customizable Stackable Widgets**:
   - **Interactive Drag-and-Drop Reordering**: Fully customizable, draggable service grid and widget cards with smooth layout persistence.
+  - **Customizable Widget Stacking & Tabbed Slider Controls**: Group any number of dashboard widgets (e.g. qBittorrent and JDownloader into a unified "Transfers" card) into a single compact view with pill tabs and an interactive cycle/slider button (`⇄`).
+  - **1-Click Stacking Presets & Granular Assignment**: Instant presets (`⚡ Stack Transfers`, `📑 Stack All Widgets`, `🔲 Separate (Unstack)`) plus per-widget dropdown selectors in the widget settings modal.
   - **Reading History Shelf with Direct Manga Linking**: Real-time reading progress shelf querying Suwayomi's GraphQL backend (`chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST })`), displaying recently read manhwa first and binding card covers directly to their individual manhwa details/reader pages (`/manga/:id`).
   - **Personal Viewer Styling & Custom Wallpapers**: Viewers can select presets or upload personal wallpapers with immediate client-side application.
+
+- **📥 JDownloader 2 Headless & Remote Download Link Grabber**:
+  - **Headless 24/7 Daemon (`jdownloader.service`)**: Headless direct-download service integrated with MyJDownloader cloud and local filesystem storage.
+  - **Interactive Quick-Add Widget**: Paste any DDL, Mega, Rapidgator, or direct link right into the dashboard card and click **Add** (or press `Enter`) to queue and start downloads on the server immediately.
+  - **Live Transfer Metrics & Package Lists**: Displays real-time download speeds, operational state (`RUNNING` / `IDLE`), active transfer counters, and active/grabbed package lists with percentage progress and download speeds.
+  - **Fast CLI Management (`jdownloader`)**: Preconfigured `/usr/local/bin/jdownloader` helper script with commands for `status`, `login`, `start`, `stop`, `restart`, `logs`, and interactive `console`.
+
+- **🌉 Beeper Bridge Manager (`bbctl`) Orchestrator**:
+  - **Self-Hosted Matrix Bridges**: Integrated Beeper Bridge Manager (`bbctl`) to orchestrate chat bridges for WhatsApp, Telegram, Signal, Discord, Slack, Google Messages (RCS), Google Chat, Meta/Instagram, and Twitter.
+  - **Modular Systemd Template (`bbctl@.service`)**: Launch any bridge as an isolated, auto-restarting background systemd service (`sudo systemctl enable --now bbctl@sh-whatsapp`).
 
 - **⚡ Persistent Terminal Ecosystem (tmux + Zsh)**:
   - **Shared TTY Console & Tailscale SSH Persistence**: Both the physical Linux virtual console (TTY1 autologin) and Tailscale SSH automatically attach to the exact same persistent `tmux` session (`main`). Running builds, downloads, and interactive shells stay alive and synchronized whether you are at the physical machine or connecting remotely over Tailscale.
@@ -161,6 +175,8 @@ flowchart TD
         Prowlarr["🔍 Prowlarr Indexers (:9696)"]
         Bazarr["📝 Bazarr Subtitles (:6767)"]
         QBit["🧲 qBittorrent 8-Core Engine (:8084)"]
+        JD["📥 JDownloader 2 Headless"]
+        Beeper["🌉 Beeper Bridges (bbctl)"]
         Tor["🧅 Tor SOCKS5 (:9050) / Exit (:9040)"]
         Syncthing["🔄 Syncthing (:8384 / :22000)"]
     end
@@ -168,7 +184,7 @@ flowchart TD
     subgraph Storage ["Unified Storage & Drive Engine"]
         DriveRoot["$HOME/drive/ (shared sync)"]
         MediaRoot["$HOME/storage/ (atomic hardlinks)"]
-        Downloads["Downloads/ (qBittorrent incomplete & complete)"]
+        Downloads["Downloads/ (qBittorrent & JDownloader payloads)"]
         Shows["Shows/ -> Jellyfin TV/Anime"]
         Movies["Movies/ -> Jellyfin Movies"]
         Wallpapers["Wallpapers/ -> $HOME/Wall"]
@@ -195,6 +211,9 @@ flowchart TD
     DriveRoot --> Manga
     DriveRoot --> Notes
 
+    Dashboard -->|Quick-Add Link API| JD
+    JD -->|Direct Downloads| Downloads
+
     Seerr -->|Automated Media Requests| Sonarr & Radarr
     Sonarr & Radarr <-->|Sync Indexers| Prowlarr
     Sonarr & Radarr -->|Push Torrents| QBit
@@ -218,6 +237,8 @@ Tinarchy/
 │   ├── services.py        # Systemd service registry, status matrix, lifecycle actions, and Tor toggles
 │   ├── auth.py            # Tailscale WHOIS resolution and RBAC enforcement (owner, admin, viewer, guest)
 │   ├── syncthing.py       # Syncthing CLI daemon, device ID resolution, and pairing worker
+│   ├── jdownloader.py     # Headless JDownloader 2 connector, credentials parser & link grabber
+│   ├── dashboard_layout.py # Layout serializer, widget stack reconciler, and customizable order store
 │   └── reports.py         # Autonomous daily markdown system report generator
 ```
 
@@ -232,6 +253,8 @@ Tinarchy/
 | **Radarr Movie Automation** | `7878` | `/radarr` & `:7878` | `radarr.service` | Movie collection manager, quality profiles & hardlink importing |
 | **Prowlarr Tracker Manager** | `9696` | `/prowlarr` & `:9696` | `prowlarr.service` | Torrent tracker & indexer synchronization engine |
 | **qBittorrent Multicore Engine** | `8084` | `/qbittorrent/` & `:8084` | `qbittorrent-nox@<user>.service` | 8-thread parallel SHA-1 hashing, async disk I/O & 256MB cache |
+| **JDownloader 2 Headless** | — | MyJDownloader Cloud & `/api/widgets/jdownloader` | `jdownloader.service` | Headless direct download manager, MyJDownloader sync & quick-add widget |
+| **Beeper Bridge Manager** | — | Matrix IPC / Local Bridges | `bbctl@<bridge>.service` | Orchestrates self-hosted Beeper/Matrix chat bridges (WhatsApp, Telegram, etc.) |
 | **Bazarr Subtitles Manager** | `6767` | `/bazarr/` & `:6767` | `bazarr.service` | Companion subtitle downloader for Radarr and Sonarr |
 | **FileBrowser Quantum** *(Optional)* | `8082` | `/files/` & `:8081` | `filebrowser-quantum.service` | Modern web file manager (enable via `ENABLE_FILEBROWSER=true`) |
 | **Syncthing Web GUI** | `8384` | `/syncthing/` & `/syncthing-gui` | `syncthing@<user>.service` | Continuous full folder sync with LZ4 compression |
@@ -751,6 +774,62 @@ For users and installations that do not require the media server or *Arr suite, 
    - Systemd drop-in units (`configs/systemd/*-storage-access.conf`) grant targeted access to `/home/<user>/storage` without opening the entire `/home` directory (`ProtectHome=false`, `ReadWritePaths`).
    - Self-healing startup triggers (`ExecStartPre=+/usr/bin/chown -R <user>:<user> /var/lib/bazarr`) ensure database and state directories maintain correct ownership across system updates and reboots.
 
+### 16. JDownloader 2 Headless & Beeper Bridge Manager
+
+#### A. JDownloader 2 Headless & Quick-Add Link Grabber
+JDownloader 2 runs completely headless in the background via systemd (`jdownloader.service`), connected to the MyJDownloader cloud network for secure remote link grabbing and management.
+
+- **Unified Downloads Path**: All completed files, multi-part RAR archives, and extracted packages are saved directly to `/home/<user>/storage/Downloads/` (or `$STORAGE_DIR/Downloads`).
+- **Remote Web & App Control**: Manage downloads anywhere via [my.jdownloader.org](https://my.jdownloader.org) or official iOS/Android apps.
+- **Interactive Dashboard Quick-Add Widget**:
+  - Paste any download link (Direct DDL, Mega, Rapidgator, Google Drive, or magnet link) directly into the **JDownloader** card on the dashboard and click **Add** (or press `Enter`).
+  - The link is posted directly to JDownloader headless via `/api/widgets/jdownloader/add` and starts downloading instantly on the server.
+- **CLI Management Helper (`jdownloader`)**:
+  ```bash
+  jdownloader status      # Check systemd daemon status and port
+  jdownloader login       # Save MyJDownloader credentials (email & password)
+  jdownloader start|stop  # Start or stop the background service
+  jdownloader restart     # Restart the background service
+  jdownloader logs        # Follow systemd logs in real time
+  jdownloader console     # Run interactively in the terminal for manual captcha prompts
+  ```
+
+#### B. Beeper Bridge Manager (`bbctl`)
+Beeper Bridge Manager is integrated to orchestrate self-hosted Matrix chat bridges, keeping chat networks online and connected directly through your home server.
+
+- **CLI Binary**: `~/.local/bin/bbctl`
+- **Configuration & Bridge State**: `~/.config/bbctl/config.json` and `~/.local/share/bbctl/`
+- **Systemd Template (`bbctl@.service`)**:
+  ```bash
+  # 1. Authenticate with Beeper
+  bbctl login
+  bbctl whoami
+
+  # 2. Launch any bridge as an auto-restarting background service
+  sudo systemctl enable --now bbctl@sh-whatsapp
+  sudo systemctl enable --now bbctl@sh-telegram
+  sudo systemctl enable --now bbctl@sh-signal
+  sudo systemctl enable --now bbctl@sh-discord
+
+  # 3. Check status & logs
+  sudo systemctl status bbctl@sh-whatsapp
+  journalctl -u bbctl@sh-whatsapp -f
+  ```
+
+### 17. Customizable Stackable Dashboard Widgets & Tabbed Controls
+
+The dashboard features a modular, customizable widget stacking engine that allows multiple monitoring cards to be merged into a single card container with segmented pill tabs and an interactive slider button (`⇄`).
+
+- **Default "Transfers" Stack**: Combines **qBittorrent** and **JDownloader** into a unified widget card. Toggle between torrent metrics and direct download progress without consuming multiple grid columns.
+- **Dynamic Header Action Links**: The upper-right link in the card header automatically changes between `WebUI ↗` and `MyJDownloader ↗` based on the active tab.
+- **Slider / Cycle Button (`⇄`)**: Click the cycle button next to the tab pills to smoothly slide to the next stacked widget.
+- **1-Click Presets**:
+  - `⚡ Stack Transfers`: Stacks qBittorrent and JDownloader into "Transfers"; keeps Reading History standalone.
+  - `📑 Stack All Widgets`: Combines all widgets into a single 3-tab card.
+  - `🔲 Separate (Unstack)`: Expands all widgets into individual standalone cards.
+- **Custom Widget Assignment**: Assign any widget to a custom stack group or standalone mode via the **Widget Stacking & Tabs** section in the dashboard widget settings modal.
+- **Flicker-Free Live Polling**: State-preserving DOM architecture ensures that background telemetry polling (every 4s) updates speeds and metrics smoothly without flickering, closing tabs, or disrupting active input fields.
+
 ## 🛠️ Management & Useful Commands
 
 | Task | Command |
@@ -761,6 +840,12 @@ For users and installations that do not require the media server or *Arr suite, 
 | **Check Media Stack Status** | `systemctl status jellyfin seerr sonarr radarr prowlarr bazarr qbittorrent-nox@$USER` |
 | **Restart qBittorrent** | `sudo systemctl restart qbittorrent-nox@$USER` |
 | **Restart Sonarr / Radarr** | `sudo systemctl restart sonarr radarr` |
+| **Check JDownloader Status** | `jdownloader status` |
+| **View JDownloader Logs** | `jdownloader logs` |
+| **JDownloader Login / Credentials** | `jdownloader login` |
+| **Check Beeper Status** | `bbctl whoami` |
+| **Start Beeper Bridge** | `sudo systemctl enable --now bbctl@<bridge>` |
+| **View Beeper Bridge Logs** | `journalctl -u bbctl@<bridge> -f` |
 | **Check Governor & Telemetry** | `cat /run/tinarchy/governor-status.json \| jq .` |
 | **Check Syncthing Status** | `systemctl status syncthing@<user>` (server) / `systemctl --user status syncthing` (client) |
 | **View Syncthing Logs** | `journalctl -u syncthing@<user> -f` |
