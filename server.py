@@ -768,6 +768,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     continue
             self.send_compressed(json.dumps(shelf_info).encode(), "application/json")
 
+        elif self.path == '/api/widgets/jdownloader':
+            from tinarchy import jdownloader
+            jd_info = jdownloader.get_jdownloader_status()
+            self.send_compressed(json.dumps(jd_info).encode(), "application/json")
+
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
@@ -1182,6 +1187,40 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
                 return
+
+        # ─── JDownloader Link Submission ───
+        elif self.path == '/api/widgets/jdownloader/add':
+            role = session.get('role', 'viewer')
+            if role not in ['owner', 'admin', 'viewer']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Authenticated access required"}')
+                return
+
+            links = str(data.get('links', '')).strip()
+            autostart = bool(data.get('autostart', True))
+            package_name = data.get('packageName')
+            if not links:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "No download links provided"}')
+                return
+
+            try:
+                from tinarchy import jdownloader
+                res = jdownloader.add_download_links(links, autostart=autostart, package_name=package_name)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "result": res}).encode())
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            return
 
         # ─── Server Identity Branding: OWNER ONLY ───
         elif self.path == '/api/app/config':

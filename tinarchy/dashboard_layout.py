@@ -20,7 +20,8 @@ def get_default_layout():
         'widgets': {
             'stats_bar': {'enabled': True, 'order': 0},
             'qbittorrent': {'enabled': True, 'order': 1},
-            'manga_shelf': {'enabled': True, 'order': 2}
+            'jdownloader': {'enabled': True, 'order': 2},
+            'manga_shelf': {'enabled': True, 'order': 3}
         },
         'items': deduped_items,
         'custom_bookmarks': []
@@ -63,6 +64,12 @@ def load_dashboard_layout():
             if sid not in existing_items:
                 data['items'].append(sid)
                 existing_items.add(sid)
+
+        # Reconcile widgets
+        if 'widgets' not in data or not isinstance(data['widgets'], dict):
+            data['widgets'] = get_default_layout()['widgets']
+        elif 'jdownloader' not in data['widgets']:
+            data['widgets']['jdownloader'] = {'enabled': True, 'order': 2}
 
         return data
     except Exception as e:

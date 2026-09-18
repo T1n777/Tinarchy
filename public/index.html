@@ -1322,6 +1322,88 @@
             font-family: var(--font-mono);
             color: var(--text);
         }
+        .jd-add-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .jd-input {
+            flex: 1;
+            min-width: 0;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 7px 12px;
+            font-size: 0.78rem;
+            color: var(--text);
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .jd-input:focus {
+            border-color: var(--primary);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 0 2px rgba(120, 100, 255, 0.2);
+        }
+        .jd-add-btn {
+            padding: 7px 13px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid var(--glass-border);
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+        .jd-add-btn:hover {
+            filter: brightness(1.15);
+            transform: translateY(-1px);
+        }
+        .jd-add-btn:active {
+            transform: translateY(0);
+        }
+        .jd-add-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .jd-pkg-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 110px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .jd-pkg-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.22);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.73rem;
+            border: 1px solid var(--glass-border);
+        }
+        .jd-pkg-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60%;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .jd-pkg-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
         .homarr-shelf-scroll {
             display: flex;
             gap: 12px;
@@ -1805,6 +1887,41 @@
                 </div>
             </div>
 
+            <!-- JDownloader 2 Widget -->
+            <div class="homarr-widget-card glass" id="widget-jdownloader" data-widget-id="jdownloader">
+                <div class="homarr-widget-header">
+                    <div class="homarr-widget-title">
+                        <span class="widget-drag-handle" title="Drag to reorder widget">⋮⋮</span>
+                        <span class="widget-icon">📥</span>
+                        <h3>JDownloader Active Transfers</h3>
+                    </div>
+                    <a href="https://my.jdownloader.org" target="_blank" class="widget-link" title="Open MyJDownloader Web Panel">MyJDownloader ↗</a>
+                </div>
+                <div class="qbit-body">
+                    <div class="qbit-metric">
+                        <span class="qbit-label">Download Speed</span>
+                        <span class="qbit-val" id="jd-dl-spd">0 B/s</span>
+                    </div>
+                    <div class="qbit-metric">
+                        <span class="qbit-label">State</span>
+                        <span class="qbit-val" id="jd-state">IDLE</span>
+                    </div>
+                    <div class="qbit-metric">
+                        <span class="qbit-label">Active Downloads</span>
+                        <span class="qbit-val" id="jd-active-transfers">0 / 0</span>
+                    </div>
+                </div>
+                <!-- Interactive Quick-Add Link Row -->
+                <div class="jd-add-row">
+                    <input type="text" id="jd-link-input" class="jd-input" placeholder="Paste download URL, Mega, DDL, or magnet link..." onkeydown="if(event.key==='Enter') submitJDownloaderLink()">
+                    <button type="button" id="jd-add-btn" class="jd-add-btn" onclick="submitJDownloaderLink()" title="Send to JDownloader">
+                        <span>📥</span> <span>Add</span>
+                    </button>
+                </div>
+                <!-- Live Downloads / Grabbed Package List -->
+                <div id="jd-packages-container" class="jd-pkg-list" style="display: none;"></div>
+            </div>
+
             <!-- Suwayomi Manga Shelf Widget -->
             <div class="homarr-widget-card glass" id="widget-manga-shelf" data-widget-id="manga_shelf">
                 <div class="homarr-widget-header">
@@ -1873,6 +1990,10 @@
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
                     <span>🧲 qBittorrent Active Transfers</span>
                     <input type="checkbox" id="toggle-widget-qbit" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('qbittorrent', this.checked)">
+                </label>
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
+                    <span>📥 JDownloader Active Transfers</span>
+                    <input type="checkbox" id="toggle-widget-jd" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('jdownloader', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
                     <span>📚 Suwayomi Reading History Shelf</span>
@@ -2084,6 +2205,7 @@
             widgets: {
                 stats_bar: { enabled: true },
                 qbittorrent: { enabled: true },
+                jdownloader: { enabled: true },
                 manga_shelf: { enabled: true },
                 tor_exit: { enabled: true }
             },
@@ -2103,6 +2225,9 @@
                             data.items = flat;
                         }
                         if (Array.isArray(data.items)) {
+                            if (data.widgets && data.widgets.jdownloader === undefined) {
+                                data.widgets.jdownloader = { enabled: true };
+                            }
                             CURRENT_LAYOUT = data;
                             localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(CURRENT_LAYOUT));
                             applyWidgetVisibility();
@@ -2120,6 +2245,9 @@
                         const flat = [];
                         parsed.sections.forEach(sec => flat.push(...(sec.items || [])));
                         parsed.items = flat;
+                    }
+                    if (parsed.widgets && parsed.widgets.jdownloader === undefined) {
+                        parsed.widgets.jdownloader = { enabled: true };
                     }
                     CURRENT_LAYOUT = parsed;
                 }
@@ -2264,6 +2392,60 @@
                             if (dlEl) dlEl.textContent = '--';
                             if (upEl) upEl.textContent = '--';
                             if (tfEl) tfEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">Service Offline</span>';
+                        }
+                    }).catch(() => {});
+                }
+
+                // JDownloader Widget
+                if (CURRENT_LAYOUT.widgets?.jdownloader?.enabled !== false) {
+                    fetch('/api/widgets/jdownloader').then(r => r.json()).then(data => {
+                        const card = document.getElementById('widget-jdownloader');
+                        if (!card) return;
+                        if (CURRENT_LAYOUT.widgets?.jdownloader?.enabled === false) {
+                            card.style.display = 'none';
+                            return;
+                        }
+                        card.style.display = 'flex';
+                        const dlEl = document.getElementById('jd-dl-spd');
+                        const stateEl = document.getElementById('jd-state');
+                        const tfEl = document.getElementById('jd-active-transfers');
+                        const pkgContainer = document.getElementById('jd-packages-container');
+                        if (data.online) {
+                            if (dlEl) dlEl.textContent = formatSpeed(data.dl_speed || 0);
+                            if (stateEl) {
+                                let st = data.state || 'IDLE';
+                                if (st === 'STOPPED_STATE') st = 'IDLE';
+                                stateEl.textContent = st;
+                            }
+                            if (tfEl) tfEl.textContent = `${data.active_downloads || 0} active / ${data.total_downloads || 0} total`;
+                            if (pkgContainer) {
+                                if (data.packages && data.packages.length > 0) {
+                                    pkgContainer.style.display = 'flex';
+                                    pkgContainer.innerHTML = data.packages.map(p => {
+                                        const nameEsc = (p.name || 'Unknown').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                        let progressStr = '';
+                                        if (p.bytesTotal > 0) {
+                                            const pct = Math.round((p.bytesLoaded / p.bytesTotal) * 100);
+                                            progressStr = `${pct}% (${formatSpeed(p.speed || 0)})`;
+                                        } else {
+                                            progressStr = p.status || '';
+                                        }
+                                        return `
+                                            <div class="jd-pkg-item">
+                                                <span class="jd-pkg-name" title="${nameEsc}">${nameEsc}</span>
+                                                <span class="jd-pkg-meta">${progressStr}</span>
+                                            </div>
+                                        `;
+                                    }).join('');
+                                } else {
+                                    pkgContainer.style.display = 'none';
+                                }
+                            }
+                        } else {
+                            if (dlEl) dlEl.textContent = '--';
+                            if (stateEl) stateEl.textContent = 'Offline';
+                            if (tfEl) tfEl.innerHTML = '<span style="color:var(--text-muted);font-size:0.75rem;">Service Offline</span>';
+                            if (pkgContainer) pkgContainer.style.display = 'none';
                         }
                     }).catch(() => {});
                 }
@@ -2540,10 +2722,12 @@
         function openWidgetsModal() {
             const w = CURRENT_LAYOUT.widgets || {};
             const qbit = document.getElementById('toggle-widget-qbit');
+            const jd = document.getElementById('toggle-widget-jd');
             const manga = document.getElementById('toggle-widget-manga');
             const stats = document.getElementById('toggle-widget-stats');
             const tor = document.getElementById('toggle-widget-tor');
             if (qbit) qbit.checked = w.qbittorrent?.enabled !== false;
+            if (jd) jd.checked = w.jdownloader?.enabled !== false;
             if (manga) manga.checked = w.manga_shelf?.enabled !== false;
             if (stats) stats.checked = w.stats_bar?.enabled !== false;
             if (tor) tor.checked = w.tor_exit?.enabled !== false;
@@ -2572,8 +2756,52 @@
             const qbitCard = document.getElementById('widget-qbittorrent');
             if (qbitCard) qbitCard.style.display = w.qbittorrent?.enabled === false ? 'none' : 'flex';
 
+            const jdCard = document.getElementById('widget-jdownloader');
+            if (jdCard) jdCard.style.display = w.jdownloader?.enabled === false ? 'none' : 'flex';
+
             const mangaCard = document.getElementById('widget-manga-shelf');
             if (mangaCard) mangaCard.style.display = w.manga_shelf?.enabled === false ? 'none' : 'flex';
+        }
+
+        async function submitJDownloaderLink() {
+            const input = document.getElementById('jd-link-input');
+            const btn = document.getElementById('jd-add-btn');
+            if (!input) return;
+            const link = input.value.trim();
+            if (!link) {
+                showToast('Please paste a download link or URL', 'error');
+                input.focus();
+                return;
+            }
+
+            const prevBtnHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span>⏳</span> <span>Adding…</span>';
+            }
+
+            try {
+                const res = await fetch('/api/widgets/jdownloader/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ links: link, autostart: true })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast('Link added to JDownloader! 📥', 'default');
+                    input.value = '';
+                    setTimeout(fetchHomarrWidgets, 400);
+                } else {
+                    showToast(data.error || 'Failed to add link', 'error');
+                }
+            } catch (err) {
+                showToast('Network error adding link: ' + err.message, 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = prevBtnHtml;
+                }
+            }
         }
 
         async function resetDashboardLayout() {
