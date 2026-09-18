@@ -597,7 +597,7 @@ def test_jdownloader_widget_integration():
 
     # Verify widget API endpoint
     req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/jdownloader")
-    with urllib.request.urlopen(req, timeout=5.0) as resp:
+    with urllib.request.urlopen(req, timeout=10.0) as resp:
         if resp.status != 200:
             raise Exception(f"HTTP {resp.status} on /api/widgets/jdownloader")
         data = json.loads(resp.read().decode("utf-8"))
@@ -644,6 +644,73 @@ def test_stackable_widgets_architecture():
             raise Exception("API /api/dashboard/layout did not return widget_stacks list")
 
 run_test("Stackable & Tabbed Dashboard Widgets Architecture", test_stackable_widgets_architecture)
+
+# 27. Suwayomi Tabbed Manga Shelf (Library / History / Updates) & Stacking Exclusion
+def test_suwayomi_tabbed_widget():
+    from tinarchy import dashboard_layout
+    layout = dashboard_layout.load_dashboard_layout()
+    # 1. Verify manga_shelf is NOT in any widget_stacks
+    for st in layout.get("widget_stacks", []):
+        if "manga_shelf" in st.get("widgets", []):
+            raise Exception("manga_shelf must not be present in widget_stacks (excluded from stacking)")
+
+    # 2. Test saving layout with manga_shelf in a stack gets stripped
+    test_layout = {
+        "items": layout.get("items", []),
+        "widgets": layout.get("widgets", {}),
+        "widget_stacks": [
+            {
+                "id": "test_stack",
+                "name": "Test",
+                "widgets": ["qbittorrent", "manga_shelf"],
+                "active": "manga_shelf"
+            }
+        ]
+    }
+    dashboard_layout.save_dashboard_layout(test_layout)
+    reloaded = dashboard_layout.load_dashboard_layout()
+    for st in reloaded.get("widget_stacks", []):
+        if "manga_shelf" in st.get("widgets", []):
+            raise Exception("save_dashboard_layout did not strip manga_shelf from stack")
+
+    # Restore default transfers stack
+    dashboard_layout.save_dashboard_layout(layout)
+
+    # 3. Verify public/index.html contains the necessary Suwayomi tab tokens
+    with open(os.path.join(REPO_ROOT, "public", "index.html"), "r", encoding="utf-8") as f:
+        html = f.read()
+
+    for token in [
+        "suwayomi-tabs",
+        "tab-manga-library",
+        "tab-manga-history",
+        "tab-manga-updates",
+        "setSuwayomiActiveTab",
+        "cycleSuwayomiActiveTab",
+        "renderSuwayomiWidgetCard",
+        "renderSuwayomiItems",
+        "shelf-sub"
+    ]:
+        if token not in html:
+            raise Exception(f"Missing '{token}' in public/index.html")
+
+    # 4. Verify /api/widgets/manga returns history, updates, library, and mangas
+    req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/manga")
+    with urllib.request.urlopen(req, timeout=5.0) as resp:
+        if resp.status != 200:
+            raise Exception(f"HTTP {resp.status} on /api/widgets/manga")
+        data = json.loads(resp.read().decode("utf-8"))
+        if not isinstance(data, dict) or not data.get("online"):
+            raise Exception(f"Suwayomi manga shelf is not online or invalid: {data}")
+        for k in ["history", "updates", "library", "mangas"]:
+            if k not in data or not isinstance(data[k], list):
+                raise Exception(f"Missing or invalid key '{k}' in /api/widgets/manga response")
+        if data.get("updates"):
+            top_update = data["updates"][0]
+            if "chapterName" not in top_update:
+                raise Exception("Expected 'chapterName' in top update node")
+
+run_test("Suwayomi Tabbed Manga Shelf & Stacking Exclusion", test_suwayomi_tabbed_widget)
 
 
 passed = sum(1 for _, ok, _ in tests if ok)

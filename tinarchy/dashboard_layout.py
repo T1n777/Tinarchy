@@ -89,6 +89,14 @@ def load_dashboard_layout():
                     'active': 'qbittorrent'
                 }
             ]
+        else:
+            # Enforce exclusion of manga_shelf from stacks
+            for st in data['widget_stacks']:
+                if 'widgets' in st and isinstance(st['widgets'], list):
+                    st['widgets'] = [w for w in st['widgets'] if w != 'manga_shelf']
+                    if st.get('active') == 'manga_shelf':
+                        st['active'] = st['widgets'][0] if st['widgets'] else ''
+            data['widget_stacks'] = [st for st in data['widget_stacks'] if st.get('widgets')]
 
         return data
     except Exception as e:
@@ -117,6 +125,15 @@ def save_dashboard_layout(layout_data):
             seen.add(item)
             deduped.append(item)
     layout_data['items'] = deduped
+
+    # Enforce exclusion of manga_shelf from any widget stacks
+    if 'widget_stacks' in layout_data and isinstance(layout_data['widget_stacks'], list):
+        for st in layout_data['widget_stacks']:
+            if 'widgets' in st and isinstance(st['widgets'], list):
+                st['widgets'] = [w for w in st['widgets'] if w != 'manga_shelf']
+                if st.get('active') == 'manga_shelf':
+                    st['active'] = st['widgets'][0] if st['widgets'] else ''
+        layout_data['widget_stacks'] = [st for st in layout_data['widget_stacks'] if st.get('widgets')]
 
     tmp_file = LAYOUT_FILE + '.tmp'
     with open(tmp_file, 'w', encoding='utf-8') as f:

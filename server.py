@@ -672,7 +672,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/widgets/manga':
             import urllib.request
-            shelf_info = {"online": False, "mangas": []}
+            shelf_info = {"online": False, "history": [], "updates": [], "library": [], "mangas": []}
             gql_candidates = [
                 "http://127.0.0.1:4567/manga/api/graphql",
                 "http://127.0.0.1:4567/api/graphql",
@@ -681,7 +681,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             ]
             gql_query = json.dumps({
                 "query": """{
-                    chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST }, first: 150) {
+                    history: chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST }, first: 100) {
                         nodes {
                             lastReadAt
                             manga {
@@ -691,7 +691,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                             }
                         }
                     }
-                    mangas(filter: { inLibrary: { equalTo: true } }, first: 60) {
+                    updates: chapters(order: { by: FETCHED_AT, byType: DESC_NULLS_LAST }, first: 100) {
+                        nodes {
+                            name
+                            fetchedAt
+                            manga {
+                                id
+                                title
+                                categories { nodes { id name } }
+                            }
+                        }
+                    }
+                    library: mangas(filter: { inLibrary: { equalTo: true } }, order: { by: IN_LIBRARY_AT, byType: DESC_NULLS_LAST }, first: 100) {
                         nodes {
                             id
                             title
@@ -703,64 +714,92 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             for ep in gql_candidates:
                 try:
                     req = urllib.request.Request(ep, data=gql_query, headers={"Content-Type": "application/json"})
-                    with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    with urllib.request.urlopen(req, timeout=3.0) as resp:
                         if resp.status == 200:
                             data = json.loads(resp.read().decode())
                             data_obj = data.get("data") or {}
-                            c_nodes = (data_obj.get("chapters") or {}).get("nodes") or []
-                            m_nodes = (data_obj.get("mangas") or {}).get("nodes") or []
+                            h_nodes = (data_obj.get("history") or {}).get("nodes") or []
+                            u_nodes = (data_obj.get("updates") or {}).get("nodes") or []
+                            l_nodes = (data_obj.get("library") or {}).get("nodes") or []
 
-                            clean_mangas = []
-                            seen_ids = set()
+                            def is_private_manga(m_obj):
+                                if not m_obj:
+                                    return True
+                                cats = [c.get("name", "").strip() for c in (m_obj.get("categories") or {}).get("nodes", [])]
+                                return "_" in cats or "private" in [c.lower() for c in cats]
 
-                            # 1. Primary: Most recently read manga from reading history
-                            for ch in c_nodes:
+                            # 1. Reading History (Most recently read)
+                            clean_history = []
+                            seen_h = set()
+                            for ch in h_nodes:
                                 if not ch.get("lastReadAt"):
                                     continue
                                 m = ch.get("manga")
                                 if not m or not m.get("id"):
                                     continue
                                 mid = m["id"]
-                                if mid in seen_ids:
+                                if mid in seen_h or is_private_manga(m):
                                     continue
-                                seen_ids.add(mid)
+                                seen_h.add(mid)
+                                clean_history.append({
+                                    "id": mid,
+                                    "title": m.get("title", ""),
+                                    "cover": f"/api/suwayomi/thumbnail/{mid}",
+                                    "link": f"/manga/{mid}",
+                                    "lastReadAt": ch.get("lastReadAt")
+                                })
+                                if len(clean_history) >= 24:
+                                    break
 
-                                cats = [c.get("name", "").strip() for c in (m.get("categories") or {}).get("nodes", [])]
-                                if "_" in cats or "private" in [c.lower() for c in cats]:
+                            # 2. Latest Updates (Most recently fetched chapters)
+                            clean_updates = []
+                            seen_u = set()
+                            for ch in u_nodes:
+                                m = ch.get("manga")
+                                if not m or not m.get("id"):
                                     continue
+                                mid = m["id"]
+                                if mid in seen_u or is_private_manga(m):
+                                    continue
+                                seen_u.add(mid)
+                                clean_updates.append({
+                                    "id": mid,
+                                    "title": m.get("title", ""),
+                                    "cover": f"/api/suwayomi/thumbnail/{mid}",
+                                    "link": f"/manga/{mid}",
+                                    "chapterName": ch.get("name") or "",
+                                    "fetchedAt": ch.get("fetchedAt") or ""
+                                })
+                                if len(clean_updates) >= 24:
+                                    break
 
-                                clean_mangas.append({
+                            # 3. Library (Favorited / in-library collection)
+                            clean_library = []
+                            seen_l = set()
+                            for m in l_nodes:
+                                if not m or not m.get("id"):
+                                    continue
+                                mid = m["id"]
+                                if mid in seen_l or is_private_manga(m):
+                                    continue
+                                seen_l.add(mid)
+                                clean_library.append({
                                     "id": mid,
                                     "title": m.get("title", ""),
                                     "cover": f"/api/suwayomi/thumbnail/{mid}",
                                     "link": f"/manga/{mid}"
                                 })
-                                if len(clean_mangas) >= 16:
+                                if len(clean_library) >= 24:
                                     break
 
-                            # 2. Fallback: If fewer than 16 in history, fill with general library manga
-                            if len(clean_mangas) < 16:
-                                for m in m_nodes:
-                                    mid = m.get("id")
-                                    if not mid or mid in seen_ids:
-                                        continue
-                                    seen_ids.add(mid)
-
-                                    cats = [c.get("name", "").strip() for c in (m.get("categories") or {}).get("nodes", [])]
-                                    if "_" in cats or "private" in [c.lower() for c in cats]:
-                                        continue
-
-                                    clean_mangas.append({
-                                        "id": mid,
-                                        "title": m.get("title", ""),
-                                        "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                        "link": f"/manga/{mid}"
-                                    })
-                                    if len(clean_mangas) >= 16:
-                                        break
+                            # Backwards-compatible default list
+                            clean_mangas = clean_history if clean_history else clean_library
 
                             shelf_info = {
                                 "online": True,
+                                "history": clean_history,
+                                "updates": clean_updates,
+                                "library": clean_library,
                                 "mangas": clean_mangas
                             }
                             break

@@ -1589,6 +1589,20 @@
             text-align: center;
             line-height: 1.25;
         }
+        .shelf-sub {
+            font-size: 0.65rem;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 85px;
+            max-width: 85px;
+            min-width: 0;
+            display: block;
+            text-align: center;
+            line-height: 1.15;
+            font-weight: 600;
+        }
 
         /* ─── Unified Draggable Grid ─── */
         .homarr-grid {
@@ -2101,7 +2115,7 @@
                     <input type="checkbox" id="toggle-widget-jd" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('jdownloader', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
-                    <span>📚 Suwayomi Reading History Shelf</span>
+                    <span>📚 Suwayomi Manga Shelf (Library / History / Updates)</span>
                     <input type="checkbox" id="toggle-widget-manga" style="width: 20px; height: 20px; cursor: pointer;" onchange="updateWidgetSetting('manga_shelf', this.checked)">
                 </label>
                 <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; text-transform: none; font-size: 0.88rem; color: var(--text);">
@@ -2118,14 +2132,13 @@
             <div style="border-top: 1px solid var(--glass-border); padding-top: 14px; margin-top: 4px; display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <strong style="font-size: 0.88rem; color: var(--text);">Widget Stacking & Tabs</strong>
-                    <span style="font-size: 0.72rem; color: var(--text-muted);">Combine cards into one</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted);">Combine download clients</span>
                 </div>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Group multiple widgets into a single card with tabs and a slider toggle to save dashboard space.</p>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">Group download clients into a single card with tabs and a slider toggle to save dashboard space. (Suwayomi Manga Shelf features built-in Library, History, and Updates tabs and stays standalone).</p>
                 
                 <!-- Quick Presets -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <button type="button" class="stack-preset-btn" id="btn-preset-transfers" onclick="applyStackPreset('transfers')">⚡ Stack Transfers (qBit + JD)</button>
-                    <button type="button" class="stack-preset-btn" id="btn-preset-all" onclick="applyStackPreset('all')">📑 Stack All Widgets</button>
                     <button type="button" class="stack-preset-btn" id="btn-preset-unstack" onclick="applyStackPreset('none')">🔲 Separate (Unstack)</button>
                 </div>
 
@@ -2135,27 +2148,14 @@
                         <span style="font-size: 0.82rem;">🧲 qBittorrent Transfers</span>
                         <select class="stack-select" id="stack-sel-qbittorrent" onchange="onWidgetStackChange('qbittorrent', this.value)">
                             <option value="">Standalone (Unstacked)</option>
-                            <option value="transfers">Stack: Transfers</option>
-                            <option value="all_widgets">Stack: All Widgets</option>
-                            <option value="stack_custom">Stack: Custom Stack</option>
+                            <option value="transfers">Stack: Transfers (qBit + JD)</option>
                         </select>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="font-size: 0.82rem;">📥 JDownloader Transfers</span>
                         <select class="stack-select" id="stack-sel-jdownloader" onchange="onWidgetStackChange('jdownloader', this.value)">
                             <option value="">Standalone (Unstacked)</option>
-                            <option value="transfers">Stack: Transfers</option>
-                            <option value="all_widgets">Stack: All Widgets</option>
-                            <option value="stack_custom">Stack: Custom Stack</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 0.82rem;">📚 Suwayomi Reading History</span>
-                        <select class="stack-select" id="stack-sel-manga_shelf" onchange="onWidgetStackChange('manga_shelf', this.value)">
-                            <option value="">Standalone (Unstacked)</option>
-                            <option value="transfers">Stack: Transfers</option>
-                            <option value="all_widgets">Stack: All Widgets</option>
-                            <option value="stack_custom">Stack: Custom Stack</option>
+                            <option value="transfers">Stack: Transfers (qBit + JD)</option>
                         </select>
                     </div>
                 </div>
@@ -2397,6 +2397,14 @@
                                         active: 'qbittorrent'
                                     }
                                 ];
+                            } else {
+                                data.widget_stacks.forEach(st => {
+                                    if (Array.isArray(st.widgets)) {
+                                        st.widgets = st.widgets.filter(w => w !== 'manga_shelf');
+                                        if (st.active === 'manga_shelf') st.active = st.widgets[0] || '';
+                                    }
+                                });
+                                data.widget_stacks = data.widget_stacks.filter(st => st.widgets && st.widgets.length > 0);
                             }
                             CURRENT_LAYOUT = data;
                             localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(CURRENT_LAYOUT));
@@ -2428,6 +2436,14 @@
                                 active: 'qbittorrent'
                             }
                         ];
+                    } else {
+                        parsed.widget_stacks.forEach(st => {
+                            if (Array.isArray(st.widgets)) {
+                                st.widgets = st.widgets.filter(w => w !== 'manga_shelf');
+                                if (st.active === 'manga_shelf') st.active = st.widgets[0] || '';
+                            }
+                        });
+                        parsed.widget_stacks = parsed.widget_stacks.filter(st => st.widgets && st.widgets.length > 0);
                     }
                     CURRENT_LAYOUT = parsed;
                 }
@@ -2563,15 +2579,17 @@
                 icon: '📥',
                 elementId: 'widget-jdownloader',
                 linksHtml: '<a href="https://my.jdownloader.org" target="_blank" class="widget-link" title="Open MyJDownloader Web Panel">MyJDownloader ↗</a>'
-            },
-            manga_shelf: {
-                id: 'manga_shelf',
-                title: 'Reading History',
-                icon: '📚',
-                elementId: 'widget-manga-shelf',
-                linksHtml: '<a href="/manga/history" target="_blank" class="widget-link">History ↗</a><a href="/manga" target="_blank" class="widget-link">Library ↗</a>'
             }
         };
+
+        let SUWAYOMI_ACTIVE_TAB = 'library';
+        try {
+            const savedTab = localStorage.getItem('tinarchy_suwayomi_tab');
+            if (savedTab && ['library', 'history', 'updates'].includes(savedTab)) {
+                SUWAYOMI_ACTIVE_TAB = savedTab;
+            }
+        } catch (e) {}
+        let LATEST_SUWAYOMI_DATA = null;
 
         function renderWidgetsLayout() {
             const row = document.getElementById('homarr-widgets-row');
@@ -2579,8 +2597,8 @@
             if (!row || !storage) return;
 
             // 1. Stash all panes back in storage first
-            Object.values(STACKABLE_WIDGETS).forEach(cfg => {
-                const pane = document.getElementById(cfg.elementId);
+            ['widget-qbittorrent', 'widget-jdownloader', 'widget-manga-shelf'].forEach(id => {
+                const pane = document.getElementById(id);
                 if (pane) {
                     pane.classList.remove('active');
                     storage.appendChild(pane);
@@ -2600,7 +2618,9 @@
             const widgetToStack = {};
             stacks.forEach(st => {
                 (st.widgets || []).forEach(wId => {
-                    widgetToStack[wId] = st;
+                    if (wId !== 'manga_shelf') {
+                        widgetToStack[wId] = st;
+                    }
                 });
             });
 
@@ -2628,9 +2648,164 @@
                 }
             });
 
+            // Suwayomi Manga Shelf is dedicated standalone with built-in tab switcher (Library / History / Updates)
+            if (wConfig.manga_shelf?.enabled !== false) {
+                renderSuwayomiWidgetCard(row);
+            }
+
             if (typeof initSortable === 'function') {
                 initSortable();
             }
+        }
+
+        function renderSuwayomiWidgetCard(row) {
+            const card = document.createElement('div');
+            card.className = 'homarr-widget-card glass suwayomi-widget-card';
+            card.setAttribute('data-widget-id', 'manga_shelf');
+
+            const header = document.createElement('div');
+            header.className = 'homarr-widget-header';
+
+            const headerLeft = document.createElement('div');
+            headerLeft.style.display = 'flex';
+            headerLeft.style.alignItems = 'center';
+            headerLeft.style.gap = '8px';
+            headerLeft.style.flexWrap = 'wrap';
+
+            const dragHandle = document.createElement('span');
+            dragHandle.className = 'widget-drag-handle';
+            dragHandle.title = 'Drag to reorder widget';
+            dragHandle.textContent = '⋮⋮';
+            headerLeft.appendChild(dragHandle);
+
+            const pillsWrap = document.createElement('div');
+            pillsWrap.className = 'widget-stack-pills';
+            pillsWrap.id = 'suwayomi-tabs';
+
+            const tabs = [
+                { id: 'library', title: 'Library', icon: '📚', elementId: 'tab-manga-library' },
+                { id: 'history', title: 'History', icon: '🕒', elementId: 'tab-manga-history' },
+                { id: 'updates', title: 'Updates', icon: '🔔', elementId: 'tab-manga-updates' }
+            ];
+
+            tabs.forEach(t => {
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.id = t.elementId;
+                pill.className = `stack-pill ${t.id === SUWAYOMI_ACTIVE_TAB ? 'active' : ''}`;
+                pill.setAttribute('data-suwa-tab', t.id);
+                pill.innerHTML = `<span class="widget-icon">${t.icon}</span> <span>${t.title}</span>`;
+                pill.onclick = () => setSuwayomiActiveTab(t.id);
+                pillsWrap.appendChild(pill);
+            });
+            headerLeft.appendChild(pillsWrap);
+
+            const cycleBtn = document.createElement('button');
+            cycleBtn.type = 'button';
+            cycleBtn.className = 'stack-cycle-btn';
+            cycleBtn.title = 'Cycle shelf: Library → History → Updates';
+            cycleBtn.textContent = '⇄';
+            cycleBtn.onclick = () => cycleSuwayomiActiveTab();
+            headerLeft.appendChild(cycleBtn);
+
+            header.appendChild(headerLeft);
+
+            const linksDiv = document.createElement('div');
+            linksDiv.id = 'suwayomi-header-link';
+            linksDiv.style.display = 'flex';
+            linksDiv.style.alignItems = 'center';
+            linksDiv.style.gap = '10px';
+            header.appendChild(linksDiv);
+
+            card.appendChild(header);
+
+            const pane = document.getElementById('widget-manga-shelf');
+            if (pane) {
+                pane.classList.add('active');
+                card.appendChild(pane);
+            }
+
+            row.appendChild(card);
+            updateSuwayomiHeaderLink();
+            renderSuwayomiItems();
+        }
+
+        function setSuwayomiActiveTab(tab) {
+            if (!['library', 'history', 'updates'].includes(tab)) return;
+            SUWAYOMI_ACTIVE_TAB = tab;
+            try {
+                localStorage.setItem('tinarchy_suwayomi_tab', tab);
+            } catch (e) {}
+
+            const tabsContainer = document.getElementById('suwayomi-tabs');
+            if (tabsContainer) {
+                tabsContainer.querySelectorAll('.stack-pill').forEach(btn => {
+                    const t = btn.getAttribute('data-suwa-tab');
+                    btn.classList.toggle('active', t === tab);
+                });
+            }
+
+            updateSuwayomiHeaderLink();
+            renderSuwayomiItems();
+        }
+
+        function cycleSuwayomiActiveTab() {
+            const tabs = ['library', 'history', 'updates'];
+            const idx = tabs.indexOf(SUWAYOMI_ACTIVE_TAB);
+            const nextTab = tabs[(idx + 1) % tabs.length];
+            setSuwayomiActiveTab(nextTab);
+        }
+
+        function updateSuwayomiHeaderLink() {
+            const linkDiv = document.getElementById('suwayomi-header-link');
+            if (!linkDiv) return;
+            if (SUWAYOMI_ACTIVE_TAB === 'history') {
+                linkDiv.innerHTML = '<a href="/manga/history" target="_blank" class="widget-link" title="Open Suwayomi History">History ↗</a>';
+            } else if (SUWAYOMI_ACTIVE_TAB === 'updates') {
+                linkDiv.innerHTML = '<a href="/manga/updates" target="_blank" class="widget-link" title="Open Suwayomi Updates">Updates ↗</a>';
+            } else {
+                linkDiv.innerHTML = '<a href="/manga" target="_blank" class="widget-link" title="Open Suwayomi Library">Library ↗</a>';
+            }
+        }
+
+        function renderSuwayomiItems() {
+            const scrollContainer = document.getElementById('manga-shelf-scroll');
+            if (!scrollContainer) return;
+            if (!LATEST_SUWAYOMI_DATA) {
+                scrollContainer.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>⏳</span> Loading manga shelf...</div>';
+                return;
+            }
+            if (!LATEST_SUWAYOMI_DATA.online) {
+                scrollContainer.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>📚</span> Suwayomi Library is offline</div>';
+                return;
+            }
+            const items = LATEST_SUWAYOMI_DATA[SUWAYOMI_ACTIVE_TAB] || [];
+            if (items.length === 0) {
+                const labels = {
+                    library: 'Suwayomi Library is empty',
+                    history: 'No reading history yet',
+                    updates: 'No recent chapter updates'
+                };
+                const msg = labels[SUWAYOMI_ACTIVE_TAB] || 'No items found';
+                scrollContainer.innerHTML = `<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>📚</span> ${msg}</div>`;
+                return;
+            }
+            scrollContainer.innerHTML = items.map(m => {
+                const mangaUrl = m.link || ('/manga/' + m.id);
+                const titleEsc = (m.title || '').replace(/"/g, '&quot;');
+                let subHtml = '';
+                if (SUWAYOMI_ACTIVE_TAB === 'updates' && m.chapterName) {
+                    const chEsc = (m.chapterName || '').replace(/"/g, '&quot;');
+                    subHtml = `<span class="shelf-sub" title="${chEsc}">${chEsc}</span>`;
+                }
+                return `
+                    <a href="${mangaUrl}" target="_blank" class="shelf-item" title="${titleEsc} (Open manhwa ↗)">
+                        <img class="shelf-thumb" src="${m.cover}" alt="${titleEsc}" loading="lazy" onerror="this.src='/favicon.ico'">
+                        <span class="shelf-title">${m.title || ''}</span>
+                        ${subHtml}
+                    </a>
+                `;
+            }).join('');
         }
 
         function renderStackedWidgetsCard(row, stack, enabledWidgets) {
@@ -2810,15 +2985,6 @@
                         active: 'qbittorrent'
                     }
                 ];
-            } else if (preset === 'all') {
-                CURRENT_LAYOUT.widget_stacks = [
-                    {
-                        id: 'all_widgets',
-                        name: 'All Widgets',
-                        widgets: ['qbittorrent', 'jdownloader', 'manga_shelf'],
-                        active: 'qbittorrent'
-                    }
-                ];
             } else if (preset === 'none') {
                 CURRENT_LAYOUT.widget_stacks = [];
             }
@@ -2829,11 +2995,12 @@
         }
 
         function onWidgetStackChange(widgetId, stackGroup) {
+            if (widgetId === 'manga_shelf') return;
             if (!Array.isArray(CURRENT_LAYOUT.widget_stacks)) {
                 CURRENT_LAYOUT.widget_stacks = [];
             }
             CURRENT_LAYOUT.widget_stacks.forEach(st => {
-                st.widgets = (st.widgets || []).filter(w => w !== widgetId);
+                st.widgets = (st.widgets || []).filter(w => w !== widgetId && w !== 'manga_shelf');
                 if (st.active === widgetId && st.widgets.length > 0) {
                     st.active = st.widgets[0];
                 }
@@ -2842,9 +3009,7 @@
             if (stackGroup) {
                 let targetStack = CURRENT_LAYOUT.widget_stacks.find(st => st.id === stackGroup);
                 if (!targetStack) {
-                    let name = 'Custom Stack';
-                    if (stackGroup === 'transfers') name = 'Transfers';
-                    else if (stackGroup === 'all_widgets') name = 'All Widgets';
+                    let name = 'Transfers';
                     targetStack = {
                         id: stackGroup,
                         name: name,
@@ -2867,7 +3032,7 @@
 
         function syncStackModalUI() {
             const stacks = CURRENT_LAYOUT.widget_stacks || [];
-            ['qbittorrent', 'jdownloader', 'manga_shelf'].forEach(wid => {
+            ['qbittorrent', 'jdownloader'].forEach(wid => {
                 const sel = document.getElementById(`stack-sel-${wid}`);
                 if (!sel) return;
                 const parentStack = stacks.find(st => (st.widgets || []).includes(wid));
@@ -2946,22 +3111,8 @@
                 // Suwayomi Manga Shelf Widget
                 if (CURRENT_LAYOUT.widgets?.manga_shelf?.enabled !== false) {
                     fetch('/api/widgets/manga').then(r => r.json()).then(data => {
-                        const scrollContainer = document.getElementById('manga-shelf-scroll');
-                        if (!scrollContainer) return;
-                        if (data.online && data.mangas && data.mangas.length > 0) {
-                            scrollContainer.innerHTML = data.mangas.map(m => {
-                                const mangaUrl = m.link || ('/manga/' + m.id);
-                                const titleEsc = (m.title || '').replace(/"/g, '&quot;');
-                                return `
-                                    <a href="${mangaUrl}" target="_blank" class="shelf-item" title="${titleEsc} (Open manhwa ↗)">
-                                        <img class="shelf-thumb" src="${m.cover}" alt="${titleEsc}" loading="lazy" onerror="this.src='/favicon.ico'">
-                                        <span class="shelf-title">${m.title || ''}</span>
-                                    </a>
-                                `;
-                            }).join('');
-                        } else {
-                            scrollContainer.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.85rem;display:flex;align-items:center;gap:8px;"><span>📚</span> Suwayomi Library is empty or offline</div>';
-                        }
+                        LATEST_SUWAYOMI_DATA = data;
+                        renderSuwayomiItems();
                     }).catch(() => {});
                 }
             } catch (e) {}

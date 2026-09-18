@@ -45,9 +45,9 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
 
 - **🧩 Homarr-Style Draggable Dashboard & Customizable Stackable Widgets**:
   - **Interactive Drag-and-Drop Reordering**: Fully customizable, draggable service grid and widget cards with smooth layout persistence.
-  - **Customizable Widget Stacking & Tabbed Slider Controls**: Group any number of dashboard widgets (e.g. qBittorrent and JDownloader into a unified "Transfers" card) into a single compact view with pill tabs and an interactive cycle/slider button (`⇄`).
-  - **1-Click Stacking Presets & Granular Assignment**: Instant presets (`⚡ Stack Transfers`, `📑 Stack All Widgets`, `🔲 Separate (Unstack)`) plus per-widget dropdown selectors in the widget settings modal.
-  - **Reading History Shelf with Direct Manga Linking**: Real-time reading progress shelf querying Suwayomi's GraphQL backend (`chapters(order: { by: LAST_READ_AT, byType: DESC_NULLS_LAST })`), displaying recently read manhwa first and binding card covers directly to their individual manhwa details/reader pages (`/manga/:id`).
+  - **Customizable Widget Stacking & Tabbed Slider Controls**: Group download clients (e.g. qBittorrent and JDownloader into a unified "Transfers" card) into a single compact view with pill tabs and an interactive cycle/slider button (`⇄`).
+  - **1-Click Stacking Presets & Granular Assignment**: Instant presets (`⚡ Stack Transfers`, `🔲 Separate (Unstack)`) plus per-widget dropdown selectors in the widget settings modal.
+  - **Suwayomi Tabbed Manga Shelf (Library / History / Updates)**: Dedicated standalone shelf featuring segmented pill tabs and an interactive cycle button (`⇄`) to instantly switch between **Library** (`mangas(inLibrary: true)`), **History** (`chapters(order: LAST_READ_AT)`), and **Updates** (`chapters(order: FETCHED_AT)` with chapter badges). Excluded from cross-widget stacking to guarantee a pristine, full-width shelf layout without dual-tab nesting conflicts.
   - **Personal Viewer Styling & Custom Wallpapers**: Viewers can select presets or upload personal wallpapers with immediate client-side application.
 
 - **📥 JDownloader 2 Headless & Remote Download Link Grabber**:
@@ -824,10 +824,14 @@ The dashboard features a modular, customizable widget stacking engine that allow
 - **Dynamic Header Action Links**: The upper-right link in the card header automatically changes between `WebUI ↗` and `MyJDownloader ↗` based on the active tab.
 - **Slider / Cycle Button (`⇄`)**: Click the cycle button next to the tab pills to smoothly slide to the next stacked widget.
 - **1-Click Presets**:
-  - `⚡ Stack Transfers`: Stacks qBittorrent and JDownloader into "Transfers"; keeps Reading History standalone.
-  - `📑 Stack All Widgets`: Combines all widgets into a single 3-tab card.
-  - `🔲 Separate (Unstack)`: Expands all widgets into individual standalone cards.
-- **Custom Widget Assignment**: Assign any widget to a custom stack group or standalone mode via the **Widget Stacking & Tabs** section in the dashboard widget settings modal.
+  - `⚡ Stack Transfers`: Stacks qBittorrent and JDownloader into a compact "Transfers" card.
+  - `🔲 Separate (Unstack)`: Expands qBittorrent and JDownloader into individual standalone cards.
+- **Custom Widget Assignment**: Assign any transfer widget to a custom stack group or standalone mode via the **Widget Stacking & Tabs** section in the dashboard widget settings modal.
+- **📚 Suwayomi Tabbed Manga Shelf (Standalone & Tabbed)**:
+  - **Internal Multi-Tab Switcher**: Features segmented pill tabs (`📚 Library`, `🕒 History`, `🔔 Updates`) and a cycle button (`⇄`).
+  - **Live Shelves**: Displays favorited manga (`Library`), recently read manhwa (`History`), or recently downloaded chapters (`Updates` with chapter badges such as *Chapter 41.5*).
+  - **Direct Manhwa Linking**: Every cover art links directly to `/manga/:id`.
+  - **Stacking Exclusion**: Suwayomi is deliberately kept standalone and excluded from cross-widget stacking to ensure the full-width horizontal scrolling shelf displays cleanly without nested tab conflicts.
 - **Flicker-Free Live Polling**: State-preserving DOM architecture ensures that background telemetry polling (every 4s) updates speeds and metrics smoothly without flickering, closing tabs, or disrupting active input fields.
 
 ## 🛠️ Management & Useful Commands
