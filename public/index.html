@@ -2791,7 +2791,7 @@
                 return;
             }
             scrollContainer.innerHTML = items.map(m => {
-                const mangaUrl = m.link || ('/manga/' + m.id);
+                const mangaUrl = m.link || ('/manga/manga/' + m.id);
                 const titleEsc = (m.title || '').replace(/"/g, '&quot;');
                 let subHtml = '';
                 if (SUWAYOMI_ACTIVE_TAB === 'updates' && m.chapterName) {

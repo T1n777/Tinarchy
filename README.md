@@ -830,7 +830,7 @@ The dashboard features a modular, customizable widget stacking engine that allow
 - **📚 Suwayomi Tabbed Manga Shelf (Standalone & Tabbed)**:
   - **Internal Multi-Tab Switcher**: Features segmented pill tabs (`📚 Reading`, `🕒 History`, `🔔 Updates`) and a cycle button (`⇄`).
   - **Live Shelves**: Displays active mangas in the `Reading` category (`Reading`), recently read manhwa (`History`), or recently downloaded chapters (`Updates` with chapter badges such as *Chapter 41.5*).
-  - **Direct Manhwa Linking**: Every cover art links directly to `/manga/:id`.
+  - **Direct Manhwa Linking**: Every cover art links directly to `/manga/manga/:id` to match Suwayomi's router and open the individual manhwa details page immediately.
   - **Stacking Exclusion**: Suwayomi is deliberately kept standalone and excluded from cross-widget stacking to ensure the full-width horizontal scrolling shelf displays cleanly without nested tab conflicts.
 - **Flicker-Free Live Polling**: State-preserving DOM architecture ensures that background telemetry polling (every 4s) updates speeds and metrics smoothly without flickering, closing tabs, or disrupting active input fields.
 

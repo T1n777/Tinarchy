@@ -357,7 +357,7 @@ run_test("Unified Draggable Dashboard Grid & Flat Items Schema", test_dashboard_
 
 # --- TEST 19: Manga Shelf Individual Items Linked Directly to Manhwa Page ---
 def test_manga_shelf_links():
-    # 1. Verify /api/widgets/manga links point to specific /manga/:id
+    # 1. Verify /api/widgets/manga links point to specific /manga/manga/:id
     req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/manga")
     with urllib.request.urlopen(req, timeout=3) as r:
         if r.status != 200:
@@ -367,30 +367,37 @@ def test_manga_shelf_links():
         if not mangas:
             raise Exception("No mangas found in /api/widgets/manga to verify")
         for m in mangas:
-            expected_link = f"/manga/{m['id']}"
+            expected_link = f"/manga/manga/{m['id']}"
             if m.get("link") != expected_link:
                 raise Exception(f"Expected manga link {expected_link}, got {m.get('link')}")
 
-    # 2. Verify backend /manga/:id redirects to Suwayomi port 4567 with target manga path
+    # 2. Verify backend /manga/:id and /manga/manga/:id redirect to Suwayomi port 4567 /manga/manga/:id
     first_manga_id = mangas[0]["id"]
     class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
         def redirect_request(self, req, fp, code, msg, headers, newurl):
             return None
 
     opener = urllib.request.build_opener(NoRedirectHandler)
-    req_redir = urllib.request.Request(f"http://127.0.0.1:8085/manga/{first_manga_id}")
-    try:
-        resp = opener.open(req_redir, timeout=3)
-        code = resp.status
-        loc = resp.headers.get("Location", "")
-    except urllib.error.HTTPError as e:
-        code = e.code
-        loc = e.headers.get("Location", "")
+    for test_path in (f"/manga/{first_manga_id}", f"/manga/manga/{first_manga_id}"):
+        req_redir = urllib.request.Request(f"http://127.0.0.1:8085{test_path}")
+        try:
+            resp = opener.open(req_redir, timeout=3)
+            code = resp.status
+            loc = resp.headers.get("Location", "")
+        except urllib.error.HTTPError as e:
+            code = e.code
+            loc = e.headers.get("Location", "")
 
-    if code != 302:
-        raise Exception(f"Expected 302 redirect from /manga/{first_manga_id}, got HTTP {code}")
-    if f":4567/manga/{first_manga_id}" not in loc:
-        raise Exception(f"Expected redirect location to contain :4567/manga/{first_manga_id}, got '{loc}'")
+        if code != 302:
+            raise Exception(f"Expected 302 redirect from {test_path}, got HTTP {code}")
+        if f":4567/manga/manga/{first_manga_id}" not in loc:
+            raise Exception(f"Expected redirect location to contain :4567/manga/manga/{first_manga_id}, got '{loc}'")
+
+    # 3. Verify that /manga/manga/:id renders the specific manga details in Suwayomi React Router
+    cmd = f"timeout 8 chromium --headless --disable-gpu --virtual-time-budget=5000 --dump-dom 'http://127.0.0.1:4567/manga/manga/{first_manga_id}' 2>/dev/null"
+    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if "<title>Library - Suwayomi</title>" in res.stdout:
+        raise Exception(f"Opening /manga/manga/{first_manga_id} defaulted to Library page instead of manga details!")
 
 run_test("Manga Shelf Individual Items Linked Directly to Manhwa Page", test_manga_shelf_links)
 

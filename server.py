@@ -331,15 +331,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 if sub.startswith(prefix):
                     sub = '/manga' + sub[len(prefix):]
             if sub.startswith('/manga/manga/'):
-                sub = sub[len('/manga'):]
+                pass
+            elif re.match(r'^/manga/\d+', sub):
+                sub = '/manga/manga/' + sub[len('/manga/'):]
             elif sub == '/manga/history':
-                sub = '/history'
+                sub = '/manga/history'
+            elif sub == '/manga/updates':
+                sub = '/manga/updates'
             elif sub.startswith('/manga/'):
                 pass
             else:
-                sub = '/'
+                sub = '/manga/'
             query = ('?' + self.path.split('?', 1)[1]) if '?' in self.path else ''
-            target_url = f"https://{host}:4567{sub}{query}"
+            target_url = f"http://{host}:4567{sub}{query}"
         elif clean_path in ['/jellyfin', '/media', '/movies', '/stream']:
             if 'jellyfin' not in allowed_services:
                 return self.serve_access_denied('Jellyfin Media Server')
@@ -745,7 +749,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     "id": mid,
                                     "title": m.get("title", ""),
                                     "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                    "link": f"/manga/{mid}",
+                                    "link": f"/manga/manga/{mid}",
                                     "lastReadAt": ch.get("lastReadAt")
                                 })
                                 if len(clean_history) >= 24:
@@ -766,7 +770,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     "id": mid,
                                     "title": m.get("title", ""),
                                     "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                    "link": f"/manga/{mid}",
+                                    "link": f"/manga/manga/{mid}",
                                     "chapterName": ch.get("name") or "",
                                     "fetchedAt": ch.get("fetchedAt") or ""
                                 })
@@ -790,7 +794,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     "id": mid,
                                     "title": m.get("title", ""),
                                     "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                    "link": f"/manga/{mid}"
+                                    "link": f"/manga/manga/{mid}"
                                 })
                                 if len(clean_library) >= 24:
                                     break
@@ -808,7 +812,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                         "id": mid,
                                         "title": m.get("title", ""),
                                         "cover": f"/api/suwayomi/thumbnail/{mid}",
-                                        "link": f"/manga/{mid}"
+                                        "link": f"/manga/manga/{mid}"
                                     })
                                     if len(clean_library) >= 24:
                                         break

@@ -10,6 +10,13 @@
 (function() {
     'use strict';
 
+    // Ensure direct navigation to /manga/:id opens the manga page instead of defaulting to library
+    const mangaRouteMatch = window.location.pathname.match(/^\/manga\/(\d+(?:\/.*)?)$/);
+    if (mangaRouteMatch) {
+        window.location.replace('/manga/manga/' + mangaRouteMatch[1] + window.location.search + window.location.hash);
+        return;
+    }
+
     const PRIVATE_CATEGORY_NAMES = new Set(['_', 'private', 'hidden']);
     const STORAGE_KEY_UNLOCKED = 'suwayomi_vault_unlocked';
     const STORAGE_KEY_PIN = 'suwayomi_vault_pin';
