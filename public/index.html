@@ -3043,8 +3043,11 @@
         async function fetchHomarrWidgets() {
             if (document.hidden) return;
             try {
+                const _aw = CURRENT_USER.allowed_widgets;
+                const canWidget = (id) => !Array.isArray(_aw) || _aw.length === 0 || _aw.includes(id);
+
                 // qBittorrent Widget
-                if (CURRENT_LAYOUT.widgets?.qbittorrent?.enabled !== false) {
+                if (canWidget('qbittorrent') && CURRENT_LAYOUT.widgets?.qbittorrent?.enabled !== false) {
                     fetch('/api/widgets/qbittorrent').then(r => r.json()).then(data => {
                         const dlEl = document.getElementById('qbit-dl-spd');
                         const upEl = document.getElementById('qbit-up-spd');
@@ -3062,7 +3065,7 @@
                 }
 
                 // JDownloader Widget
-                if (CURRENT_LAYOUT.widgets?.jdownloader?.enabled !== false) {
+                if (canWidget('jdownloader') && CURRENT_LAYOUT.widgets?.jdownloader?.enabled !== false) {
                     fetch('/api/widgets/jdownloader').then(r => r.json()).then(data => {
                         const dlEl = document.getElementById('jd-dl-spd');
                         const stateEl = document.getElementById('jd-state');
@@ -3109,7 +3112,7 @@
                 }
 
                 // Suwayomi Manga Shelf Widget
-                if (CURRENT_LAYOUT.widgets?.manga_shelf?.enabled !== false) {
+                if (canWidget('manga_shelf') && CURRENT_LAYOUT.widgets?.manga_shelf?.enabled !== false) {
                     fetch('/api/widgets/manga').then(r => r.json()).then(data => {
                         LATEST_SUWAYOMI_DATA = data;
                         renderSuwayomiItems();
@@ -3117,6 +3120,7 @@
                 }
             } catch (e) {}
         }
+
 
         function createServiceCard(s) {
             const isOnline = s.status === 'online';
@@ -3603,7 +3607,7 @@
             } catch(e) {}
         }
 
-        let CURRENT_USER = { role: 'viewer', is_owner: false };
+        let CURRENT_USER = { role: 'viewer', is_owner: false, allowed_services: [], allowed_widgets: [] };
 
         async function fetchCurrentUser() {
             try {
@@ -3651,6 +3655,35 @@
                         torBtn.title = 'Viewer: Read-only access';
                         torBtn.style.cursor = 'not-allowed';
                         torBtn.style.opacity = '0.5';
+                    }
+                }
+
+                // ─── Widget Access Control ───
+                // Hide widget toggle rows and force-disable widgets the user can't access
+                const allowedWidgets = Array.isArray(u.allowed_widgets) ? u.allowed_widgets : null;
+                if (allowedWidgets) {
+                    const widgetToggleMap = {
+                        'qbittorrent': 'toggle-widget-qbit',
+                        'jdownloader': 'toggle-widget-jd',
+                        'manga_shelf': 'toggle-widget-manga',
+                    };
+                    Object.entries(widgetToggleMap).forEach(([widgetId, toggleId]) => {
+                        if (!allowedWidgets.includes(widgetId)) {
+                            // Hide the toggle row in the widget settings modal
+                            const toggleEl = document.getElementById(toggleId);
+                            if (toggleEl) {
+                                const row = toggleEl.closest('label');
+                                if (row) row.style.display = 'none';
+                            }
+                            // Also force the widget off in the current layout so it won't render
+                            if (CURRENT_LAYOUT.widgets && CURRENT_LAYOUT.widgets[widgetId]) {
+                                CURRENT_LAYOUT.widgets[widgetId].enabled = false;
+                            }
+                        }
+                    });
+                    // Re-apply visibility after access control is enforced
+                    if (typeof applyWidgetVisibility === 'function') {
+                        applyWidgetVisibility();
                     }
                 }
             } catch(e) {}

@@ -645,6 +645,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps(layout).encode(), "application/json")
 
         elif self.path == '/api/widgets/qbittorrent':
+            _w_role = session.get('role', 'viewer')
+            _w_allowed = auth.get_user_allowed_services(session.get('login_name', ''), _w_role)
+            if 'qbittorrent' not in _w_allowed:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Access denied"}')
+                return
             import urllib.request
             qbit_info = {"online": False}
             try:
@@ -675,6 +683,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps(qbit_info).encode(), "application/json")
 
         elif self.path == '/api/widgets/manga':
+            _w_role = session.get('role', 'viewer')
+            _w_allowed = auth.get_user_allowed_services(session.get('login_name', ''), _w_role)
+            if 'suwayomi' not in _w_allowed:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Access denied"}')
+                return
             import urllib.request
             shelf_info = {"online": False, "history": [], "updates": [], "library": [], "mangas": []}
             gql_candidates = [
@@ -833,6 +849,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_compressed(json.dumps(shelf_info).encode(), "application/json")
 
         elif self.path == '/api/widgets/jdownloader':
+            _w_role = session.get('role', 'viewer')
+            _w_allowed = auth.get_user_allowed_services(session.get('login_name', ''), _w_role)
+            if 'jdownloader' not in _w_allowed:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Access denied"}')
+                return
             from tinarchy import jdownloader
             jd_info = jdownloader.get_jdownloader_status()
             self.send_compressed(json.dumps(jd_info).encode(), "application/json")
@@ -840,6 +864,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
+            allowed_svcs = auth.get_user_allowed_services(login_name, role)
+            # Map service IDs to widget IDs for the frontend
+            _widget_svc_map = {
+                'qbittorrent': 'qbittorrent',
+                'jdownloader': 'jdownloader',
+                'manga_shelf': 'suwayomi',
+            }
+            allowed_widgets = [wid for wid, svc in _widget_svc_map.items() if svc in allowed_svcs]
             self.send_compressed(json.dumps({
                 "role": role,
                 "display_name": session.get('display_name', 'User'),
@@ -848,8 +880,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "avatar": session.get('avatar', ''),
                 "is_owner": session.get('is_owner', False),
                 "device_name": session.get('device_name', ''),
-                "allowed_services": auth.get_user_allowed_services(login_name, role)
+                "allowed_services": allowed_svcs,
+                "allowed_widgets": allowed_widgets
             }).encode(), "application/json")
+
 
         elif self.path == '/api/users':
             role = session.get('role', 'viewer')
@@ -1254,12 +1288,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         # ─── JDownloader Link Submission ───
         elif self.path == '/api/widgets/jdownloader/add':
-            role = session.get('role', 'viewer')
-            if role not in ['owner', 'admin', 'viewer']:
+            _jd_role = session.get('role', 'viewer')
+            _jd_allowed = auth.get_user_allowed_services(session.get('login_name', ''), _jd_role)
+            if 'jdownloader' not in _jd_allowed:
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(b'{"error": "Forbidden: Authenticated access required"}')
+                self.wfile.write(b'{"error": "Access denied"}')
                 return
 
             links = str(data.get('links', '')).strip()
