@@ -1295,6 +1295,29 @@
             text-decoration: none;
         }
         .widget-link:hover { text-decoration: underline; }
+        .widget-remove-btn {
+            display: none;
+            align-items: center;
+            gap: 4px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ffb4ab;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 6px;
+        }
+        .widget-remove-btn:hover {
+            background: rgba(239, 68, 68, 0.35);
+            border-color: #ef4444;
+            color: #ffffff;
+        }
+        body.dashboard-edit-mode .widget-remove-btn {
+            display: inline-flex !important;
+        }
         .qbit-body {
             display: flex;
             justify-content: space-between;
@@ -1980,7 +2003,7 @@
                 <span class="homarr-edit-icon">🛠️</span>
                 <div>
                     <strong>Dashboard Edit Mode</strong>
-                    <p>Drag any card to rearrange your dashboard. Add custom bookmarks or configure widgets.</p>
+                    <p>Drag cards to reorder. Use <strong>✕ Remove</strong> on widgets to hide them, or <strong>⚙️ Widgets</strong> to add them back.</p>
                 </div>
             </div>
             <div class="homarr-edit-banner-actions">
@@ -2715,6 +2738,16 @@
             linksDiv.style.display = 'flex';
             linksDiv.style.alignItems = 'center';
             linksDiv.style.gap = '10px';
+
+            // Remove button (only visible in edit mode)
+            const removeSuwaBtn = document.createElement('button');
+            removeSuwaBtn.type = 'button';
+            removeSuwaBtn.className = 'widget-remove-btn';
+            removeSuwaBtn.title = 'Remove Suwayomi Manga Shelf widget';
+            removeSuwaBtn.innerHTML = '✕ Remove';
+            removeSuwaBtn.onclick = () => updateWidgetSetting('manga_shelf', false);
+            linksDiv.appendChild(removeSuwaBtn);
+
             header.appendChild(linksDiv);
 
             card.appendChild(header);
@@ -2868,6 +2901,19 @@
             linksDiv.style.gap = '10px';
             const activeCfg = STACKABLE_WIDGETS[activeWid];
             if (activeCfg) linksDiv.innerHTML = activeCfg.linksHtml || '';
+
+            // Remove button for stacked card — removes active widget from stack
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'widget-remove-btn';
+            removeBtn.id = `stack-remove-${stack.id}`;
+            removeBtn.title = `Remove this widget`;
+            removeBtn.innerHTML = '✕ Remove';
+            removeBtn.onclick = () => {
+                const curActive = stack.active || enabledWidgets[0];
+                updateWidgetSetting(curActive, false);
+            };
+            linksDiv.appendChild(removeBtn);
             header.appendChild(linksDiv);
 
             card.appendChild(header);
@@ -2918,6 +2964,16 @@
             linksDiv.style.alignItems = 'center';
             linksDiv.style.gap = '10px';
             linksDiv.innerHTML = cfg.linksHtml || '';
+
+            // Remove button (only visible in edit mode via CSS)
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'widget-remove-btn';
+            removeBtn.title = `Remove ${cfg.title} widget`;
+            removeBtn.innerHTML = '✕ Remove';
+            removeBtn.onclick = () => updateWidgetSetting(wId, false);
+            linksDiv.appendChild(removeBtn);
+
             header.appendChild(linksDiv);
 
             card.appendChild(header);
@@ -3659,7 +3715,8 @@
                 }
 
                 // ─── Widget Access Control ───
-                // Hide widget toggle rows and force-disable widgets the user can't access
+                // Hide widget toggle rows and force-disable widgets the user can't access.
+                // This runs AFTER fetchDashboardLayout so it always overrides any cached layout.
                 const allowedWidgets = Array.isArray(u.allowed_widgets) ? u.allowed_widgets : null;
                 if (allowedWidgets) {
                     const widgetToggleMap = {
@@ -3667,23 +3724,40 @@
                         'jdownloader': 'toggle-widget-jd',
                         'manga_shelf': 'toggle-widget-manga',
                     };
+                    let restrictedAny = false;
                     Object.entries(widgetToggleMap).forEach(([widgetId, toggleId]) => {
                         if (!allowedWidgets.includes(widgetId)) {
+                            restrictedAny = true;
                             // Hide the toggle row in the widget settings modal
                             const toggleEl = document.getElementById(toggleId);
                             if (toggleEl) {
                                 const row = toggleEl.closest('label');
                                 if (row) row.style.display = 'none';
                             }
-                            // Also force the widget off in the current layout so it won't render
-                            if (CURRENT_LAYOUT.widgets && CURRENT_LAYOUT.widgets[widgetId]) {
-                                CURRENT_LAYOUT.widgets[widgetId].enabled = false;
-                            }
+                            // Force the widget off in the current layout (create entry if missing)
+                            if (!CURRENT_LAYOUT.widgets) CURRENT_LAYOUT.widgets = {};
+                            CURRENT_LAYOUT.widgets[widgetId] = { enabled: false };
                         }
                     });
-                    // Re-apply visibility after access control is enforced
-                    if (typeof applyWidgetVisibility === 'function') {
-                        applyWidgetVisibility();
+                    if (restrictedAny) {
+                        // Also purge the localStorage cache so restricted widgets don't reappear
+                        // on the next page load if the network fetch fails
+                        try {
+                            const cached = localStorage.getItem('tinarchy_dashboard_layout');
+                            if (cached) {
+                                const parsed = JSON.parse(cached);
+                                Object.entries(widgetToggleMap).forEach(([widgetId]) => {
+                                    if (!allowedWidgets.includes(widgetId)) {
+                                        if (parsed.widgets) parsed.widgets[widgetId] = { enabled: false };
+                                    }
+                                });
+                                localStorage.setItem('tinarchy_dashboard_layout', JSON.stringify(parsed));
+                            }
+                        } catch (_) {}
+                        // Re-apply layout visibility with restrictions applied
+                        if (typeof applyWidgetVisibility === 'function') {
+                            applyWidgetVisibility();
+                        }
                     }
                 }
             } catch(e) {}

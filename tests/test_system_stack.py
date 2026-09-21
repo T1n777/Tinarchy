@@ -722,7 +722,7 @@ def test_suwayomi_tabbed_widget():
             first_manga_id = data["library"][0]["id"]
             q_cat = json.dumps({"query": f"{{ manga(id: {first_manga_id}) {{ categories {{ nodes {{ name }} }} }} }}"}).encode("utf-8")
             cat_data = None
-            for p, path in [(4566, "/api/graphql"), (4567, "/api/graphql")]:
+            for p, path in [(4567, "/manga/api/graphql"), (4567, "/api/graphql"), (4566, "/api/graphql"), (8080, "/manga/api/graphql")]:
                 try:
                     r_test = urllib.request.Request(f"http://127.0.0.1:{p}{path}", data=q_cat, headers={"Content-Type": "application/json"})
                     with urllib.request.urlopen(r_test, timeout=2.0) as resp_test:

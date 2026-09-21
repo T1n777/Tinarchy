@@ -617,6 +617,9 @@
                 <button class="tab-btn" onclick="switchTab('appearance', this)">
                     <span>🎨</span> Appearance
                 </button>
+                <button class="tab-btn" id="tab-btn-layout" onclick="switchTab('layout', this)">
+                    <span>📐</span> Layout & Widgets
+                </button>
                 <button class="tab-btn" id="tab-btn-reports" onclick="switchTab('reports', this)">
                     <span>📊</span> Reports
                 </button>
@@ -975,6 +978,65 @@
                         <pre id="rep-raw-governor" style="margin-top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.4; color: var(--text); background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre;">--</pre>
                     </details>
                 </div>
+
+                <!-- 📐 Dashboard Layout & Widgets Tab -->
+                <div id="tab-layout" class="tab-pane">
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 0;">
+                        <span>Dashboard Layout & Widgets</span>
+                        <button class="btn" id="btn-save-layout-settings" onclick="saveLayoutSettingsFromUI()" style="font-size: 0.75rem; padding: 5px 14px; background: var(--primary); color: #000; font-weight: 700;">💾 Save Layout</button>
+                    </div>
+                    <p class="section-sub">Add or remove widgets, toggle live telemetry, and configure widget stacking for the server dashboard. (Note: Non-admin users only see widgets for services they are granted access to in Site Access).</p>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; margin-top: 20px;">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: var(--text);">
+                            <span>Dashboard Widgets</span>
+                            <span style="font-size: 0.74rem; color: var(--text-muted); font-weight: 400; margin-left: 6px;">(Add or remove from dashboard)</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="btn" style="font-size: 0.7rem; padding: 4px 10px;" onclick="setAllWidgetsInSettings(true)">+ Add All</button>
+                            <button type="button" class="btn" style="font-size: 0.7rem; padding: 4px 10px;" onclick="setAllWidgetsInSettings(false)">✕ Remove All</button>
+                        </div>
+                    </div>
+
+                    <div id="layout-widgets-catalog" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                        <div style="color: var(--text-muted); font-size: 0.85rem;">Loading widget layout…</div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <!-- Widget Stacking & Combination -->
+                    <div class="section-header">Widget Stacking & Groups</div>
+                    <p class="section-sub">Combine compatible download clients into a single dashboard card with tabs and slider navigation. (Suwayomi Manga Shelf features built-in internal Reading, History, and Updates tabs and stays standalone).</p>
+
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 6px 14px;" onclick="applySettingsStackPreset('transfers')">⚡ Stack Transfers (qBit + JD)</button>
+                        <button type="button" class="btn" style="font-size: 0.75rem; padding: 6px 14px;" onclick="applySettingsStackPreset('none')">🔲 Separate (Unstack All)</button>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.25); padding: 14px; border-radius: 10px; border: 1px solid var(--glass-border); margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 0.85rem; font-weight: 600;">🧲 qBittorrent Transfers</span>
+                            <select id="setting-stack-qbittorrent" class="select-field" style="width: auto; padding: 4px 10px; font-size: 0.8rem;" onchange="updateSettingsStack('qbittorrent', this.value)">
+                                <option value="">Standalone (Unstacked)</option>
+                                <option value="transfers">Stack: Transfers (qBit + JD)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 0.85rem; font-weight: 600;">📥 JDownloader Transfers</span>
+                            <select id="setting-stack-jdownloader" class="select-field" style="width: auto; padding: 4px 10px; font-size: 0.8rem;" onchange="updateSettingsStack('jdownloader', this.value)">
+                                <option value="">Standalone (Unstacked)</option>
+                                <option value="transfers">Stack: Transfers (qBit + JD)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
+
+                    <!-- Reset Layout Section -->
+                    <div class="section-header" style="color: #ffb4ab;">Reset Dashboard Layout</div>
+                    <p class="section-sub">Reset all widget visibility, stacking configurations, and card ordering back to server defaults.</p>
+                    <button type="button" class="btn" style="color: #ffb4ab; border-color: rgba(239, 68, 68, 0.4); font-size: 0.78rem; padding: 6px 14px;" onclick="resetDashboardLayoutFromSettings()">↺ Reset to Factory Defaults</button>
+                </div>
             </main>
         </div>
     </div>
@@ -993,14 +1055,212 @@
         function switchTab(name, btn) {
             document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + name).classList.add('active');
+            const targetPane = document.getElementById('tab-' + name);
+            if (targetPane) targetPane.classList.add('active');
             if (btn) btn.classList.add('active');
             if (name === 'reports') {
                 if (!currentDailyReportData) {
                     fetchDailyReport(false);
                 }
+            } else if (name === 'layout') {
+                loadLayoutSettings();
             }
         }
+
+        // ─── Dashboard Layout & Widgets Management ───
+        let SETTINGS_LAYOUT_DATA = null;
+        const SETTINGS_WIDGET_DEFS = {
+            qbittorrent: {
+                id: 'qbittorrent',
+                name: 'qBittorrent Active Transfers',
+                icon: '🧲',
+                desc: 'Real-time download/upload transfer throughput, DHT nodes, and active torrent tracker metrics.',
+                serviceReq: 'qbittorrent'
+            },
+            jdownloader: {
+                id: 'jdownloader',
+                name: 'JDownloader Active Transfers',
+                icon: '📥',
+                desc: 'Live package downloads, bandwidth speed gauge, and remote HTTP/HTTPS/magnet link submitter.',
+                serviceReq: 'jdownloader'
+            },
+            manga_shelf: {
+                id: 'manga_shelf',
+                name: 'Suwayomi Manga Shelf',
+                icon: '📚',
+                desc: 'Interactive manhwa cover shelf with built-in Reading shelf, History log, and Updates carousel.',
+                serviceReq: 'suwayomi'
+            },
+            stats_bar: {
+                id: 'stats_bar',
+                name: 'Real-Time System Stats Bar',
+                icon: '📊',
+                desc: 'Real-time CPU, RAM, Disk, System Uptime, and Temperature telemetry stream across the dashboard.',
+                serviceReq: null
+            },
+            tor_exit: {
+                id: 'tor_exit',
+                name: 'Tor Exit Node Banner',
+                icon: '🧅',
+                desc: 'Tor circuit status, active Tor circuit toggle, and IP leak testing exit banner.',
+                serviceReq: 'tor'
+            }
+        };
+
+        async function loadLayoutSettings() {
+            try {
+                const res = await fetch('/api/dashboard/layout');
+                if (!res.ok) throw new Error('Failed to fetch layout');
+                SETTINGS_LAYOUT_DATA = await res.json();
+                renderLayoutSettingsUI();
+            } catch(e) {
+                console.error('Error loading layout settings:', e);
+                showToast('Error loading layout settings: ' + e.message, 'error');
+            }
+        }
+
+        function renderLayoutSettingsUI() {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            const container = document.getElementById('layout-widgets-catalog');
+            if (!container) return;
+
+            const wConfig = SETTINGS_LAYOUT_DATA.widgets || {};
+            const stacks = Array.isArray(SETTINGS_LAYOUT_DATA.widget_stacks) ? SETTINGS_LAYOUT_DATA.widget_stacks : [];
+
+            let html = '';
+            Object.entries(SETTINGS_WIDGET_DEFS).forEach(([wId, def]) => {
+                const isEnabled = wConfig[wId]?.enabled !== false;
+                const statusBadge = isEnabled
+                    ? `<span style="font-size:0.7rem; color:var(--online); background:rgba(74,222,128,0.12); padding:2px 8px; border-radius:6px; font-weight:700;">Active (Added)</span>`
+                    : `<span style="font-size:0.7rem; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-weight:600;">Removed (Hidden)</span>`;
+
+                const actionBtn = isEnabled
+                    ? `<button type="button" class="btn" style="font-size:0.74rem; padding:4px 10px; color:#ffb4ab; border-color:rgba(239,68,68,0.35);" onclick="toggleSettingsWidget('${wId}', false)">✕ Remove</button>`
+                    : `<button type="button" class="btn" style="font-size:0.74rem; padding:4px 10px; color:var(--primary); border-color:var(--primary);" onclick="toggleSettingsWidget('${wId}', true)">+ Add Widget</button>`;
+
+                const permNote = def.serviceReq
+                    ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px;">🔒 Governed by <code>${def.serviceReq}</code> site access permission for guest/viewer accounts.</div>`
+                    : '';
+
+                html += `
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid ${isEnabled ? 'rgba(105,180,195,0.25)' : 'rgba(255,255,255,0.06)'}; gap:14px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:flex-start; gap:12px; flex:1; min-width:260px;">
+                            <span style="font-size:1.4rem; line-height:1.2;">${def.icon}</span>
+                            <div>
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <strong style="font-size:0.88rem; color:var(--text);">${def.name}</strong>
+                                    ${statusBadge}
+                                </div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; line-height:1.3;">${def.desc}</div>
+                                ${permNote}
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${actionBtn}
+                            <label style="display:inline-flex; align-items:center; cursor:pointer; margin:0;">
+                                <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleSettingsWidget('${wId}', this.checked)" style="accent-color:var(--primary); width:18px; height:18px; cursor:pointer;">
+                            </label>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+
+            const qbitSel = document.getElementById('setting-stack-qbittorrent');
+            const jdSel = document.getElementById('setting-stack-jdownloader');
+            const transferStack = stacks.find(s => s.id === 'transfers');
+            const inStack = (wid) => transferStack && Array.isArray(transferStack.widgets) && transferStack.widgets.includes(wid);
+            if (qbitSel) qbitSel.value = inStack('qbittorrent') ? 'transfers' : '';
+            if (jdSel) jdSel.value = inStack('jdownloader') ? 'transfers' : '';
+        }
+
+        async function toggleSettingsWidget(widgetId, isEnabled) {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            if (!SETTINGS_LAYOUT_DATA.widgets) SETTINGS_LAYOUT_DATA.widgets = {};
+            SETTINGS_LAYOUT_DATA.widgets[widgetId] = { enabled: isEnabled };
+            renderLayoutSettingsUI();
+            await saveLayoutSettingsFromUI();
+        }
+
+        async function setAllWidgetsInSettings(enableAll) {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            if (!SETTINGS_LAYOUT_DATA.widgets) SETTINGS_LAYOUT_DATA.widgets = {};
+            Object.keys(SETTINGS_WIDGET_DEFS).forEach(wid => {
+                SETTINGS_LAYOUT_DATA.widgets[wid] = { enabled: enableAll };
+            });
+            renderLayoutSettingsUI();
+            await saveLayoutSettingsFromUI();
+        }
+
+        async function updateSettingsStack(widgetId, stackId) {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            if (!Array.isArray(SETTINGS_LAYOUT_DATA.widget_stacks)) {
+                SETTINGS_LAYOUT_DATA.widget_stacks = [];
+            }
+            let transferStack = SETTINGS_LAYOUT_DATA.widget_stacks.find(s => s.id === 'transfers');
+            if (!transferStack) {
+                transferStack = { id: 'transfers', name: 'Transfers', widgets: [], active: widgetId };
+                SETTINGS_LAYOUT_DATA.widget_stacks.push(transferStack);
+            }
+            if (stackId === 'transfers') {
+                if (!transferStack.widgets.includes(widgetId)) {
+                    transferStack.widgets.push(widgetId);
+                }
+            } else {
+                transferStack.widgets = transferStack.widgets.filter(w => w !== widgetId);
+            }
+            renderLayoutSettingsUI();
+            await saveLayoutSettingsFromUI();
+        }
+
+        async function applySettingsStackPreset(preset) {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            if (preset === 'transfers') {
+                SETTINGS_LAYOUT_DATA.widget_stacks = [
+                    { id: 'transfers', name: 'Transfers', widgets: ['qbittorrent', 'jdownloader'], active: 'qbittorrent' }
+                ];
+            } else {
+                SETTINGS_LAYOUT_DATA.widget_stacks = [];
+            }
+            renderLayoutSettingsUI();
+            await saveLayoutSettingsFromUI();
+        }
+
+        async function saveLayoutSettingsFromUI() {
+            if (!SETTINGS_LAYOUT_DATA) return;
+            try {
+                const res = await fetch('/api/dashboard/layout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(SETTINGS_LAYOUT_DATA)
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to save layout');
+                }
+                showToast('Dashboard layout saved successfully', 'success');
+            } catch(e) {
+                showToast('Error saving layout: ' + e.message, 'error');
+            }
+        }
+
+        async function resetDashboardLayoutFromSettings() {
+            if (!confirm('Reset dashboard layout to system default?')) return;
+            try {
+                const res = await fetch('/api/dashboard/layout/reset', { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to reset layout');
+                }
+                const data = await res.json();
+                SETTINGS_LAYOUT_DATA = data.layout || data;
+                renderLayoutSettingsUI();
+                showToast('Dashboard layout reset to defaults', 'success');
+            } catch(e) {
+                showToast('Error resetting layout: ' + e.message, 'error');
+            }
+        }
+
 
         // ─── Daily System Report Logic ───
         let currentDailyReportData = null;

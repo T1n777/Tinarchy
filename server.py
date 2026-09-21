@@ -641,7 +641,27 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/dashboard/layout':
             from tinarchy import dashboard_layout
-            layout = dashboard_layout.load_dashboard_layout()
+            import copy
+            raw_layout = dashboard_layout.load_dashboard_layout()
+            layout = copy.deepcopy(raw_layout)
+            role = session.get('role', 'viewer')
+            if role not in ['owner', 'admin']:
+                login_name = session.get('login_name', '')
+                allowed_svcs = auth.get_user_allowed_services(login_name, role)
+                _widget_svc_map = {
+                    'qbittorrent': 'qbittorrent',
+                    'jdownloader': 'jdownloader',
+                    'manga_shelf': 'suwayomi',
+                }
+                if 'widgets' in layout and isinstance(layout['widgets'], dict):
+                    for wid, svc in _widget_svc_map.items():
+                        if svc not in allowed_svcs and wid in layout['widgets']:
+                            layout['widgets'][wid]['enabled'] = False
+                if 'widget_stacks' in layout and isinstance(layout['widget_stacks'], list):
+                    for st in layout['widget_stacks']:
+                        if 'widgets' in st and isinstance(st['widgets'], list):
+                            st['widgets'] = [w for w in st['widgets'] if _widget_svc_map.get(w, '') in allowed_svcs or w not in _widget_svc_map]
+                    layout['widget_stacks'] = [st for st in layout['widget_stacks'] if st.get('widgets')]
             self.send_compressed(json.dumps(layout).encode(), "application/json")
 
         elif self.path == '/api/widgets/qbittorrent':
