@@ -137,8 +137,9 @@
         style.id = 'suwayomi-vault-styles';
         style.textContent = `
             /* Stealth hiding of private tab */
-            body:not(.vault-unlocked) button[role="tab"]:has(span:is(:empty, :contains("_"))),
-            body:not(.vault-unlocked) button[role="tab"][data-category-name="_"] {
+            body:not(.vault-unlocked) button[role="tab"][data-category-name="_"],
+            body:not(.vault-unlocked) button[role="tab"][data-category-name="private"],
+            body:not(.vault-unlocked) button[role="tab"][data-category-name="hidden"] {
                 display: none !important;
             }
 
@@ -267,21 +268,26 @@
     function setupMutationObserver() {
         if (isVaultUnlocked()) return;
 
-        const observer = new MutationObserver(() => {
+        function scanTabs() {
             if (isVaultUnlocked()) return;
             const tabs = document.querySelectorAll('button[role="tab"]');
             tabs.forEach(tab => {
-                const text = tab.textContent.trim();
-                if (text === '_' || text.toLowerCase() === 'private') {
+                const text = tab.textContent.trim().toLowerCase();
+                if (text === '_' || text === 'private' || text === 'hidden') {
                     tab.style.display = 'none';
+                    tab.setAttribute('data-category-name', text);
                 }
             });
-        });
+        }
+
+        scanTabs();
+        const observer = new MutationObserver(scanTabs);
 
         if (document.body) {
             observer.observe(document.body, { childList: true, subtree: true });
         } else {
             document.addEventListener('DOMContentLoaded', () => {
+                scanTabs();
                 observer.observe(document.body, { childList: true, subtree: true });
             });
         }

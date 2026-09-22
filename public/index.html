@@ -2693,17 +2693,22 @@
             headerLeft.style.display = 'flex';
             headerLeft.style.alignItems = 'center';
             headerLeft.style.gap = '8px';
-            headerLeft.style.flexWrap = 'wrap';
+            headerLeft.style.flex = '1';
+            headerLeft.style.minWidth = '0';
+            headerLeft.style.overflow = 'hidden';
 
             const dragHandle = document.createElement('span');
             dragHandle.className = 'widget-drag-handle';
             dragHandle.title = 'Drag to reorder widget';
             dragHandle.textContent = '⋮⋮';
+            dragHandle.style.flexShrink = '0';
             headerLeft.appendChild(dragHandle);
 
             const pillsWrap = document.createElement('div');
             pillsWrap.className = 'widget-stack-pills';
             pillsWrap.id = 'suwayomi-tabs';
+            pillsWrap.style.flexShrink = '1';
+            pillsWrap.style.minWidth = '0';
 
             const tabs = [
                 { id: 'library', title: 'Reading', icon: '📚', elementId: 'tab-manga-library' },
@@ -2728,18 +2733,28 @@
             cycleBtn.className = 'stack-cycle-btn';
             cycleBtn.title = 'Cycle shelf: Reading → History → Updates';
             cycleBtn.textContent = '⇄';
+            cycleBtn.style.flexShrink = '0';
             cycleBtn.onclick = () => cycleSuwayomiActiveTab();
             headerLeft.appendChild(cycleBtn);
 
             header.appendChild(headerLeft);
 
+            // Right side: link anchor (updated by updateSuwayomiHeaderLink) + persistent remove btn
             const linksDiv = document.createElement('div');
             linksDiv.id = 'suwayomi-header-link';
             linksDiv.style.display = 'flex';
             linksDiv.style.alignItems = 'center';
             linksDiv.style.gap = '10px';
+            linksDiv.style.flexShrink = '0';
 
-            // Remove button (only visible in edit mode)
+            // Dedicated anchor element — updateSuwayomiHeaderLink will update ONLY this
+            const headerAnchor = document.createElement('a');
+            headerAnchor.id = 'suwayomi-header-anchor';
+            headerAnchor.target = '_blank';
+            headerAnchor.className = 'widget-link';
+            linksDiv.appendChild(headerAnchor);
+
+            // Remove button (only visible in edit mode via CSS)
             const removeSuwaBtn = document.createElement('button');
             removeSuwaBtn.type = 'button';
             removeSuwaBtn.className = 'widget-remove-btn';
@@ -2790,14 +2805,22 @@
         }
 
         function updateSuwayomiHeaderLink() {
-            const linkDiv = document.getElementById('suwayomi-header-link');
-            if (!linkDiv) return;
+            // Update the dedicated anchor element only — do NOT replace innerHTML of the
+            // entire linksDiv, which would destroy persistent children (e.g. remove button).
+            const anchor = document.getElementById('suwayomi-header-anchor');
+            if (!anchor) return;
             if (SUWAYOMI_ACTIVE_TAB === 'history') {
-                linkDiv.innerHTML = '<a href="/manga/history" target="_blank" class="widget-link" title="Open Suwayomi History">History ↗</a>';
+                anchor.href = '/manga/history';
+                anchor.title = 'Open Suwayomi History';
+                anchor.textContent = 'History ↗';
             } else if (SUWAYOMI_ACTIVE_TAB === 'updates') {
-                linkDiv.innerHTML = '<a href="/manga/updates" target="_blank" class="widget-link" title="Open Suwayomi Updates">Updates ↗</a>';
+                anchor.href = '/manga/updates';
+                anchor.title = 'Open Suwayomi Updates';
+                anchor.textContent = 'Updates ↗';
             } else {
-                linkDiv.innerHTML = '<a href="/manga" target="_blank" class="widget-link" title="Open Suwayomi Library (Reading)">Reading ↗</a>';
+                anchor.href = '/manga';
+                anchor.title = 'Open Suwayomi Library (Reading)';
+                anchor.textContent = 'Reading ↗';
             }
         }
 
@@ -2899,8 +2922,11 @@
             linksDiv.style.display = 'flex';
             linksDiv.style.alignItems = 'center';
             linksDiv.style.gap = '10px';
+            const linksSlot = document.createElement('span');
+            linksSlot.id = `stack-links-slot-${stack.id}`;
             const activeCfg = STACKABLE_WIDGETS[activeWid];
-            if (activeCfg) linksDiv.innerHTML = activeCfg.linksHtml || '';
+            if (activeCfg) linksSlot.innerHTML = activeCfg.linksHtml || '';
+            linksDiv.appendChild(linksSlot);
 
             // Remove button for stacked card — removes active widget from stack
             const removeBtn = document.createElement('button');
@@ -3010,9 +3036,9 @@
                 pane.classList.toggle('active', pWid === widgetId);
             });
 
-            const linksContainer = document.getElementById(`stack-links-${stackId}`);
-            if (linksContainer && STACKABLE_WIDGETS[widgetId]) {
-                linksContainer.innerHTML = STACKABLE_WIDGETS[widgetId].linksHtml || '';
+            const linksSlot = document.getElementById(`stack-links-slot-${stackId}`);
+            if (linksSlot && STACKABLE_WIDGETS[widgetId]) {
+                linksSlot.innerHTML = STACKABLE_WIDGETS[widgetId].linksHtml || '';
             }
         }
 
