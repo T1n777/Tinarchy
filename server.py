@@ -78,8 +78,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         if hasattr(self, 'path'):
             clean_p = self.path.split('?')[0].split('#')[0]
-            if clean_p in ['/', '/index.html', '/settings', '/settings.html', '/sw.js', '/install.sh', '/install', '/bootstrap.sh', '/bootstrap']:
-                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            if clean_p in ['/', '/index.html', '/settings', '/settings.html', '/sw.js', '/install.sh', '/install', '/bootstrap.sh', '/bootstrap', '/suwayomi-vault.js']:
+                self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+                self.send_header('Pragma', 'no-cache')
+                self.send_header('Expires', '0')
                 if clean_p == '/sw.js':
                     self.send_header('Service-Worker-Allowed', '/')
             elif (
