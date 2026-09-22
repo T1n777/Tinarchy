@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+start)
+    ipset create tailnet-peers hash:ip -exist
+    ;;
+stop)
+    ;;
+status)
+    ;;
+flush-all)
+    ;;
+*)
+    echo " not supported"
+    echo "Usage: before.init {start|stop|flush-all|status}"
+    ;;
+esac

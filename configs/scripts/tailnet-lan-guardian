@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""
+Tailnet LAN Guardian (Event-Driven + Proactive Disco)
+Streams peer connection events from Tailscale local Unix domain socket
+(watch-ipn-bus) and updates in-kernel ipset ("tailnet-peers") instantly with zero polling.
+Includes non-blocking proactive Disco probing for newly connected online peers.
+"""
+
+import http.client
+import json
+import socket
+import subprocess
+import sys
+import time
+
+SOCKET_PATH = "/run/tailscale/tailscaled.sock"
+IPSET_NAME = "tailnet-peers"
+
+class UnixHTTPConnection(http.client.HTTPConnection):
+    def __init__(self, socket_path):
+        super().__init__("local-tailscaled.sock")
+        self.socket_path = socket_path
+
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.connect(self.socket_path)
+
+def ensure_ipset():
+    res = subprocess.run(["ipset", "list", IPSET_NAME], capture_output=True, text=True)
+    if res.returncode != 0:
+        subprocess.run(["ipset", "create", IPSET_NAME, "hash:ip"], check=False)
+
+def get_current_tailnet_status():
+    try:
+        conn = UnixHTTPConnection(SOCKET_PATH)
+        conn.request("GET", "/localapi/v0/status")
+        res = conn.getresponse()
+        if res.status != 200:
+            return {}
+        return json.loads(res.read().decode("utf-8"))
+    except Exception:
+        return {}
+
+def extract_lan_ips_and_probe_unresolved(data):
+    lan_ips = set()
+    peers = data.get("Peer", {})
+
+    for peer in peers.values():
+        cur_addr = peer.get("CurAddr", "")
+        if cur_addr and ":" in cur_addr:
+            ip = cur_addr.split(":")[0]
+            if ip.startswith("10.") or ip.startswith("192.168."):
+                lan_ips.add(ip)
+            elif ip.startswith("172."):
+                parts = ip.split(".")
+                if len(parts) > 1 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
+                    lan_ips.add(ip)
+        elif peer.get("Online") and not cur_addr:
+            # Proactive Disco probe: device is online but CurAddr not yet established.
+            # Trigger 1-packet background ping to resolve physical LAN IP via port 41641/udp.
+            ts_ips = peer.get("TailscaleIPs", [])
+            if ts_ips:
+                subprocess.Popen(
+                    ["tailscale", "ping", "--c", "1", "--timeout", "1s", "--until-direct=true", ts_ips[0]],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+    return lan_ips
+
+def get_existing_ipset_ips():
+    res = subprocess.run(["ipset", "list", IPSET_NAME], capture_output=True, text=True)
+    if res.returncode != 0:
+        return set()
+    ips = set()
+    in_members = False
+    for line in res.stdout.splitlines():
+        if line.startswith("Members:"):
+            in_members = True
+            continue
+        if in_members and line.strip():
+            ips.add(line.strip())
+    return ips
+
+def sync_ips():
+    ensure_ipset()
+    data = get_current_tailnet_status()
+    current_lan_ips = extract_lan_ips_and_probe_unresolved(data)
+    existing_ips = get_existing_ipset_ips()
+
+    for ip in (current_lan_ips - existing_ips):
+        subprocess.run(["ipset", "add", IPSET_NAME, ip, "-exist"], check=False)
+
+    for ip in (existing_ips - current_lan_ips):
+        subprocess.run(["ipset", "del", IPSET_NAME, ip, "-exist"], check=False)
+
+def event_listener():
+    """Listens to Tailscale IPN bus for peer events."""
+    ensure_ipset()
+    sync_ips()  # Initial state sync
+
+    while True:
+        try:
+            conn = UnixHTTPConnection(SOCKET_PATH)
+            # mask=1 requests engine/peer status updates
+            conn.request("GET", "/localapi/v0/watch-ipn-bus?mask=1")
+            resp = conn.getresponse()
+
+            if resp.status != 200:
+                time.sleep(10)
+                continue
+
+            while True:
+                line = resp.readline()
+                if not line:
+                    break  # Socket closed, reconnect
+                sync_ips()
+
+        except Exception:
+            time.sleep(5)
+
+def main():
+    if "--once" in sys.argv:
+        ensure_ipset()
+        sync_ips()
+        return
+    event_listener()
+
+if __name__ == "__main__":
+    main()

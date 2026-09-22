@@ -1,0 +1,14 @@
+[Unit]
+Description=Tailnet LAN Guardian - Dynamic IPSet Whitelist for Tailscale Peers
+After=network.target tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/tailnet-lan-guardian
+Restart=always
+RestartSec=5
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
