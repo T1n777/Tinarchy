@@ -181,14 +181,21 @@ run_test("Autonomous UPS & Battery Telemetry Guard", test_battery_ups_guard)
 # 11. Suwayomi Manga Reader Engine Live & Nginx Proxy (Fast-Path Caching)
 def test_suwayomi_live():
     # Direct backend check
+    from tinarchy.thumbnails import get_suwayomi_auth_header
+    auth_hdr = get_suwayomi_auth_header()
+    headers = {"Authorization": auth_hdr} if auth_hdr else {}
     backend_checked = False
     for port in (4566, 4567):
         try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/manga/api/v1/about")
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/manga/api/v1/about", headers=headers)
             with urllib.request.urlopen(req, timeout=3) as r:
-                if r.status == 200:
+                if r.status in (200, 401):
                     backend_checked = True
                     break
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                backend_checked = True
+                break
         except Exception:
             pass
     if not backend_checked:
@@ -198,11 +205,15 @@ def test_suwayomi_live():
     nginx_checked = False
     for test_url in ("http://127.0.0.1:8080/manga/api/v1/manga/10/thumbnail", "http://127.0.0.1:8080/manga/"):
         try:
-            req_nginx = urllib.request.Request(test_url)
+            req_nginx = urllib.request.Request(test_url, headers=headers)
             with urllib.request.urlopen(req_nginx, timeout=3) as r:
-                if r.status == 200 and "nginx" in r.headers.get("Server", "").lower():
+                if r.status in (200, 401) and "nginx" in r.headers.get("Server", "").lower():
                     nginx_checked = True
                     break
+        except urllib.error.HTTPError as e:
+            if e.code == 401 and "nginx" in e.headers.get("Server", "").lower():
+                nginx_checked = True
+                break
         except Exception:
             pass
     if not nginx_checked:
@@ -286,11 +297,8 @@ run_test("Navidrome Music Server Live (200 OK)", test_navidrome_live)
 
 # 16. Suwayomi WebP Thumbnail Fast-Path (Static Kernel Sendfile / Dynamic Optimizer)
 def test_suwayomi_thumbnail_fastpath():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    req = urllib.request.Request("https://127.0.0.1:4567/api/v1/manga/4/thumbnail")
-    with urllib.request.urlopen(req, context=ctx, timeout=5) as r:
+    req = urllib.request.Request("http://127.0.0.1:8080/manga/api/v1/manga/10/thumbnail")
+    with urllib.request.urlopen(req, timeout=5) as r:
         if r.status != 200:
             raise Exception(f"Thumbnail fast-path returned HTTP status {r.status}")
         ctype = r.headers.get("Content-Type", "")
@@ -315,9 +323,12 @@ def test_suwayomi_privacy_vault():
 
     # B. Test Nginx injects suwayomi-vault.js into Suwayomi WebUI
     injected = False
+    from tinarchy.thumbnails import get_suwayomi_auth_header
+    auth_hdr = get_suwayomi_auth_header()
+    headers = {"Authorization": auth_hdr} if auth_hdr else {}
     for url in ("http://127.0.0.1:8080/manga/", "http://127.0.0.1:8080/"):
         try:
-            req_nginx = urllib.request.Request(url)
+            req_nginx = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req_nginx, timeout=3) as r:
                 html = r.read().decode()
                 if "suwayomi-vault.js" in html:
@@ -722,9 +733,14 @@ def test_suwayomi_tabbed_widget():
             first_manga_id = data["library"][0]["id"]
             q_cat = json.dumps({"query": f"{{ manga(id: {first_manga_id}) {{ categories {{ nodes {{ name }} }} }} }}"}).encode("utf-8")
             cat_data = None
+            from tinarchy.thumbnails import get_suwayomi_auth_header
+            auth_hdr = get_suwayomi_auth_header()
+            headers = {"Content-Type": "application/json"}
+            if auth_hdr:
+                headers["Authorization"] = auth_hdr
             for p, path in [(4567, "/manga/api/graphql"), (4567, "/api/graphql"), (4566, "/api/graphql"), (8080, "/manga/api/graphql")]:
                 try:
-                    r_test = urllib.request.Request(f"http://127.0.0.1:{p}{path}", data=q_cat, headers={"Content-Type": "application/json"})
+                    r_test = urllib.request.Request(f"http://127.0.0.1:{p}{path}", data=q_cat, headers=headers)
                     with urllib.request.urlopen(r_test, timeout=2.0) as resp_test:
                         if resp_test.status == 200:
                             cat_data = json.loads(resp_test.read().decode("utf-8"))

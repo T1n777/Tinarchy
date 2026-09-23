@@ -24,6 +24,15 @@ import urllib.error
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+try:
+    from tinarchy.thumbnails import get_suwayomi_auth_header
+except ImportError:
+    sys.path.append("/home/tin/server-dashboard")
+    try:
+        from tinarchy.thumbnails import get_suwayomi_auth_header
+    except Exception:
+        def get_suwayomi_auth_header(): return None
+
 OPTIMIZED_DIR = "/var/lib/suwayomi/cache/optimized_thumbnails"
 RAW_CACHE_DIRS = [
     "/var/lib/suwayomi/cache/Tachidesk/thumbnails",
@@ -74,10 +83,14 @@ def optimize_image_data(raw_data: bytes, target_width: int = 340, quality: int =
 def find_graphql_url() -> str:
     for url in GRAPHQL_CANDIDATES:
         try:
+            hdrs = {"Content-Type": "application/json"}
+            auth_hdr = get_suwayomi_auth_header()
+            if auth_hdr:
+                hdrs["Authorization"] = auth_hdr
             req = urllib.request.Request(
                 url,
                 data=json.dumps({"query": "{ mangas(filter: { inLibrary: { equalTo: true } }) { totalCount } }"}).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
+                headers=hdrs
             )
             with urllib.request.urlopen(req, timeout=3) as resp:
                 if resp.status == 200:
@@ -102,10 +115,14 @@ def get_mangas(graphql_url: str, library_only: bool = True) -> list:
       }
     }
     """ % filter_clause
+    hdrs = {"Content-Type": "application/json"}
+    auth_hdr = get_suwayomi_auth_header()
+    if auth_hdr:
+        hdrs["Authorization"] = auth_hdr
     req = urllib.request.Request(
         graphql_url,
         data=json.dumps({"query": query}).encode("utf-8"),
-        headers={"Content-Type": "application/json"}
+        headers=hdrs
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -131,10 +148,14 @@ def find_raw_cover(manga_id: int) -> bytes | None:
                     pass
 
     # Fetch from Suwayomi core
+    auth_hdr = get_suwayomi_auth_header()
+    req_hdrs = {"User-Agent": "Suwayomi-PreCacher/2.0"}
+    if auth_hdr:
+        req_hdrs["Authorization"] = auth_hdr
     for tmpl in SUWAYOMI_RAW_URLS:
         try:
             url = tmpl.format(id=manga_id)
-            req = urllib.request.Request(url, headers={"User-Agent": "Suwayomi-PreCacher/2.0"})
+            req = urllib.request.Request(url, headers=req_hdrs)
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     data = resp.read()

@@ -17,7 +17,7 @@ import traceback
 
 # ─── Modular Tinarchy Core Imports ───
 import pywal_generator
-from tinarchy import config, telemetry, services, auth, syncthing, reports
+from tinarchy import config, telemetry, services, auth, syncthing, reports, thumbnails
 from tinarchy.sse import sse_broker
 
 # ─── Backward-Compatibility Re-Exports ───
@@ -753,9 +753,13 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     }
                 }"""
             }).encode('utf-8')
+            auth_hdr = thumbnails.get_suwayomi_auth_header()
+            headers = {"Content-Type": "application/json"}
+            if auth_hdr:
+                headers["Authorization"] = auth_hdr
             for ep in gql_candidates:
                 try:
-                    req = urllib.request.Request(ep, data=gql_query, headers={"Content-Type": "application/json"})
+                    req = urllib.request.Request(ep, data=gql_query, headers=headers)
                     with urllib.request.urlopen(req, timeout=3.0) as resp:
                         if resp.status == 200:
                             data = json.loads(resp.read().decode())

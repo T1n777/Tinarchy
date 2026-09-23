@@ -19,8 +19,40 @@ OPTIMIZED_DIR = "/var/lib/suwayomi/cache/optimized_thumbnails"
 RAW_CACHE_DIR = "/var/lib/suwayomi/cache/Tachidesk/thumbnails"
 import json
 import time
+import base64
 
 _PRIVATE_CACHE = {"ids": set(), "ts": 0}
+_SUWAYOMI_AUTH_CACHE = {"header": None, "ts": 0}
+
+def get_suwayomi_auth_header() -> str | None:
+    now = time.time()
+    if _SUWAYOMI_AUTH_CACHE["header"] and (now - _SUWAYOMI_AUTH_CACHE["ts"]) < 300:
+        return _SUWAYOMI_AUTH_CACHE["header"]
+    conf_path = "/var/lib/suwayomi/.local/share/Tachidesk/server.conf"
+    if not os.path.exists(conf_path):
+        return None
+    username, password, mode = "", "", ""
+    try:
+        with open(conf_path, "r", errors="ignore") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("server.authUsername"):
+                    username = line.split("=", 1)[1].split("#")[0].strip().strip("\"'")
+                elif line.startswith("server.authPassword"):
+                    password = line.split("=", 1)[1].split("#")[0].strip().strip("\"'")
+                elif line.startswith("server.authMode"):
+                    mode = line.split("=", 1)[1].split("#")[0].strip().strip("\"'")
+        if mode == "BASIC_AUTH" and username and password:
+            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+            hdr = f"Basic {token}"
+            _SUWAYOMI_AUTH_CACHE["header"] = hdr
+            _SUWAYOMI_AUTH_CACHE["ts"] = now
+            return hdr
+    except Exception:
+        pass
+    _SUWAYOMI_AUTH_CACHE["header"] = None
+    _SUWAYOMI_AUTH_CACHE["ts"] = now
+    return None
 
 GRAPHQL_CANDIDATES = [
     "http://127.0.0.1:4567/manga/api/graphql",
@@ -37,9 +69,13 @@ def get_private_manga_ids() -> set[int]:
     query = json.dumps({
         "query": "{ mangas(filter: { inLibrary: { equalTo: true } }, first: 100) { nodes { id categories { nodes { name } } } } }"
     }).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    auth_hdr = get_suwayomi_auth_header()
+    if auth_hdr:
+        headers["Authorization"] = auth_hdr
     for ep in GRAPHQL_CANDIDATES:
         try:
-            req = urllib.request.Request(ep, data=query, headers={"Content-Type": "application/json"})
+            req = urllib.request.Request(ep, data=query, headers=headers)
             with urllib.request.urlopen(req, timeout=2.0) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode())
@@ -143,6 +179,9 @@ def get_or_generate_thumbnail(manga_id: int, query_string: str = "") -> tuple[by
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
         }
+        auth_hdr = get_suwayomi_auth_header()
+        if auth_hdr:
+            headers["Authorization"] = auth_hdr
         for tmpl in SUWAYOMI_INTERNAL_URLS:
             try:
                 url = tmpl.format(manga_id=manga_id)
