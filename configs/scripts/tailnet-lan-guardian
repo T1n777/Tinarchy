@@ -15,6 +15,7 @@ import time
 
 SOCKET_PATH = "/run/tailscale/tailscaled.sock"
 IPSET_NAME = "tailnet-peers"
+_last_probed = {}
 
 class UnixHTTPConnection(http.client.HTTPConnection):
     def __init__(self, socket_path):
@@ -31,6 +32,7 @@ def ensure_ipset():
         subprocess.run(["ipset", "create", IPSET_NAME, "hash:ip"], check=False)
 
 def get_current_tailnet_status():
+    conn = None
     try:
         conn = UnixHTTPConnection(SOCKET_PATH)
         conn.request("GET", "/localapi/v0/status")
@@ -40,10 +42,14 @@ def get_current_tailnet_status():
         return json.loads(res.read().decode("utf-8"))
     except Exception:
         return {}
+    finally:
+        if conn:
+            conn.close()
 
 def extract_lan_ips_and_probe_unresolved(data):
     lan_ips = set()
     peers = data.get("Peer", {})
+    now = time.monotonic()
 
     for peer in peers.values():
         cur_addr = peer.get("CurAddr", "")
@@ -57,14 +63,17 @@ def extract_lan_ips_and_probe_unresolved(data):
                     lan_ips.add(ip)
         elif peer.get("Online") and not cur_addr:
             # Proactive Disco probe: device is online but CurAddr not yet established.
-            # Trigger 1-packet background ping to resolve physical LAN IP via port 41641/udp.
+            # Rate-limited to at most once per 15s per peer to eliminate process churn.
             ts_ips = peer.get("TailscaleIPs", [])
             if ts_ips:
-                subprocess.Popen(
-                    ["tailscale", "ping", "--c", "1", "--timeout", "1s", "--until-direct=true", ts_ips[0]],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+                target_ip = ts_ips[0]
+                if now - _last_probed.get(target_ip, 0) > 15:
+                    _last_probed[target_ip] = now
+                    subprocess.Popen(
+                        ["tailscale", "ping", "--c", "1", "--timeout", "1s", "--until-direct=true", target_ip],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
 
     return lan_ips
 
@@ -95,11 +104,12 @@ def sync_ips():
         subprocess.run(["ipset", "del", IPSET_NAME, ip, "-exist"], check=False)
 
 def event_listener():
-    """Listens to Tailscale IPN bus for peer events."""
+    """Listens to Tailscale IPN bus for peer events with debounced synchronization."""
     ensure_ipset()
     sync_ips()  # Initial state sync
 
     while True:
+        conn = None
         try:
             conn = UnixHTTPConnection(SOCKET_PATH)
             # mask=1 requests engine/peer status updates
@@ -107,17 +117,25 @@ def event_listener():
             resp = conn.getresponse()
 
             if resp.status != 200:
-                time.sleep(10)
+                time.sleep(5)
                 continue
 
+            last_sync = 0.0
             while True:
                 line = resp.readline()
                 if not line:
                     break  # Socket closed, reconnect
-                sync_ips()
+
+                now = time.monotonic()
+                if now - last_sync >= 0.5:
+                    sync_ips()
+                    last_sync = now
 
         except Exception:
             time.sleep(5)
+        finally:
+            if conn:
+                conn.close()
 
 def main():
     if "--once" in sys.argv:
