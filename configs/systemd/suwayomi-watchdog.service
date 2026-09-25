@@ -1,0 +1,14 @@
+[Unit]
+Description=Suwayomi Manga Download Auto-Retry Watchdog
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/tin/.local/bin/suwayomi-watchdog --daemon --cooldown 10 --delay 3 --interval 20
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
