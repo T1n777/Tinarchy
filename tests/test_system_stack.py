@@ -714,7 +714,7 @@ def test_suwayomi_tabbed_widget():
 
     # 4. Verify /api/widgets/manga returns history, updates, library, and mangas
     req = urllib.request.Request("http://127.0.0.1:8085/api/widgets/manga")
-    with urllib.request.urlopen(req, timeout=5.0) as resp:
+    with urllib.request.urlopen(req, timeout=8.0) as resp:
         if resp.status != 200:
             raise Exception(f"HTTP {resp.status} on /api/widgets/manga")
         data = json.loads(resp.read().decode("utf-8"))
@@ -741,7 +741,7 @@ def test_suwayomi_tabbed_widget():
             for p, path in [(4567, "/manga/api/graphql"), (4567, "/api/graphql"), (4566, "/api/graphql"), (8080, "/manga/api/graphql")]:
                 try:
                     r_test = urllib.request.Request(f"http://127.0.0.1:{p}{path}", data=q_cat, headers=headers)
-                    with urllib.request.urlopen(r_test, timeout=2.0) as resp_test:
+                    with urllib.request.urlopen(r_test, timeout=5.0) as resp_test:
                         if resp_test.status == 200:
                             cat_data = json.loads(resp_test.read().decode("utf-8"))
                             if "data" in cat_data:

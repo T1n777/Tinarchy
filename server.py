@@ -760,7 +760,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             for ep in gql_candidates:
                 try:
                     req = urllib.request.Request(ep, data=gql_query, headers=headers)
-                    with urllib.request.urlopen(req, timeout=3.0) as resp:
+                    with urllib.request.urlopen(req, timeout=8.0) as resp:
                         if resp.status == 200:
                             data = json.loads(resp.read().decode())
                             data_obj = data.get("data") or {}
