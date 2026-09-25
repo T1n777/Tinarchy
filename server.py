@@ -289,12 +289,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return self.serve_guide_page('syncthing.html')
 
         if clean_path in ['/api/suwayomi/sync', '/api/manga/sync']:
-            services.trigger_suwayomi_sync_async(force=True)
+            if services.is_syncyomi_active():
+                services.trigger_suwayomi_sync_async(force=True)
+                res_body = b'{"status": "ok"}'
+            else:
+                res_body = b'{"status": "skipped", "reason": "SyncYomi service is inactive"}'
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(b'{"status": "ok"}')
+            self.wfile.write(res_body)
             return True
 
         if clean_path in ['/syncyomi', '/manga-sync', '/guides/syncyomi', '/guides/syncyomi.html']:
@@ -1011,12 +1015,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path in ['/api/suwayomi/sync', '/api/manga/sync']:
-            services.trigger_suwayomi_sync_async(force=True)
+            if services.is_syncyomi_active():
+                services.trigger_suwayomi_sync_async(force=True)
+                res_body = b'{"status": "ok"}'
+            else:
+                res_body = b'{"status": "skipped", "reason": "SyncYomi service is inactive"}'
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(b'{"status": "ok"}')
+            self.wfile.write(res_body)
             return
 
         content_length = int(self.headers.get('Content-Length', 0))

@@ -23,6 +23,25 @@ CATEGORIES = [
 def get_categories():
     return CATEGORIES
 
+def _is_unit_present(unit_name: str) -> bool:
+    """Check if a systemd unit file exists on the system."""
+    for base in ['/etc/systemd/system', '/usr/lib/systemd/system', '/lib/systemd/system']:
+        if os.path.exists(os.path.join(base, unit_name)):
+            return True
+        if '@' in unit_name:
+            template = unit_name.split('@')[0] + '@.service'
+            if os.path.exists(os.path.join(base, template)):
+                return True
+    return False
+
+def _resolve_service_toggle(env_var: str, default: str, unit_name: str) -> bool:
+    val = os.environ.get(env_var, default).strip().lower()
+    if val in ('true', '1', 'yes'):
+        return True
+    if val in ('false', '0', 'no'):
+        return False
+    return _is_unit_present(unit_name)
+
 SERVICES = []
 if ENABLE_SUWAYOMI:
     SERVICES.append({'id': 'suwayomi', 'name': 'Suwayomi Server', 'port': int(os.environ.get('SUWAYOMI_PORT', 4567)), 'systemd': 'suwayomi-server', 'icon': '📚', 'description': 'Manga library and reader', 'category': 'media'})
@@ -39,7 +58,7 @@ if ENABLE_SYNCTHING:
     SERVICES.append({'id': 'syncthing', 'name': 'Syncthing', 'port': int(os.environ.get('SYNCTHING_PORT', 8384)), 'systemd': f"syncthing@{PRIMARY_USER}", 'icon': '🔄', 'description': 'Continuous, encrypted folder sync for personal devices', 'link': '/syncthing', 'link_text': '/syncthing', 'category': 'storage'})
 
 # Optional Services (toggleable via .env)
-ENABLE_SYNCYOMI = os.environ.get('ENABLE_SYNCYOMI', 'false').strip().lower() in ('true', '1', 'yes')
+ENABLE_SYNCYOMI = _resolve_service_toggle('ENABLE_SYNCYOMI', 'auto', 'syncyomi.service')
 if ENABLE_SYNCYOMI:
     syncyomi_port = int(os.environ.get('SYNCYOMI_PORT', 8282))
     SERVICES.append({
@@ -84,25 +103,6 @@ if ENABLE_COUCHDB:
         'link_text': f':{couchdb_port}',
         'category': 'storage'
     })
-
-def _is_unit_present(unit_name: str) -> bool:
-    """Check if a systemd unit file exists on the system."""
-    for base in ['/etc/systemd/system', '/usr/lib/systemd/system', '/lib/systemd/system']:
-        if os.path.exists(os.path.join(base, unit_name)):
-            return True
-        if '@' in unit_name:
-            template = unit_name.split('@')[0] + '@.service'
-            if os.path.exists(os.path.join(base, template)):
-                return True
-    return False
-
-def _resolve_service_toggle(env_var: str, default: str, unit_name: str) -> bool:
-    val = os.environ.get(env_var, default).strip().lower()
-    if val in ('true', '1', 'yes'):
-        return True
-    if val in ('false', '0', 'no'):
-        return False
-    return _is_unit_present(unit_name)
 
 ENABLE_RADARR = _resolve_service_toggle('ENABLE_RADARR', 'auto', 'radarr.service')
 if ENABLE_RADARR:
@@ -243,8 +243,17 @@ def is_tailscale_ssh_active():
         pass
     return False
 
+def is_syncyomi_active() -> bool:
+    try:
+        res = subprocess.run(['systemctl', 'is-active', 'syncyomi'], capture_output=True, text=True, timeout=2)
+        return res.returncode == 0 and res.stdout.strip() == 'active'
+    except Exception:
+        return False
+
 def trigger_suwayomi_sync_async(force=False):
     def _run():
+        if not is_syncyomi_active():
+            return
         try:
             cmd = ['/usr/local/bin/suwayomi-trigger-sync']
             if force:
@@ -338,6 +347,30 @@ def get_services_status(allowed_services=None):
         return cached_data
     return [s for s in cached_data if s['id'] in allowed_services]
 
+def toggle_syncyomi(action: str):
+    """
+    Controls SyncYomi manga sync server, the reactive Suwayomi bridge, and Suwayomi sync configs.
+    """
+    val = 'true' if action == 'start' else 'false'
+    # 1. Update server.syncYomiEnabled in Suwayomi's server.conf
+    for path in ['/var/lib/suwayomi/server.conf', '/var/lib/suwayomi/.local/share/Tachidesk/server.conf']:
+        if os.path.exists(path):
+            subprocess.run([
+                'sudo', 'sed', '-i', '--follow-symlinks', '-E',
+                f's/^(server\\.syncYomiEnabled\\s*=\\s*)(true|false)/\\1{val}/',
+                path
+            ], check=False)
+
+    # 2. Control systemd services
+    if action == 'start':
+        subprocess.run(['sudo', 'systemctl', 'start', 'syncyomi.service'], check=True)
+        subprocess.run(['sudo', 'systemctl', 'start', 'syncyomi-suwayomi-bridge.service'], check=False)
+        # Trigger initial sync once started
+        trigger_suwayomi_sync_async(force=True)
+    else:
+        subprocess.run(['sudo', 'systemctl', 'stop', 'syncyomi-suwayomi-bridge.service'], check=False)
+        subprocess.run(['sudo', 'systemctl', 'stop', 'syncyomi.service'], check=True)
+
 def toggle_service(service_id: str, action: str):
     service = next((s for s in SERVICES if s['id'] == service_id), None)
     if not service:
@@ -348,6 +381,8 @@ def toggle_service(service_id: str, action: str):
     if service_id == 'tailscale-ssh':
         ssh_val = 'true' if action == 'start' else 'false'
         subprocess.run(['tailscale', 'set', f'--ssh={ssh_val}', '--accept-risk=lose-ssh'], check=True, timeout=5)
+    elif service_id == 'syncyomi':
+        toggle_syncyomi(action)
     else:
         subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
 

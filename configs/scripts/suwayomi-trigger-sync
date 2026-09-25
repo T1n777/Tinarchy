@@ -10,6 +10,7 @@ Completely fail-safe: never returns fatal exit codes that could disrupt the Suwa
 """
 
 import argparse
+import base64
 import json
 import os
 import subprocess
@@ -27,8 +28,68 @@ LOCK_FILE = "/run/suwayomi-sync.last"
 FALLBACK_LOCK_FILE = "/tmp/suwayomi-sync.last"
 
 
+def get_suwayomi_auth_header():
+    """Extracts basic auth header from Suwayomi server.conf if enabled."""
+    conf_paths = [
+        "/var/lib/suwayomi/.local/share/Tachidesk/server.conf",
+        os.path.expanduser("~/.local/share/Tachidesk/server.conf"),
+    ]
+    user = ""
+    password = ""
+    for p in conf_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("server.authUsername"):
+                            parts = line.split("=", 1)
+                            if len(parts) == 2:
+                                user = parts[1].split("#")[0].strip().strip('"').strip("'")
+                        elif line.startswith("server.authPassword"):
+                            parts = line.split("=", 1)
+                            if len(parts) == 2:
+                                password = parts[1].split("#")[0].strip().strip('"').strip("'")
+            except Exception:
+                pass
+    if not user and os.environ.get("SUWAYOMI_USER"):
+        user = os.environ.get("SUWAYOMI_USER")
+    if not password and os.environ.get("SUWAYOMI_PASS"):
+        password = os.environ.get("SUWAYOMI_PASS")
+    if user and password:
+        token = base64.b64encode(f"{user}:{password}".encode()).decode()
+        return f"Basic {token}"
+    return None
+
+
+def build_request(url, payload_dict=None):
+    """Builds a urllib Request with appropriate headers and Suwayomi Basic Auth if configured."""
+    headers = {
+        "User-Agent": "SuwayomiSyncTrigger/1.0"
+    }
+    data = None
+    if payload_dict is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(payload_dict).encode("utf-8")
+
+    auth = get_suwayomi_auth_header()
+    if auth:
+        headers["Authorization"] = auth
+
+    return urllib.request.Request(url, data=data, headers=headers)
+
+
 def is_syncyomi_enabled():
-    """Checks if SyncYomi is enabled in Suwayomi's server.conf."""
+    """Checks if SyncYomi is actively running and enabled in Suwayomi's server.conf."""
+    # 1. Verify syncyomi.service is actively running
+    try:
+        res = subprocess.run(["systemctl", "is-active", "syncyomi.service"], capture_output=True, text=True, timeout=2)
+        if res.returncode != 0 or res.stdout.strip() != "active":
+            return False
+    except Exception:
+        return False
+
+    # 2. Verify server.syncYomiEnabled in Suwayomi's server.conf
     conf_paths = [
         "/var/lib/suwayomi/.local/share/Tachidesk/server.conf",
         os.path.expanduser("~/.local/share/Tachidesk/server.conf"),
@@ -44,7 +105,7 @@ def is_syncyomi_enabled():
                             return val in ("true", "1", "yes")
             except Exception:
                 pass
-    return True
+    return False
 
 
 def get_lock_path():
@@ -80,7 +141,7 @@ def wait_for_ready(timeout=30):
     start = time.time()
     while time.time() - start < timeout:
         try:
-            req = urllib.request.Request(ABOUT_URL, headers={"User-Agent": "SuwayomiSyncTrigger/1.0"})
+            req = build_request(ABOUT_URL)
             with urllib.request.urlopen(req, timeout=2) as resp:
                 if resp.status == 200:
                     return True
@@ -95,15 +156,7 @@ def trigger_sync(force=False, cooldown=10, wait_sync=False):
         print(f"[suwayomi-trigger-sync] Debounced: sync was triggered within the last {cooldown}s.")
         return True
 
-    payload = json.dumps(MUTATION_QUERY).encode("utf-8")
-    req = urllib.request.Request(
-        GRAPHQL_URL,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "SuwayomiSyncTrigger/1.0"
-        }
-    )
+    req = build_request(GRAPHQL_URL, MUTATION_QUERY)
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -123,15 +176,7 @@ def trigger_sync(force=False, cooldown=10, wait_sync=False):
 
 def trigger_library_update():
     """Triggers an asynchronous full library update in Suwayomi."""
-    payload = json.dumps(MUTATION_UPDATE_LIBRARY).encode("utf-8")
-    req = urllib.request.Request(
-        GRAPHQL_URL,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "SuwayomiSyncTrigger/1.0"
-        }
-    )
+    req = build_request(GRAPHQL_URL, MUTATION_UPDATE_LIBRARY)
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = resp.read().decode("utf-8")
@@ -148,15 +193,7 @@ def watch_library_update_completion():
     max_polls = 180  # Up to 15 minutes of background polling
     for _ in range(max_polls):
         try:
-            payload = json.dumps(QUERY_LIBRARY_UPDATE_STATUS).encode("utf-8")
-            req = urllib.request.Request(
-                GRAPHQL_URL,
-                data=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "User-Agent": "SuwayomiSyncTrigger/1.0"
-                }
-            )
+            req = build_request(GRAPHQL_URL, QUERY_LIBRARY_UPDATE_STATUS)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 res_data = json.loads(resp.read().decode("utf-8"))
                 jobs_info = res_data.get("data", {}).get("libraryUpdateStatus", {}).get("jobsInfo", {})
@@ -190,6 +227,16 @@ def ensure_webui_sync_triggers():
                     if (!force && (now - lastSyncTime < COOLDOWN_MS)) return;
                     lastSyncTime = now;
 
+                    // 1. Dashboard server-side endpoint (handles auth and debouncing)
+                    try {
+                        if (navigator.sendBeacon) {
+                            navigator.sendBeacon("/api/suwayomi/sync");
+                        } else {
+                            fetch("/api/suwayomi/sync", { method: "POST", keepalive: true }).catch(() => {});
+                        }
+                    } catch (e) {}
+
+                    // 2. Direct GraphQL mutation with credentials
                     const targets = ["/manga/api/graphql", "/api/graphql"];
                     for (const url of targets) {
                         try {
@@ -203,6 +250,7 @@ def ensure_webui_sync_triggers():
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: SYNC_MUTATION,
+                                credentials: "include",
                                 keepalive: true
                             }).catch(() => {});
                             break;

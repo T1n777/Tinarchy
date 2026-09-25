@@ -385,6 +385,54 @@
         }
     });
 
+    // ─── 6. Automated SyncYomi Sync Triggers: Tab Open, Reload, Visibility & Close ───
+    (function setupSyncTriggers() {
+        const SYNC_MUTATION = JSON.stringify({ query: "mutation { startSync(input: {}) { clientMutationId } }" });
+        let lastSyncTime = 0;
+        const COOLDOWN_MS = 10000;
+
+        function triggerSync(force) {
+            const now = Date.now();
+            if (!force && (now - lastSyncTime < COOLDOWN_MS)) return;
+            lastSyncTime = now;
+
+            // 1. Dashboard server-side endpoint (handles server-side debounce and auth)
+            try {
+                if (navigator.sendBeacon) {
+                    navigator.sendBeacon('/api/suwayomi/sync');
+                } else {
+                    fetch('/api/suwayomi/sync', { method: 'POST', keepalive: true }).catch(() => {});
+                }
+            } catch (e) {}
+
+            // 2. Direct GraphQL mutation with credentials
+            try {
+                fetch('/manga/api/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: SYNC_MUTATION,
+                    credentials: 'include',
+                    keepalive: true
+                }).catch(() => {});
+            } catch (e) {}
+        }
+
+        // A. Trigger immediately on page load / bfcache restore
+        window.addEventListener('load', () => triggerSync(true));
+        window.addEventListener('pageshow', () => triggerSync(true));
+
+        // B. Trigger when switching tabs or backgrounding app
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                triggerSync(false);
+            }
+        });
+
+        // C. Trigger on tab close / navigation away / reload initiation
+        window.addEventListener('pagehide', () => triggerSync(true));
+        window.addEventListener('beforeunload', () => triggerSync(true));
+    })();
+
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
