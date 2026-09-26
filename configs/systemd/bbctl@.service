@@ -1,5 +1,5 @@
 [Unit]
-Description=Beeper Bridge Manager - %I
+Description=Beeper Bridge Manager - %i
 After=network.target network-online.target
 Wants=network-online.target
 
@@ -8,7 +8,7 @@ Type=simple
 User=tin
 Group=tin
 WorkingDirectory=/home/tin
-ExecStart=/home/tin/.local/bin/bbctl run %I
+ExecStart=/home/tin/.local/bin/bbctl run %i
 Restart=always
 RestartSec=10
 Environment=HOME=/home/tin
