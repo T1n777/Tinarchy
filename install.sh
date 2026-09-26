@@ -1008,17 +1008,27 @@ if [ "$INSTALL_NGINX" = "true" ]; then
     chown -R "$TARGET_USER:$TARGET_USER" /var/cache/nginx/suwayomi /var/cache/nginx/jellyfin 2>/dev/null || chown -R http:http /var/cache/nginx/suwayomi /var/cache/nginx/jellyfin 2>/dev/null || true
     if [ -f "$REPO_ROOT/configs/nginx/nginx.conf" ]; then
         [ -f /etc/nginx/nginx.conf ] && cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak."$(date +%s)"
-        if [ "$TARGET_USER" != "pineapple" ] || [ "$REPO_ROOT" != "/home/pineapple/Tinarchy" ]; then
-            sed -e "s/user pineapple pineapple;/user $TARGET_USER $TARGET_USER;/g" \
-                -e "s|/home/pineapple/Tinarchy|$REPO_ROOT|g" \
-                -e "s|/home/pineapple/server-dashboard|$REPO_ROOT|g" \
-                -e "s|/home/pineapple|$USER_HOME|g" \
-                -e "s|pineapple-station.taildb42a2.ts.net|tinarchy.tail3dee69.ts.net|g" \
-                -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.crt|$REPO_ROOT/ssl/server-fullchain.crt|g" \
-                -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.key|$REPO_ROOT/ssl/server.key|g" \
-                "$REPO_ROOT/configs/nginx/nginx.conf" > /etc/nginx/nginx.conf
-        else
-            cp "$REPO_ROOT/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
+        TS_DOMAIN="${CFG_TAILSCALE_DOMAIN:-tinarchy.tail3dee69.ts.net}"
+        TS_IP="$(tailscale ip -4 2>/dev/null || true)"
+        TS_IPV6="$(tailscale ip -6 2>/dev/null || true)"
+
+        sed -e "s/user [a-zA-Z0-9_-]\+ [a-zA-Z0-9_-]\+;/user $TARGET_USER $TARGET_USER;/g" \
+            -e "s|/home/pineapple/Tinarchy|$REPO_ROOT|g" \
+            -e "s|/home/pineapple/server-dashboard|$REPO_ROOT|g" \
+            -e "s|/home/tin/server-dashboard|$REPO_ROOT|g" \
+            -e "s|/home/pineapple|$USER_HOME|g" \
+            -e "s|/home/tin|$USER_HOME|g" \
+            -e "s|pineapple-station.taildb42a2.ts.net|$TS_DOMAIN|g" \
+            -e "s|tinarchy.tail3dee69.ts.net|$TS_DOMAIN|g" \
+            -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.crt|$REPO_ROOT/ssl/tailscale-cert.crt|g" \
+            -e "s|/home/pineapple/pineapple-station.taildb42a2.ts.net.key|$REPO_ROOT/ssl/tailscale-cert.key|g" \
+            "$REPO_ROOT/configs/nginx/nginx.conf" > /etc/nginx/nginx.conf
+
+        if [ -n "$TS_IP" ]; then
+            sed -i "s|100.67.207.60|$TS_IP|g" /etc/nginx/nginx.conf
+        fi
+        if [ -n "$TS_IPV6" ]; then
+            sed -i "s|fd7a:115c:a1e0::303b:cf3d|$TS_IPV6|g" /etc/nginx/nginx.conf
         fi
         if nginx -t 2>/dev/null; then
             echo -e "${GREEN}✅ Nginx syntax verified successfully.${NC}"
