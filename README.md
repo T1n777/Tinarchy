@@ -131,6 +131,13 @@ A fast, lightweight, and translucent glassmorphic control center for self-hosted
   - **Instant Zero-Copy Atomic Hardlinking**: Unified storage layout in `$HOME/storage/` links completed torrents into Jellyfin media folders instantaneously (<1ms) without consuming extra disk space or duplicating files, preserving continuous seeding.
   - **Zero-Interference Dynamic Auto-Detection**: Services and dashboard tiles are dynamically auto-detected based on installed systemd units (`_resolve_service_toggle`). If a user does not run the *Arr media stack, it remains completely dormant with zero overhead or dashboard clutter.
 
+- **🛡️ Self-Hosted Zero-Knowledge Password Vault (`Vaultwarden` / Bitwarden)**:
+  - **Bitwarden-Compatible Ecosystem**: Fully compatible with official Bitwarden mobile apps (iOS & Android), browser extensions (Chrome, Firefox, Safari, Brave, Edge), desktop applications (macOS, Windows, Linux), and the Bitwarden CLI.
+  - **Zero-Knowledge Encryption Architecture**: All cryptographic operations (AES-256 with Argon2id or PBKDF2) occur strictly on the client device. Master passwords and plaintext secrets never touch the server or network.
+  - **Built-in Free TOTP Authenticator**: Generates rotating 2FA verification codes out-of-the-box (no paid subscription required). Automatically copies TOTP codes to the clipboard upon autofill.
+  - **Offline Vault Caching**: Client apps maintain a local encrypted cache on your phone and laptop, allowing seamless access even during server reboots or network outages.
+  - **SSL & Push Notifications**: Served via Nginx with HTTP/2 and Let's Encrypt / Tailscale SAN certificates on port `8000`, with WebSocket support on `/notifications/hub`. Interactive client setup guide available at `/vault-guide`.
+
 - **👥 Role-Based Access Control (RBAC) & Tailscale Identity**:
   - Dynamic user and device identification via Tailscale Whois (no manual credentials required).
   - Tiers configured in `roles_config.json`:
@@ -262,6 +269,7 @@ Tinarchy/
 | **Suwayomi Manga Server** *(Optional)* | `4567` | `/manga/` & `:4567` | `suwayomi-server.service` | Manga reader with two-layer WebP thumbnail fast-path (<1ms) & on-demand dynamic optimizer |
 | **SyncYomi Server** *(Optional / Legacy)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Standalone Tachiyomi/Mihon progress sync (optional; obsolete if using Suwayomi Tsurumi) |
 | **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
+| **Vaultwarden Password Vault** *(Optional)* | `8001` | `:8000`, `/vault`, `/vault-guide` | `vaultwarden.service` | Bitwarden zero-knowledge password vault, TOTP 2FA authenticator & client sync |
 | **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal & media workload governor |
 | **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
 | **X Virtual Framebuffer (Xvfb)** | — | Display `:99` | `xvfb.service` | Headless X11 display for Suwayomi JCEF/Chromium extension engine |

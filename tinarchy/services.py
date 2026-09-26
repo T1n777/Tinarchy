@@ -208,6 +208,21 @@ if ENABLE_JDOWNLOADER:
         'category': 'automation'
     })
 
+ENABLE_VAULTWARDEN = _resolve_service_toggle('ENABLE_VAULTWARDEN', 'auto', 'vaultwarden.service')
+if ENABLE_VAULTWARDEN:
+    vaultwarden_port = int(os.environ.get('VAULTWARDEN_PORT', 8000))
+    SERVICES.append({
+        'id': 'vaultwarden',
+        'name': 'Vaultwarden',
+        'port': vaultwarden_port,
+        'systemd': 'vaultwarden',
+        'icon': '🛡️',
+        'description': 'Bitwarden zero-knowledge password vault & 2FA authenticator',
+        'link': '/vaultwarden',
+        'link_text': f':{vaultwarden_port}',
+        'category': 'storage'
+    })
+
 
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
@@ -232,7 +247,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader', 'vaultwarden']
 
 def is_tailscale_ssh_active():
     try:
@@ -335,6 +350,8 @@ def get_services_status(allowed_services=None):
                         service_link = '/seerr'
                     elif s['id'] == 'navidrome':
                         service_link = '/navidrome'
+                    elif s['id'] == 'vaultwarden':
+                        service_link = '/vaultwarden'
                 status_obj['link'] = service_link
                 base_results.append(status_obj)
 

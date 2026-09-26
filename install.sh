@@ -220,6 +220,7 @@ EXISTING_ENABLE_DRIVE_ENGINE="true"
 EXISTING_ENABLE_FILEBROWSER="false"
 EXISTING_ENABLE_COUCHDB="false"
 EXISTING_ENABLE_POWERDOWN="false"
+EXISTING_ENABLE_VAULTWARDEN="true"
 
 if [ -f "$REPO_ROOT/.env" ]; then
     EXISTING_SERVER_NAME=$(grep -E '^SERVER_NAME=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
@@ -241,6 +242,7 @@ if [ -f "$REPO_ROOT/.env" ]; then
     [ "$(grep -E '^ENABLE_SYNCYOMI=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_SYNCYOMI="true"
     [ "$(grep -E '^ENABLE_FILEBROWSER=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_FILEBROWSER="true"
     [ "$(grep -E '^ENABLE_COUCHDB=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "true" ] && EXISTING_ENABLE_COUCHDB="true"
+    [ "$(grep -E '^ENABLE_VAULTWARDEN=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)" = "false" ] && EXISTING_ENABLE_VAULTWARDEN="false"
     EXISTING_HARDWARE_MEMORY_PROFILE=$(grep -E '^HARDWARE_MEMORY_PROFILE=' "$REPO_ROOT/.env" | cut -d= -f2- | tr -d '"' | tr -d "'" || true)
 fi
 
@@ -440,6 +442,14 @@ DEF_JELL="$([ "$EXISTING_ENABLE_JELLYFIN" = "true" ] && echo 'y' || echo 'n')"
 ask_choice "Install and activate Jellyfin Media Server?" "$DEF_JELL" INSTALL_JELLYFIN
 echo ""
 
+# 7. Vaultwarden Password Manager
+echo -e "${CYAN}[7/14]${NC} ${BOLD}Vaultwarden Password Vault (:8000)${NC}"
+echo -e "        ${DIM}Lightweight Bitwarden password vault with TOTP 2FA authenticator & client sync${NC}"
+echo -e "        ${DIM}Creator: ${GREEN}Daniel García (dani-garcia) & Contributors${NC} - https://github.com/dani-garcia/vaultwarden${NC}"
+DEF_VAULT="$([ "$EXISTING_ENABLE_VAULTWARDEN" = "true" ] && echo 'y' || echo 'y')"
+ask_choice "Install and activate Vaultwarden Password Manager?" "$DEF_VAULT" INSTALL_VAULTWARDEN
+echo ""
+
 # 7. Tor Anonymity Proxy & Global Exit Node
 echo -e "${CYAN}[7/13]${NC} ${BOLD}Tor SOCKS5 Proxy & Global Exit Node (:9050)${NC}"
 echo -e "        ${DIM}Standalone onion proxy with automated Tailscale WireGuard NAT exit routing${NC}"
@@ -528,6 +538,7 @@ format_summary "Syncthing Full Drive Sync (:8384)"   "$INSTALL_SYNCTHING"
 format_summary "Suwayomi Manga Server (:4567)"       "$INSTALL_SUWAYOMI"
 format_summary "SyncYomi Manga Sync Daemon (:8282)"  "$INSTALL_SYNCYOMI"
 format_summary "Jellyfin Media Server (:8096)"       "$INSTALL_JELLYFIN"
+format_summary "Vaultwarden Password Vault (:8000)"  "$INSTALL_VAULTWARDEN"
 format_summary "Tor Proxy & Exit Node (:9050)"       "$INSTALL_TOR"
 format_summary "Tailscale & Tailscale SSH (:22)"     "$INSTALL_TAILSCALE"
 format_summary "Persistent Rice (Fish, Starship, tmux)" "$INSTALL_TERMINAL"
@@ -664,6 +675,18 @@ if [ "$INSTALL_JELLYFIN" = "true" ]; then
         esac
     else
         echo -e "  ${GREEN}✅ Jellyfin is already installed${NC}"
+    fi
+fi
+
+# Vaultwarden
+if [ "$INSTALL_VAULTWARDEN" = "true" ]; then
+    if ! command -v vaultwarden >/dev/null 2>&1; then
+        case "$OS_FAMILY" in
+            arch) PACKAGES_TO_INSTALL+=('vaultwarden' 'vaultwarden-web') ;;
+            *)    echo -e "  ${YELLOW}⚠️ Vaultwarden is natively in Arch repos. On other distros, consider Docker or cargo build.${NC}" ;;
+        esac
+    else
+        echo -e "  ${GREEN}✅ Vaultwarden is already installed${NC}"
     fi
 fi
 
@@ -886,6 +909,7 @@ update_env_var "ENABLE_SYNCTHING" "$INSTALL_SYNCTHING"
 update_env_var "ENABLE_SYNCYOMI" "$INSTALL_SYNCYOMI"
 update_env_var "ENABLE_FILEBROWSER" "$INSTALL_FILEBROWSER"
 update_env_var "ENABLE_COUCHDB" "$INSTALL_COUCHDB"
+update_env_var "ENABLE_VAULTWARDEN" "$INSTALL_VAULTWARDEN"
 
 chown "$TARGET_USER:$TARGET_USER" "$REPO_ROOT/.env" 2>/dev/null || true
 
@@ -1279,6 +1303,19 @@ manage_service "xvfb.service" "Xvfb Virtual Display (:99)" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-server.service" "Suwayomi Manga" "$INSTALL_SUWAYOMI"
 manage_service "suwayomi-precache.timer" "Suwayomi Thumbnail Pre-Cacher Timer" "$INSTALL_SUWAYOMI"
 manage_service "jellyfin.service" "Jellyfin Media" "$INSTALL_JELLYFIN"
+if [ -f /usr/lib/systemd/system/vaultwarden.service ] || [ -f /etc/systemd/system/vaultwarden.service ]; then
+    if [ "$INSTALL_VAULTWARDEN" = "true" ] && [ -f /etc/vaultwarden.env ]; then
+        sed -i \
+            -e 's|^# WEB_VAULT_FOLDER=/usr/share/webapps/vaultwarden-web|WEB_VAULT_FOLDER=/usr/share/webapps/vaultwarden-web|' \
+            -e 's|^WEB_VAULT_ENABLED=false|WEB_VAULT_ENABLED=true|' \
+            -e 's|^# ROCKET_ADDRESS=0.0.0.0|ROCKET_ADDRESS=127.0.0.1|' \
+            -e 's|^# ROCKET_PORT=8000|ROCKET_PORT=8001|' \
+            -e "s|^# DOMAIN=https://vw.domain.tld:8443|DOMAIN=https://${CFG_TAILSCALE_DOMAIN:-tinarchy.tail3dee69.ts.net}:8000|" \
+            -e 's|^# SIGNUPS_ALLOWED=true|SIGNUPS_ALLOWED=true|' \
+            /etc/vaultwarden.env 2>/dev/null || true
+    fi
+    manage_service "vaultwarden.service" "Vaultwarden Password Vault" "$INSTALL_VAULTWARDEN"
+fi
 if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seerr.service ]; then
     if [ -f "$REPO_ROOT/configs/seerr/seerr.env" ]; then
         mkdir -p /etc/conf.d
@@ -1466,6 +1503,7 @@ echo -e "  • Dashboard Web UI : ${CYAN}${BOLD}${DASHBOARD_URL}${NC} (Port ${CF
 [ "$INSTALL_SUWAYOMI" = "true" ]    && echo -e "  • Suwayomi Manga   : ${CYAN}/manga/${NC} (Port 4567)"
 [ "$INSTALL_SYNCYOMI" = "true" ]    && echo -e "  • SyncYomi Web UI  : ${CYAN}http://127.0.0.1:8282${NC}"
 [ "$INSTALL_JELLYFIN" = "true" ]    && echo -e "  • Jellyfin Media   : ${CYAN}:8096${NC}"
+[ "$INSTALL_VAULTWARDEN" = "true" ] && echo -e "  • Vaultwarden Vault: ${CYAN}:8000${NC} (or /vault /vault-guide)"
 [ "$INSTALL_FILEBROWSER" = "true" ] && echo -e "  • FileBrowser      : ${CYAN}/files/${NC} (Port 8081/8082)"
 [ "$INSTALL_COUCHDB" = "true" ]     && echo -e "  • CouchDB Fauxton  : ${CYAN}/couchdb/_utils/${NC} (Port 5984)"
 echo ""

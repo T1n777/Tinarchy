@@ -307,6 +307,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     return self.serve_access_denied('SyncYomi')
             return self.serve_guide_page('syncyomi.html')
 
+        if clean_path in ['/vault-guide', '/guides/vaultwarden', '/guides/vaultwarden.html', '/bitwarden-guide']:
+            if 'vaultwarden' not in allowed_services:
+                return self.serve_access_denied('Vaultwarden')
+            return self.serve_guide_page('vaultwarden.html')
+
         # Top-level application redirects
         raw_host = self.headers.get('Host', '')
         host = raw_host.split(':')[0] if raw_host else get_system_hostname()
@@ -359,6 +364,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return self.serve_access_denied('Seerr Discovery')
             svc = next((s for s in SERVICES if s.get('id') == 'seerr'), None)
             port = svc.get('port', 5055) if svc else 5055
+            target_url = f"https://{host}:{port}/"
+        elif clean_path in ['/vaultwarden', '/vault', '/bitwarden', '/passwords']:
+            if 'vaultwarden' not in allowed_services:
+                return self.serve_access_denied('Vaultwarden Password Manager')
+            svc = next((s for s in SERVICES if s.get('id') == 'vaultwarden'), None)
+            port = svc.get('port', 8000) if svc else 8000
             target_url = f"https://{host}:{port}/"
         elif clean_path in ['/navidrome', '/music', '/audio']:
             if 'navidrome' not in allowed_services:

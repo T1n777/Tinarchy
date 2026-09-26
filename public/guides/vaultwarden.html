@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vaultwarden Password Manager - Setup & Client Guide</title>
+    <script>
+        // Universal Wallpaper & Pywal Sync Engine
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#69B4C3';
+            const fg = pywal.special?.foreground || '#cae5ef';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', 'rgba(202, 229, 239, 0.65)');
+            root.style.setProperty('--glass-border', pColor + '25');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = `url('${mediaUrl}')`;
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', `url('${mediaUrl}')`);
+            }
+        }
+
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            root.setAttribute('data-theme', savedTheme);
+
+            try {
+                const pywalCache = localStorage.getItem('pywal-cache');
+                if (pywalCache) applyThemeAndColors(root, JSON.parse(pywalCache));
+                fetch('/api/pywal').then(r => r.ok ? r.json() : null).then(data => {
+                    if (data && data.colors) {
+                        localStorage.setItem('pywal-cache', JSON.stringify(data));
+                        applyThemeAndColors(root, data);
+                    }
+                }).catch(() => {});
+            } catch(e) {}
+
+            const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+            const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+
+            if (isVideo && wpUrl) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, true));
+                } else {
+                    applyMediaToBackground(wpUrl, true);
+                }
+            } else {
+                const cachedBlob = await getLocalWallpaper('active_wallpaper');
+                if (cachedBlob) {
+                    const blobUrl = URL.createObjectURL(cachedBlob);
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(blobUrl, false));
+                    } else {
+                        applyMediaToBackground(blobUrl, false);
+                    }
+                } else if (wpUrl) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, false));
+                    } else {
+                        applyMediaToBackground(wpUrl, false);
+                    }
+                }
+            }
+        })();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #111519;
+            --glass: rgba(17, 21, 25, 0.78);
+            --glass-card: rgba(22, 28, 34, 0.72);
+            --glass-border: rgba(105, 180, 195, 0.22);
+            --primary: #69B4C3;
+            --primary-glow: rgba(105, 180, 195, 0.35);
+            --text: #cae5ef;
+            --text-muted: rgba(202, 229, 239, 0.65);
+            --online: #5af78e;
+            --code-bg: rgba(9, 12, 16, 0.85);
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+            --font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --wp-blur: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            color: var(--text);
+            min-height: 100vh;
+            background: var(--bg);
+            -webkit-font-smoothing: antialiased;
+            padding: 2rem 1rem 4rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .wallpaper {
+            position: fixed;
+            inset: -20px;
+            background: var(--wp-url) no-repeat center center;
+            background-size: cover;
+            filter: blur(var(--wp-blur));
+            z-index: -2;
+            transform: translateZ(0);
+        }
+
+        .wallpaper-tint {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 20%, rgba(17, 21, 25, 0.65) 0%, rgba(10, 13, 16, 0.88) 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1.25rem;
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+            transform: translateX(-2px);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(90, 247, 142, 0.15);
+            color: var(--online);
+            border: 1px solid rgba(90, 247, 142, 0.3);
+            font-weight: 600;
+        }
+
+        .badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+
+        .header-card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .header-icon {
+            font-size: 3rem;
+            line-height: 1;
+            padding: 16px;
+            background: rgba(105, 180, 195, 0.12);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-info h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+            color: var(--text);
+        }
+
+        .header-info p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .header-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #0b1116;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-action:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--glass-border);
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--primary);
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .meta-box {
+            background: var(--glass-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-val {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            color: var(--primary);
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 0.75rem;
+        }
+
+        .sec-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(105, 180, 195, 0.2);
+            color: var(--primary);
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .step-circle {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 2px;
+        }
+
+        .step-content {
+            flex: 1;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        .step-content strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .code-container {
+            position: relative;
+            background: var(--code-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            color: var(--primary);
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            margin-left: 10px;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: #0b1116;
+            border-color: var(--primary);
+        }
+
+        .highlight-box {
+            background: rgba(105, 180, 195, 0.08);
+            border: 1px solid var(--glass-border);
+            border-left: 4px solid var(--primary);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 8px;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #0b1116;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--primary);
+            color: #0b1116;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .header-card {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="wallpaper-tint"></div>
+
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+            <div class="badge">
+                <span class="dot"></span>
+                Vaultwarden Service Online
+            </div>
+        </nav>
+
+        <!-- Header Card -->
+        <div class="header-card">
+            <div class="header-icon">🛡️</div>
+            <div class="header-info">
+                <h1>Vaultwarden Password Vault</h1>
+                <p>Self-hosted, zero-knowledge Bitwarden server with integrated TOTP authenticator, encrypted notes, and cross-platform synchronization across all your personal devices.</p>
+                <div class="header-actions">
+                    <a href="https://tinarchy.tail3dee69.ts.net:8000/" target="_blank" class="btn-action" id="openVaultBtn">
+                        <span>Launch Web Vault ↗</span>
+                    </a>
+                    <a href="#quickstart" class="btn-secondary">
+                        <span>Client Setup Guide ↓</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parameters Grid -->
+        <div class="meta-grid">
+            <div class="meta-box">
+                <div class="meta-label">Bitwarden Server URL</div>
+                <div class="meta-val" id="serverUrlVal">https://tinarchy.tail3dee69.ts.net:8000</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Web Vault Shortcut</div>
+                <div class="meta-val" id="shortcutVal">/vault or :8000</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Zero-Knowledge Security</div>
+                <div class="meta-val">Client AES-256 + Argon2id</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Built-in Features</div>
+                <div class="meta-val">TOTP 2FA + File Sends</div>
+            </div>
+        </div>
+
+        <!-- 1. Connection URL Box -->
+        <div class="card" id="quickstart">
+            <h2><span class="sec-num">1</span> Your Server Connection URL</h2>
+            <p>Every official Bitwarden application (iOS, Android, Chrome/Firefox extensions, desktop apps) connects using this single URL:</p>
+            <div class="code-container">
+                <code id="serverUrlCode">https://tinarchy.tail3dee69.ts.net:8000</code>
+                <button class="copy-btn" onclick="copyCode('serverUrlCode')">📋 Copy URL</button>
+            </div>
+            <div class="highlight-box" style="margin-top: 0.5rem;">
+                <strong>💡 Zero Plaintext Exposure:</strong> Your master password and decrypted credentials <em>never</em> touch this server or network. All encryption happens client-side on your device before transmission. Even with full access to the server disk, credentials cannot be decrypted without your master password.
+            </div>
+        </div>
+
+        <!-- 2. Client Setup Guide -->
+        <div class="card">
+            <h2><span class="sec-num">2</span> Step-by-Step Client Setup</h2>
+            <p>Select your platform below to connect the official Bitwarden client:</p>
+
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('mobile')">📱 iOS & Android</button>
+                <button class="tab-btn" onclick="switchTab('browser')">🌐 Browser Extensions</button>
+                <button class="tab-btn" onclick="switchTab('desktop')">💻 Desktop Apps</button>
+                <button class="tab-btn" onclick="switchTab('import')">📥 Import Passwords</button>
+            </div>
+
+            <!-- Tab 1: Mobile -->
+            <div id="tab-mobile" class="tab-panel active">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Install Bitwarden App:</strong>
+                            <p>Download the free official <strong>Bitwarden Password Manager</strong> from the Apple App Store or Google Play Store.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Tap Settings Gear Icon:</strong>
+                            <p>On the app's initial login screen, locate and tap the <strong>⚙️ Settings gear</strong> in the upper corner.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Set Server URL:</strong>
+                            <p>Under <strong>Environment URL</strong> (or <strong>Server URL</strong>), paste your server address:</p>
+                            <div class="code-container" style="margin-top: 4px;">
+                                <code class="dynamic-url">https://tinarchy.tail3dee69.ts.net:8000</code>
+                                <button class="copy-btn" onclick="copyDynamicUrl()">📋 Copy</button>
+                            </div>
+                            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Tap <strong>Save</strong> in the top corner to apply.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">4</div>
+                        <div class="step-content">
+                            <strong>Create Account & Master Password:</strong>
+                            <p>Tap <strong>Create Account</strong>. Choose a strong master password (and master password hint if desired). This key derives your AES-256 vault encryption key.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">5</div>
+                        <div class="step-content">
+                            <strong>Enable Autofill & Biometrics:</strong>
+                            <p>In the Bitwarden app settings: enable <strong>Unlock with Face ID / Fingerprint</strong> and enable <strong>Auto-fill Service</strong> in iOS / Android system settings.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Browser Extensions -->
+            <div id="tab-browser" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Install Browser Extension:</strong>
+                            <p>Install the <strong>Bitwarden extension</strong> for Google Chrome, Brave, Mozilla Firefox, Apple Safari, Microsoft Edge, or Arc.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Configure Self-Hosted Environment:</strong>
+                            <p>Click the Bitwarden extension icon in your toolbar. Before logging in, click the <strong>⚙️ Settings gear</strong> at the top left of the popup.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Paste Server URL:</strong>
+                            <p>In the <strong>Server URL</strong> field, paste:</p>
+                            <div class="code-container" style="margin-top: 4px;">
+                                <code class="dynamic-url">https://tinarchy.tail3dee69.ts.net:8000</code>
+                                <button class="copy-btn" onclick="copyDynamicUrl()">📋 Copy</button>
+                            </div>
+                            <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Click <strong>Save</strong>.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">4</div>
+                        <div class="step-content">
+                            <strong>Log In & Auto-fill:</strong>
+                            <p>Log in with your master credentials. Use <code style="color:var(--primary); font-family:var(--font-mono);">Ctrl+Shift+L</code> (or <code style="color:var(--primary); font-family:var(--font-mono);">Cmd+Shift+L</code> on Mac) on any login page to instantly auto-fill credentials.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Desktop Apps -->
+            <div id="tab-desktop" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Install Desktop Client:</strong>
+                            <p>Download the Bitwarden desktop client from <a href="https://bitwarden.com/download/" target="_blank" style="color:var(--primary); text-decoration:none;">bitwarden.com/download</a> or via your package manager (e.g. <code style="color:var(--primary); font-family:var(--font-mono);">pacman -S bitwarden</code> or Homebrew).</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Set Self-Hosted Server URL:</strong>
+                            <p>On the desktop login screen, click the <strong>Settings / Gear icon</strong> (or File ➔ Settings) and paste:</p>
+                            <div class="code-container" style="margin-top: 4px;">
+                                <code class="dynamic-url">https://tinarchy.tail3dee69.ts.net:8000</code>
+                                <button class="copy-btn" onclick="copyDynamicUrl()">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Biometric Unlock & Integration:</strong>
+                            <p>Enable Touch ID, Windows Hello, or Polkit biometrics in desktop app settings. You can also integrate the desktop client with browser extensions for system-wide biometric approvals.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Import Passwords -->
+            <div id="tab-import" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Export from Your Existing Password Manager:</strong>
+                            <p>Export your passwords to a CSV or JSON file from Chrome, 1Password, LastPass, Dashlane, KeePass, or Apple iCloud Keychain.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Open Vaultwarden Web Vault:</strong>
+                            <p>Open <a href="https://tinarchy.tail3dee69.ts.net:8000/" target="_blank" style="color:var(--primary); text-decoration:none;" class="dynamic-url-link">https://tinarchy.tail3dee69.ts.net:8000</a> in your browser and log into your account.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Import Data:</strong>
+                            <p>Navigate to <strong>Tools ➔ Import Data</strong>. Select your file format (e.g. "Chrome (csv)", "1Password (1pif/csv)", or "LastPass (csv)"), select your exported file, and click <strong>Import Data</strong>.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">4</div>
+                        <div class="step-content">
+                            <strong>Secure Clean-Up:</strong>
+                            <p>Remember to permanently delete (or shred) the unencrypted exported CSV/JSON file from your downloads folder!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Integrated TOTP Authenticator Feature -->
+        <div class="card">
+            <h2><span class="sec-num">3</span> Free Built-in 2FA / TOTP Authenticator</h2>
+            <p>Unlike standard Bitwarden which locks TOTP behind a paid tier, <strong>Vaultwarden provides built-in 2FA code generation completely free</strong>:</p>
+            <div class="highlight-box">
+                <strong>🔐 How to use built-in TOTP:</strong><br>
+                1. When enabling 2FA on any website (GitHub, Google, Amazon), copy the secret key or scan the QR code with Bitwarden.<br>
+                2. Bitwarden automatically generates rotating 6-digit codes every 30 seconds.<br>
+                3. When auto-filling credentials on your browser or phone, Bitwarden automatically copies the 2FA code to your clipboard so you can paste it instantly without opening an authenticator app!
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <span>Copied to clipboard!</span>
+    </div>
+
+    <script>
+        // Dynamically resolve server host and update URL elements
+        (function initDynamicUrls() {
+            const host = window.location.hostname || 'tinarchy.tail3dee69.ts.net';
+            const serverUrl = `https://${host}:8000`;
+            
+            const serverUrlCode = document.getElementById('serverUrlCode');
+            if (serverUrlCode) serverUrlCode.textContent = serverUrl;
+            
+            const serverUrlVal = document.getElementById('serverUrlVal');
+            if (serverUrlVal) serverUrlVal.textContent = serverUrl;
+
+            const openVaultBtn = document.getElementById('openVaultBtn');
+            if (openVaultBtn) openVaultBtn.href = serverUrl;
+
+            document.querySelectorAll('.dynamic-url').forEach(el => el.textContent = serverUrl);
+            document.querySelectorAll('.dynamic-url-link').forEach(el => {
+                el.href = serverUrl;
+                el.textContent = serverUrl;
+            });
+        })();
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+            const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+            if (targetBtn) targetBtn.classList.add('active');
+
+            const targetPanel = document.getElementById(`tab-${tabId}`);
+            if (targetPanel) targetPanel.classList.add('active');
+        }
+
+        function copyCode(elementId) {
+            const codeEl = document.getElementById(elementId);
+            if (!codeEl) return;
+            navigator.clipboard.writeText(codeEl.textContent.trim()).then(showToast);
+        }
+
+        function copyDynamicUrl() {
+            const host = window.location.hostname || 'tinarchy.tail3dee69.ts.net';
+            navigator.clipboard.writeText(`https://${host}:8000`).then(showToast);
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+    </script>
+</body>
+</html>
