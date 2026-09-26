@@ -12,6 +12,7 @@ __pycache__/
 *.p12
 *.pfx
 *.srl
+tailscale-cert.crt
 id_*
 *.id_*
 credentials.json
