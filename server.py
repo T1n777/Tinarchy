@@ -312,6 +312,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return self.serve_access_denied('Vaultwarden')
             return self.serve_guide_page('vaultwarden.html')
 
+        if clean_path in ['/beeper', '/beeper-guide', '/bbctl', '/guides/beeper', '/guides/beeper.html']:
+            if 'beeper' not in allowed_services:
+                return self.serve_access_denied('Beeper Bridge Manager')
+            return self.serve_guide_page('beeper.html')
+
         # Top-level application redirects
         raw_host = self.headers.get('Host', '')
         host = raw_host.split(':')[0] if raw_host else get_system_hostname()
@@ -901,6 +906,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             from tinarchy import jdownloader
             jd_info = jdownloader.get_jdownloader_status()
             self.send_compressed(json.dumps(jd_info).encode(), "application/json")
+
+        elif self.path == '/api/beeper/status':
+            from tinarchy.services import get_beeper_bridges_status
+            bb_status = get_beeper_bridges_status()
+            try:
+                whoami_res = subprocess.run(['/home/tin/.local/bin/bbctl', 'whoami'], capture_output=True, text=True, timeout=3)
+                bb_status['whoami'] = whoami_res.stdout.strip()
+            except Exception:
+                bb_status['whoami'] = "Unable to check whoami"
+            self.send_compressed(json.dumps(bb_status).encode(), "application/json")
 
         elif self.path == '/api/me':
             role = session.get('role', 'viewer')

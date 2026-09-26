@@ -223,6 +223,19 @@ if ENABLE_VAULTWARDEN:
         'category': 'storage'
     })
 
+ENABLE_BEEPER = _resolve_service_toggle('ENABLE_BEEPER', 'auto', 'bbctl@.service')
+if ENABLE_BEEPER:
+    SERVICES.append({
+        'id': 'beeper',
+        'name': 'Beeper Bridges',
+        'systemd': 'bbctl@',
+        'icon': '🌉',
+        'description': 'Self-hosted Matrix chat bridges (WhatsApp, Telegram, Signal, Discord)',
+        'link': '/beeper',
+        'link_text': '/beeper',
+        'category': 'network'
+    })
+
 
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
@@ -247,7 +260,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader', 'vaultwarden']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader', 'vaultwarden', 'beeper']
 
 def is_tailscale_ssh_active():
     try:
@@ -257,6 +270,29 @@ def is_tailscale_ssh_active():
     except Exception:
         pass
     return False
+
+def get_beeper_bridges_status():
+    try:
+        res = subprocess.run(
+            ['systemctl', 'list-units', 'bbctl@*', '--state=active', '--no-legend', '--no-pager'],
+            capture_output=True, text=True, timeout=3
+        )
+        active_bridges = []
+        if res.returncode == 0:
+            for line in res.stdout.strip().splitlines():
+                parts = line.split()
+                if parts and parts[0].startswith('bbctl@'):
+                    bridge_name = parts[0].split('@')[1].replace('.service', '')
+                    active_bridges.append(bridge_name)
+        cfg_file = os.path.expanduser('~/.config/bbctl/config.json')
+        is_logged_in = os.path.exists(cfg_file)
+        return {
+            'online': len(active_bridges) > 0,
+            'logged_in': is_logged_in,
+            'active_bridges': active_bridges
+        }
+    except Exception:
+        return {'online': False, 'logged_in': False, 'active_bridges': []}
 
 def is_syncyomi_active() -> bool:
     try:
@@ -292,7 +328,7 @@ def get_services_status(allowed_services=None):
     now = time.time()
     with _SERVICES_STATUS_LOCK:
         if not _SERVICES_STATUS_CACHE['data'] or (now - _SERVICES_STATUS_CACHE['ts']) >= 3:
-            units = [s['systemd'] for s in SERVICES]
+            units = [s['systemd'] for s in SERVICES if not s['systemd'].endswith('@')]
             unit_status = {}
             success = False
             try:
@@ -328,6 +364,13 @@ def get_services_status(allowed_services=None):
                 status_obj = s.copy()
                 if s['id'] == 'tailscale-ssh':
                     status_obj['status'] = 'online' if (unit_status.get('tailscaled') == 'online' and ts_ssh_on) else 'offline'
+                elif s['id'] == 'beeper':
+                    bb_info = get_beeper_bridges_status()
+                    status_obj['status'] = 'online' if bb_info['online'] else ('idle' if bb_info['logged_in'] else 'offline')
+                    status_obj['activeBridges'] = bb_info['active_bridges']
+                    status_obj['loggedIn'] = bb_info['logged_in']
+                    if bb_info['active_bridges']:
+                        status_obj['description'] = f"Active bridges: {', '.join(bb_info['active_bridges'])}"
                 else:
                     status_obj['status'] = unit_status.get(s['systemd'], 'offline')
 
@@ -352,6 +395,8 @@ def get_services_status(allowed_services=None):
                         service_link = '/navidrome'
                     elif s['id'] == 'vaultwarden':
                         service_link = '/vaultwarden'
+                    elif s['id'] == 'beeper':
+                        service_link = '/beeper'
                 status_obj['link'] = service_link
                 base_results.append(status_obj)
 

@@ -1435,7 +1435,21 @@ if [ -f "${USER_HOME}/jdownloader/JDownloader.jar" ]; then
     manage_service "jdownloader.service" "JDownloader 2 Headless" "true"
 fi
 
-# Beeper Bridge Manager (bbctl) Template Service
+# Beeper Bridge Manager (bbctl) Template Service & CLI
+if ! command -v bbctl >/dev/null 2>&1 && [ ! -f "${USER_HOME}/.local/bin/bbctl" ]; then
+    echo -e "  ${CYAN}📦 Installing Beeper Bridge Manager (bbctl)...${NC}"
+    mkdir -p "${USER_HOME}/.local/bin"
+    ARCH="$(uname -m)"
+    BB_ARCH="amd64"
+    [ "$ARCH" = "aarch64" ] && BB_ARCH="arm64"
+    curl -fsSL "https://github.com/beeper/bridge-manager/releases/latest/download/bbctl-linux-${BB_ARCH}" -o "${USER_HOME}/.local/bin/bbctl" 2>/dev/null && chmod +x "${USER_HOME}/.local/bin/bbctl" && chown "${TARGET_USER}:${TARGET_USER}" "${USER_HOME}/.local/bin/bbctl" || true
+fi
+
+if [ -f "$REPO_ROOT/configs/scripts/beeper-ctl.sh" ]; then
+    install -m 755 "$REPO_ROOT/configs/scripts/beeper-ctl.sh" /usr/local/bin/beeper
+    ln -sfn /usr/local/bin/beeper /usr/local/bin/beeper-ctl
+fi
+
 if [ -f "$REPO_ROOT/configs/systemd/bbctl@.service" ]; then
     sed -e "s|User=tin|User=${TARGET_USER}|g" \
         -e "s|Group=tin|Group=${TARGET_USER}|g" \

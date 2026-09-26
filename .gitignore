@@ -17,6 +17,8 @@ id_*
 *.id_*
 credentials.json
 client_secrets.json
+configs/beeper/*.json
+bbctl_config.json
 
 # Local databases & state
 *.db

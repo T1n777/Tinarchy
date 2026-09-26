@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beeper Bridge Manager - Setup & Bridge Guide</title>
+    <script>
+        // Universal Wallpaper & Pywal Sync Engine
+        const DB_NAME = 'PinedashStorage';
+        const STORE_NAME = 'wallpapers';
+
+        function openLocalDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function getLocalWallpaper(key = 'active_wallpaper') {
+            try {
+                const db = await openLocalDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const req = tx.objectStore(STORE_NAME).get(key);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        function applyThemeAndColors(root, pywal) {
+            if (!pywal || !pywal.colors) return;
+            const pColor = pywal.colors.color4 || '#69B4C3';
+            const fg = pywal.special?.foreground || '#cae5ef';
+            root.style.setProperty('--primary', pColor);
+            root.style.setProperty('--primary-glow', pColor + '40');
+            root.style.setProperty('--text', fg);
+            root.style.setProperty('--text-muted', 'rgba(202, 229, 239, 0.65)');
+            root.style.setProperty('--glass-border', pColor + '25');
+        }
+
+        function applyMediaToBackground(mediaUrl, isVid = false) {
+            const root = document.documentElement;
+            const bgDiv = document.querySelector('.wallpaper');
+            let vidEl = document.querySelector('.wallpaper-video');
+
+            const isMp4 = isVid || (typeof mediaUrl === 'string' && mediaUrl.toLowerCase().includes('.mp4')) || (localStorage.getItem('dashboard-wallpaper-is-video') === 'true');
+
+            if (isMp4) {
+                if (!vidEl && bgDiv) {
+                    vidEl = document.createElement('video');
+                    vidEl.className = 'wallpaper-video';
+                    vidEl.autoplay = true;
+                    vidEl.loop = true;
+                    vidEl.muted = true;
+                    vidEl.playsInline = true;
+                    vidEl.style.cssText = 'width:100%; height:100%; object-fit:cover; position:absolute; inset:0; pointer-events:none; z-index:-1;';
+                    bgDiv.appendChild(vidEl);
+                }
+                if (vidEl) {
+                    vidEl.style.display = 'block';
+                    if (vidEl.src !== mediaUrl) vidEl.src = mediaUrl;
+                    vidEl.play().catch(() => {});
+                }
+                if (bgDiv) bgDiv.style.backgroundImage = 'none';
+            } else {
+                if (vidEl) {
+                    vidEl.pause();
+                    vidEl.style.display = 'none';
+                }
+                if (bgDiv) {
+                    bgDiv.style.backgroundImage = `url('${mediaUrl}')`;
+                    bgDiv.style.backgroundRepeat = 'no-repeat';
+                    bgDiv.style.backgroundPosition = 'center center';
+                    bgDiv.style.backgroundSize = 'cover';
+                }
+                root.style.setProperty('--wp-url', `url('${mediaUrl}')`);
+            }
+        }
+
+        (async function bootSync() {
+            const root = document.documentElement;
+            const savedTheme = localStorage.getItem('dashboard-theme') || 'glass';
+            root.setAttribute('data-theme', savedTheme);
+
+            try {
+                const pywalCache = localStorage.getItem('pywal-cache');
+                if (pywalCache) applyThemeAndColors(root, JSON.parse(pywalCache));
+                fetch('/api/pywal').then(r => r.ok ? r.json() : null).then(data => {
+                    if (data && data.colors) {
+                        localStorage.setItem('pywal-cache', JSON.stringify(data));
+                        applyThemeAndColors(root, data);
+                    }
+                }).catch(() => {});
+            } catch(e) {}
+
+            const isVideo = localStorage.getItem('dashboard-wallpaper-is-video') === 'true';
+            const wpUrl = localStorage.getItem('dashboard-wallpaper') || localStorage.getItem('login-wallpaper');
+
+            if (isVideo && wpUrl) {
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, true));
+                } else {
+                    applyMediaToBackground(wpUrl, true);
+                }
+            } else {
+                const cachedBlob = await getLocalWallpaper('active_wallpaper');
+                if (cachedBlob) {
+                    const blobUrl = URL.createObjectURL(cachedBlob);
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(blobUrl, false));
+                    } else {
+                        applyMediaToBackground(blobUrl, false);
+                    }
+                } else if (wpUrl) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', () => applyMediaToBackground(wpUrl, false));
+                    } else {
+                        applyMediaToBackground(wpUrl, false);
+                    }
+                }
+            }
+        })();
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --bg: #111519;
+            --glass: rgba(17, 21, 25, 0.78);
+            --glass-card: rgba(22, 28, 34, 0.72);
+            --glass-border: rgba(105, 180, 195, 0.22);
+            --primary: #69B4C3;
+            --primary-glow: rgba(105, 180, 195, 0.35);
+            --text: #cae5ef;
+            --text-muted: rgba(202, 229, 239, 0.65);
+            --online: #5af78e;
+            --standby: #ffd166;
+            --offline: #ff6b6b;
+            --code-bg: rgba(9, 12, 16, 0.85);
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+            --font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --wp-blur: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .wallpaper {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            background-color: var(--bg);
+            background-size: cover;
+            background-position: center;
+            filter: blur(var(--wp-blur));
+            transform: scale(1.05);
+        }
+
+        .wallpaper-tint {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: rgba(9, 12, 16, 0.75);
+            backdrop-filter: blur(12px);
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 4rem 1.5rem;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--standby);
+            box-shadow: 0 0 8px var(--standby);
+        }
+
+        .header-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(16px);
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .header-icon {
+            font-size: 3.5rem;
+            background: rgba(105, 180, 195, 0.12);
+            border: 1px solid var(--glass-border);
+            width: 90px;
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+
+        .header-info h1 {
+            font-size: 1.85rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .header-info p {
+            color: var(--text-muted);
+            font-size: 0.98rem;
+            line-height: 1.5;
+            margin-bottom: 1.25rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary);
+            color: #0b1116;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 4px 16px var(--primary-glow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px var(--primary-glow);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .meta-box {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .meta-val {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fff;
+            word-break: break-all;
+        }
+
+        .card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 2rem;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(16px);
+            margin-bottom: 1.5rem;
+        }
+
+        .card h2 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sec-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: rgba(105, 180, 195, 0.2);
+            color: var(--primary);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 800;
+        }
+
+        .card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1.25rem;
+        }
+
+        .code-container {
+            background: var(--code-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-container code {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            color: var(--primary);
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--glass-border);
+            color: var(--text);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: #0b1116;
+        }
+
+        .highlight-box {
+            background: rgba(105, 180, 195, 0.08);
+            border-left: 3px solid var(--primary);
+            padding: 1rem 1.25rem;
+            border-radius: 0 10px 10px 0;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .step-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--primary);
+            flex-shrink: 0;
+            font-size: 0.85rem;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content strong {
+            color: #fff;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.95rem;
+        }
+
+        .step-content p {
+            margin-bottom: 6px;
+        }
+
+        .tabs-header {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 12px;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #0b1116;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .bridge-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .bridge-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border-bottom: 1px solid var(--glass-border);
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .bridge-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--text);
+        }
+
+        .bridge-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--primary);
+            color: #0b1116;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .header-card {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="wallpaper-tint"></div>
+
+    <div class="container">
+        <!-- Navigation Bar -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-link">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Back to Dashboard
+            </a>
+            <div class="badge" id="beeperStatusBadge">
+                <span class="dot" id="beeperStatusDot"></span>
+                <span id="beeperStatusText">Checking Status...</span>
+            </div>
+        </nav>
+
+        <!-- Header Card -->
+        <div class="header-card">
+            <div class="header-icon">🌉</div>
+            <div class="header-info">
+                <h1>Beeper Bridge Manager (bbctl)</h1>
+                <p>Self-hosted Matrix chat bridges for WhatsApp, Telegram, Signal, Discord, Google Messages, and Slack. All encryption keys, local session databases, and media downloads stay directly on your server.</p>
+                <div class="header-actions">
+                    <a href="#setup-guide" class="btn-action">
+                        <span>Setup & Start Bridges ↓</span>
+                    </a>
+                    <a href="#cli-ref" class="btn-secondary">
+                        <span>CLI Cheat Sheet</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parameters Grid -->
+        <div class="meta-grid">
+            <div class="meta-box">
+                <div class="meta-label">Beeper Account Status</div>
+                <div class="meta-val" id="whoamiVal">Checking...</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Active Running Bridges</div>
+                <div class="meta-val" id="activeBridgesCount">0 active</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">CLI Helper Command</div>
+                <div class="meta-val">beeper or bbctl</div>
+            </div>
+            <div class="meta-box">
+                <div class="meta-label">Systemd Template</div>
+                <div class="meta-val">bbctl@&lt;bridge&gt;.service</div>
+            </div>
+        </div>
+
+        <!-- 1. Quick Authentication -->
+        <div class="card" id="setup-guide">
+            <h2><span class="sec-num">1</span> Beeper Server Authentication</h2>
+            <p>Before launching bridges, authenticate your server with your Beeper account. Run this once from your terminal:</p>
+            <div class="code-container">
+                <code id="loginCmd">beeper login</code>
+                <button class="copy-btn" onclick="copyCode('loginCmd')">📋 Copy</button>
+            </div>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin-top:-0.5rem; margin-bottom:1rem;">
+                Enter your Beeper email when prompted. Beeper will send a login confirmation code to your email.
+            </p>
+            <div class="code-container">
+                <code id="whoamiCmd">beeper whoami</code>
+                <button class="copy-btn" onclick="copyCode('whoamiCmd')">📋 Copy</button>
+            </div>
+            <div class="highlight-box">
+                <strong>💡 Self-Hosted Encryption & Privacy:</strong> Unlike cloud-hosted bridges, self-hosted bridges via <code>bbctl</code> establish encrypted Matrix appservice websockets directly from your server. WhatsApp and Signal session keys never leave this physical machine.
+            </div>
+        </div>
+
+        <!-- 2. Bridge Activation Tabs -->
+        <div class="card">
+            <h2><span class="sec-num">2</span> Activate Bridges by Platform</h2>
+            <p>Select your chat platform below for 1-click terminal commands and bot pairing steps:</p>
+
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('whatsapp')">💬 WhatsApp</button>
+                <button class="tab-btn" onclick="switchTab('telegram')">✈️ Telegram</button>
+                <button class="tab-btn" onclick="switchTab('signal')">🔒 Signal</button>
+                <button class="tab-btn" onclick="switchTab('discord')">🎮 Discord</button>
+                <button class="tab-btn" onclick="switchTab('gmessages')">📱 Google Messages (RCS)</button>
+                <button class="tab-btn" onclick="switchTab('all')">📋 All 12 Bridges</button>
+            </div>
+
+            <!-- Tab 1: WhatsApp -->
+            <div id="tab-whatsapp" class="tab-panel active">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Enable & Start WhatsApp Bridge Service:</strong>
+                            <p>Starts the official <code>mautrix-whatsapp</code> daemon in the background with auto-restart on boot:</p>
+                            <div class="code-container">
+                                <code id="cmdWa">sudo systemctl enable --now bbctl@sh-whatsapp</code>
+                                <button class="copy-btn" onclick="copyCode('cmdWa')">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Open Beeper App & Pair QR Code:</strong>
+                            <p>In Beeper (mobile or desktop), search for and message <code>@whatsappbot:beeper.local</code>.</p>
+                            <p>Send the message: <code style="color:var(--primary); font-family:var(--font-mono);">login</code>. The bot will send you a QR code.</p>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">3</div>
+                        <div class="step-content">
+                            <strong>Scan with WhatsApp on Your Phone:</strong>
+                            <p>On your phone, open <strong>WhatsApp ➔ Settings ➔ Linked Devices ➔ Link a Device</strong>, and scan the QR code in Beeper.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Telegram -->
+            <div id="tab-telegram" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Enable & Start Telegram Bridge Service:</strong>
+                            <div class="code-container">
+                                <code id="cmdTg">sudo systemctl enable --now bbctl@sh-telegram</code>
+                                <button class="copy-btn" onclick="copyCode('cmdTg')">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Message the Telegram Bot in Beeper:</strong>
+                            <p>In Beeper, message <code>@telegrambot:beeper.local</code> with:</p>
+                            <div class="code-container">
+                                <code id="cmdTgLogin">login +1234567890</code>
+                                <button class="copy-btn" onclick="copyCode('cmdTgLogin')">📋 Copy</button>
+                            </div>
+                            <p>Replace with your international phone number. Enter the Telegram login code when asked.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Signal -->
+            <div id="tab-signal" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Enable & Start Signal Bridge Service:</strong>
+                            <div class="code-container">
+                                <code id="cmdSig">sudo systemctl enable --now bbctl@sh-signal</code>
+                                <button class="copy-btn" onclick="copyCode('cmdSig')">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Pair Signal Device:</strong>
+                            <p>In Beeper, message <code>@signalbot:beeper.local</code> with <code style="color:var(--primary); font-family:var(--font-mono);">link</code> to get a QR code.</p>
+                            <p>On your phone: <strong>Signal ➔ Settings ➔ Linked Devices ➔ Link New Device</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Discord -->
+            <div id="tab-discord" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Enable & Start Discord Bridge Service:</strong>
+                            <div class="code-container">
+                                <code id="cmdDisc">sudo systemctl enable --now bbctl@sh-discord</code>
+                                <button class="copy-btn" onclick="copyCode('cmdDisc')">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Authenticate Discord:</strong>
+                            <p>In Beeper, message <code>@discordbot:beeper.local</code> with <code style="color:var(--primary); font-family:var(--font-mono);">login-qr</code> to scan the Discord QR code using your Discord mobile app.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Google Messages (RCS) -->
+            <div id="tab-gmessages" class="tab-panel">
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-circle">1</div>
+                        <div class="step-content">
+                            <strong>Enable & Start Google Messages RCS Bridge:</strong>
+                            <div class="code-container">
+                                <code id="cmdGm">sudo systemctl enable --now bbctl@sh-gmessages</code>
+                                <button class="copy-btn" onclick="copyCode('cmdGm')">📋 Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle">2</div>
+                        <div class="step-content">
+                            <strong>Pair via Device Pairing:</strong>
+                            <p>In Beeper, message <code>@gmessagesbot:beeper.local</code> with <code style="color:var(--primary); font-family:var(--font-mono);">login</code>.</p>
+                            <p>Open <strong>Google Messages on Android ➔ Profile icon ➔ Device pairing ➔ QR code scanner</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 6: All 12 Bridges -->
+            <div id="tab-all" class="tab-panel">
+                <table class="bridge-table">
+                    <thead>
+                        <tr>
+                            <th>Platform</th>
+                            <th>Bridge Identifier</th>
+                            <th>Quick Command</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>WhatsApp</td>
+                            <td><code>sh-whatsapp</code></td>
+                            <td><code>beeper start sh-whatsapp</code></td>
+                        </tr>
+                        <tr>
+                            <td>Telegram</td>
+                            <td><code>sh-telegram</code></td>
+                            <td><code>beeper start sh-telegram</code></td>
+                        </tr>
+                        <tr>
+                            <td>Signal</td>
+                            <td><code>sh-signal</code></td>
+                            <td><code>beeper start sh-signal</code></td>
+                        </tr>
+                        <tr>
+                            <td>Discord</td>
+                            <td><code>sh-discord</code></td>
+                            <td><code>beeper start sh-discord</code></td>
+                        </tr>
+                        <tr>
+                            <td>Google Messages (RCS)</td>
+                            <td><code>sh-gmessages</code></td>
+                            <td><code>beeper start sh-gmessages</code></td>
+                        </tr>
+                        <tr>
+                            <td>Slack</td>
+                            <td><code>sh-slack</code></td>
+                            <td><code>beeper start sh-slack</code></td>
+                        </tr>
+                        <tr>
+                            <td>Google Chat</td>
+                            <td><code>sh-googlechat</code></td>
+                            <td><code>beeper start sh-googlechat</code></td>
+                        </tr>
+                        <tr>
+                            <td>Meta / Instagram / FB</td>
+                            <td><code>sh-meta</code></td>
+                            <td><code>beeper start sh-meta</code></td>
+                        </tr>
+                        <tr>
+                            <td>Twitter / X DMs</td>
+                            <td><code>sh-twitter</code></td>
+                            <td><code>beeper start sh-twitter</code></td>
+                        </tr>
+                        <tr>
+                            <td>Bluesky DMs</td>
+                            <td><code>sh-bluesky</code></td>
+                            <td><code>beeper start sh-bluesky</code></td>
+                        </tr>
+                        <tr>
+                            <td>IRC / Heisenbridge</td>
+                            <td><code>sh-irc</code></td>
+                            <td><code>beeper start sh-irc</code></td>
+                        </tr>
+                        <tr>
+                            <td>LinkedIn</td>
+                            <td><code>sh-linkedin</code></td>
+                            <td><code>beeper start sh-linkedin</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. CLI Helper Command Reference -->
+        <div class="card" id="cli-ref">
+            <h2><span class="sec-num">3</span> CLI Helper Reference (<code>beeper</code> / <code>bbctl</code>)</h2>
+            <p>You can manage all bridges directly from your persistent tmux shell or SSH terminal:</p>
+            <div class="code-container">
+                <code id="cmdCliStat">beeper status</code>
+                <button class="copy-btn" onclick="copyCode('cmdCliStat')">📋 Copy</button>
+            </div>
+            <div class="code-container">
+                <code id="cmdCliLogs">beeper logs sh-whatsapp</code>
+                <button class="copy-btn" onclick="copyCode('cmdCliLogs')">📋 Copy</button>
+            </div>
+            <div class="code-container">
+                <code id="cmdCliRestart">beeper restart sh-whatsapp</code>
+                <button class="copy-btn" onclick="copyCode('cmdCliRestart')">📋 Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">✔ Command copied to clipboard!</div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+
+            const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+            if (targetBtn) targetBtn.classList.add('active');
+
+            const targetPanel = document.getElementById(`tab-${tabId}`);
+            if (targetPanel) targetPanel.classList.add('active');
+        }
+
+        function copyCode(elementId) {
+            const codeEl = document.getElementById(elementId);
+            if (!codeEl) return;
+            navigator.clipboard.writeText(codeEl.textContent.trim()).then(showToast);
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2200);
+        }
+
+        // Live status poller
+        async function fetchBeeperStatus() {
+            try {
+                const res = await fetch('/api/beeper/status');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const badge = document.getElementById('beeperStatusBadge');
+                const dot = document.getElementById('beeperStatusDot');
+                const text = document.getElementById('beeperStatusText');
+                const whoamiEl = document.getElementById('whoamiVal');
+                const activeCountEl = document.getElementById('activeBridgesCount');
+
+                if (whoamiEl) whoamiEl.textContent = data.whoami || (data.logged_in ? 'Logged In' : 'Not Logged In');
+
+                const count = (data.active_bridges || []).length;
+                if (activeCountEl) {
+                    activeCountEl.textContent = count === 0 ? '0 active' : `${count} active (${data.active_bridges.join(', ')})`;
+                }
+
+                if (data.online) {
+                    dot.style.background = 'var(--online)';
+                    dot.style.boxShadow = '0 0 8px var(--online)';
+                    text.textContent = `${count} Bridges Online`;
+                } else if (data.logged_in) {
+                    dot.style.background = 'var(--standby)';
+                    dot.style.boxShadow = '0 0 8px var(--standby)';
+                    text.textContent = 'Ready (No Active Bridges)';
+                } else {
+                    dot.style.background = 'var(--offline)';
+                    dot.style.boxShadow = '0 0 8px var(--offline)';
+                    text.textContent = 'Authentication Required';
+                }
+            } catch(e) {}
+        }
+
+        fetchBeeperStatus();
+        setInterval(fetchBeeperStatus, 5000);
+    </script>
+</body>
+</html>

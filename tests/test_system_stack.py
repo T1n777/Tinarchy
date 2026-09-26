@@ -574,6 +574,7 @@ def test_jdownloader_and_beeper_stack():
     jd_svc = os.path.join(REPO_ROOT, "configs", "systemd", "jdownloader.service")
     bb_svc = os.path.join(REPO_ROOT, "configs", "systemd", "bbctl@.service")
     jd_ctl = os.path.join(REPO_ROOT, "configs", "scripts", "jdownloader-ctl.sh")
+    bb_ctl = os.path.join(REPO_ROOT, "configs", "scripts", "beeper-ctl.sh")
 
     if not os.path.exists(jd_svc):
         raise Exception(f"Missing {jd_svc}")
@@ -581,14 +582,22 @@ def test_jdownloader_and_beeper_stack():
         raise Exception(f"Missing {bb_svc}")
     if not os.path.exists(jd_ctl):
         raise Exception(f"Missing {jd_ctl}")
+    if not os.path.exists(bb_ctl):
+        raise Exception(f"Missing {bb_ctl}")
 
     res_syntax = subprocess.run(["bash", "-n", jd_ctl], capture_output=True, text=True)
     if res_syntax.returncode != 0:
         raise Exception(f"jdownloader-ctl.sh syntax error: {res_syntax.stderr}")
 
+    res_bb_syntax = subprocess.run(["bash", "-n", bb_ctl], capture_output=True, text=True)
+    if res_bb_syntax.returncode != 0:
+        raise Exception(f"beeper-ctl.sh syntax error: {res_bb_syntax.stderr}")
+
     from tinarchy.services import get_all_service_ids
     if 'jdownloader' not in get_all_service_ids():
         raise Exception("jdownloader missing from get_all_service_ids()")
+    if 'beeper' not in get_all_service_ids():
+        raise Exception("beeper missing from get_all_service_ids()")
 
     if os.path.exists("/usr/local/bin/jdownloader"):
         if not os.access("/usr/local/bin/jdownloader", os.X_OK):
@@ -596,6 +605,11 @@ def test_jdownloader_and_beeper_stack():
         res_cli = subprocess.run(["/usr/local/bin/jdownloader", "status"], capture_output=True, text=True)
         if res_cli.returncode != 0:
             raise Exception(f"/usr/local/bin/jdownloader status exited with {res_cli.returncode}: {res_cli.stderr}")
+
+    # Verify beeper helper script
+    res_beeper = subprocess.run([bb_ctl, "status"], capture_output=True, text=True)
+    if res_beeper.returncode != 0:
+        raise Exception(f"beeper-ctl.sh status exited with code {res_beeper.returncode}")
 
 run_test("JDownloader 2 Headless & Beeper bbctl Systemd Stack & CLI", test_jdownloader_and_beeper_stack)
 
