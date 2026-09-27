@@ -1035,6 +1035,11 @@ if [ "$INSTALL_NGINX" = "true" ]; then
         else
             echo -e "${YELLOW}⚠️ Nginx syntax check had warnings or missing SSL certs; check /etc/nginx/nginx.conf${NC}"
         fi
+
+        mkdir -p /etc/systemd/system/nginx.service.d
+        if [ -f "$REPO_ROOT/configs/systemd/nginx-tailscale.conf" ]; then
+            cp "$REPO_ROOT/configs/systemd/nginx-tailscale.conf" /etc/systemd/system/nginx.service.d/tailscale.conf
+        fi
     fi
 fi
 

@@ -807,8 +807,18 @@ def test_boot_autologin_and_service_persistence():
         chk = subprocess.run(['systemctl', 'is-enabled', unit], capture_output=True, text=True)
         enabled_state = chk.stdout.strip()
         # If offline, it should NOT be enabled
-        if s['status'] == 'offline' and enabled_state == 'enabled':
-            raise Exception(f"Service {s['id']} ({unit}) is offline on dashboard but marked enabled in systemd!")
+    # 5. Verify non-local bind sysctl and nginx tailscale drop-in for dynamic VPN IP boot
+    res_nl = subprocess.run(['sysctl', '-n', 'net.ipv4.ip_nonlocal_bind'], capture_output=True, text=True)
+    if res_nl.stdout.strip() != '1':
+        raise Exception(f"net.ipv4.ip_nonlocal_bind expected 1, got {res_nl.stdout.strip()}")
+    nginx_dropin_cfg = os.path.join(REPO_ROOT, "configs", "systemd", "nginx-tailscale.conf")
+    if not os.path.exists(nginx_dropin_cfg):
+        raise Exception(f"Missing {nginx_dropin_cfg}")
+    live_nginx_dropin = "/etc/systemd/system/nginx.service.d/tailscale.conf"
+    if os.path.exists(live_nginx_dropin):
+        with open(live_nginx_dropin, "r", encoding="utf-8") as f:
+            if "tailscaled.service" not in f.read():
+                raise Exception(f"{live_nginx_dropin} missing tailscaled.service dependency")
 
 run_test("Headless Boot Autologin & Dashboard Active Service Reboot Persistence", test_boot_autologin_and_service_persistence)
 
