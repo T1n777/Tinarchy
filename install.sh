@@ -1156,13 +1156,16 @@ UDEV_EOF
         mkdir -p /etc/systemd/system/getty@.service.d/
         cp "$REPO_ROOT/configs/systemd/getty-powersave.conf" /etc/systemd/system/getty@.service.d/powersave.conf
     fi
-    if [ -f "$REPO_ROOT/configs/systemd/getty-autologin.conf" ]; then
-        mkdir -p /etc/systemd/system/getty@tty1.service.d/
-        sed "s/pineapple/$TARGET_USER/g" "$REPO_ROOT/configs/systemd/getty-autologin.conf" > /etc/systemd/system/getty@tty1.service.d/autologin.conf
-    fi
     if [ -f "$REPO_ROOT/configs/scripts/console-powersave.sh" ]; then
         cp "$REPO_ROOT/configs/scripts/console-powersave.sh" /etc/profile.d/console-powersave.sh
     fi
+fi
+
+# Core TTY1 Headless Autologin (No password or manual login required on boot)
+if [ -f "$REPO_ROOT/configs/systemd/getty-autologin.conf" ]; then
+    echo -e "${CYAN}🔑 Configuring TTY1 console passwordless autologin for ${TARGET_USER}...${NC}"
+    mkdir -p /etc/systemd/system/getty@tty1.service.d/
+    sed -e "s/pineapple/$TARGET_USER/g" -e "s/tin/$TARGET_USER/g" "$REPO_ROOT/configs/systemd/getty-autologin.conf" > /etc/systemd/system/getty@tty1.service.d/autologin.conf
 fi
 
 # 9. Autonomous Resource Governor & Dynamic Network Autotuner
@@ -1331,7 +1334,11 @@ if [ -f /usr/lib/systemd/system/seerr.service ] || [ -f /etc/systemd/system/seer
         mkdir -p /etc/conf.d
         cp "$REPO_ROOT/configs/seerr/seerr.env" /etc/conf.d/seerr
     fi
-    manage_service "seerr.service" "Seerr Media Requests" "true"
+    SEERR_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet seerr.service 2>/dev/null || systemctl is-enabled --quiet seerr.service 2>/dev/null; then
+        SEERR_ACTIVE="true"
+    fi
+    manage_service "seerr.service" "Seerr Media Requests" "$SEERR_ACTIVE"
 fi
 if [ -f /usr/lib/systemd/system/radarr.service ] || [ -f /etc/systemd/system/radarr.service ]; then
     mkdir -p /etc/systemd/system/radarr.service.d /var/lib/radarr
@@ -1343,7 +1350,11 @@ if [ -f /usr/lib/systemd/system/radarr.service ] || [ -f /etc/systemd/system/rad
             -e "s|/home/tin|${USER_HOME}|g" \
             "$REPO_ROOT/configs/systemd/radarr-storage-access.conf" > /etc/systemd/system/radarr.service.d/override.conf
     fi
-    manage_service "radarr.service" "Radarr Movie Automation" "true"
+    RADARR_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet radarr.service 2>/dev/null || systemctl is-enabled --quiet radarr.service 2>/dev/null; then
+        RADARR_ACTIVE="true"
+    fi
+    manage_service "radarr.service" "Radarr Movie Automation" "$RADARR_ACTIVE"
 fi
 if [ -f /usr/lib/systemd/system/sonarr.service ] || [ -f /etc/systemd/system/sonarr.service ]; then
     mkdir -p /etc/systemd/system/sonarr.service.d /var/lib/sonarr
@@ -1355,7 +1366,11 @@ if [ -f /usr/lib/systemd/system/sonarr.service ] || [ -f /etc/systemd/system/son
             -e "s|/home/tin|${USER_HOME}|g" \
             "$REPO_ROOT/configs/systemd/sonarr-storage-access.conf" > /etc/systemd/system/sonarr.service.d/override.conf
     fi
-    manage_service "sonarr.service" "Sonarr TV Automation" "true"
+    SONARR_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet sonarr.service 2>/dev/null || systemctl is-enabled --quiet sonarr.service 2>/dev/null; then
+        SONARR_ACTIVE="true"
+    fi
+    manage_service "sonarr.service" "Sonarr TV Automation" "$SONARR_ACTIVE"
 fi
 if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/prowlarr.service ]; then
     mkdir -p /etc/systemd/system/prowlarr.service.d /var/lib/prowlarr
@@ -1367,7 +1382,11 @@ if [ -f /usr/lib/systemd/system/prowlarr.service ] || [ -f /etc/systemd/system/p
             -e "s|/home/tin|${USER_HOME}|g" \
             "$REPO_ROOT/configs/systemd/prowlarr-storage-access.conf" > /etc/systemd/system/prowlarr.service.d/override.conf
     fi
-    manage_service "prowlarr.service" "Prowlarr Indexer Manager" "true"
+    PROWLARR_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet prowlarr.service 2>/dev/null || systemctl is-enabled --quiet prowlarr.service 2>/dev/null; then
+        PROWLARR_ACTIVE="true"
+    fi
+    manage_service "prowlarr.service" "Prowlarr Indexer Manager" "$PROWLARR_ACTIVE"
 fi
 if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/bazarr.service ]; then
     mkdir -p /etc/systemd/system/bazarr.service.d /var/lib/bazarr
@@ -1380,7 +1399,11 @@ if [ -f /usr/lib/systemd/system/bazarr.service ] || [ -f /etc/systemd/system/baz
             -e "s|/home/tin|${USER_HOME}|g" \
             "$REPO_ROOT/configs/systemd/bazarr-storage-access.conf" > /etc/systemd/system/bazarr.service.d/override.conf
     fi
-    manage_service "bazarr.service" "Bazarr Subtitles Manager" "true"
+    BAZARR_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet bazarr.service 2>/dev/null || systemctl is-enabled --quiet bazarr.service 2>/dev/null; then
+        BAZARR_ACTIVE="true"
+    fi
+    manage_service "bazarr.service" "Bazarr Subtitles Manager" "$BAZARR_ACTIVE"
 fi
 
 if [ -f /usr/lib/systemd/system/navidrome.service ] || [ -f /etc/systemd/system/navidrome.service ]; then
@@ -1415,7 +1438,11 @@ if [ -f "/usr/lib/systemd/system/qbittorrent-nox@.service" ] || [ -f "/etc/syste
         grep -q "WebUI\\\\HostHeaderValidation" "$QBIT_CONF" 2>/dev/null || echo "WebUI\HostHeaderValidation=false" >> "$QBIT_CONF"
         grep -q "WebUI\\\\CSRFProtection" "$QBIT_CONF" 2>/dev/null || echo "WebUI\CSRFProtection=false" >> "$QBIT_CONF"
     fi
-    manage_service "qbittorrent-nox@$TARGET_USER.service" "qBittorrent Daemon" "true"
+    QBIT_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet "qbittorrent-nox@$TARGET_USER.service" 2>/dev/null || systemctl is-enabled --quiet "qbittorrent-nox@$TARGET_USER.service" 2>/dev/null; then
+        QBIT_ACTIVE="true"
+    fi
+    manage_service "qbittorrent-nox@$TARGET_USER.service" "qBittorrent Daemon" "$QBIT_ACTIVE"
 fi
 
 # JDownloader 2 Headless Service & CLI
@@ -1432,7 +1459,11 @@ if [ -f "$REPO_ROOT/configs/scripts/jdownloader-ctl.sh" ]; then
 fi
 
 if [ -f "${USER_HOME}/jdownloader/JDownloader.jar" ]; then
-    manage_service "jdownloader.service" "JDownloader 2 Headless" "true"
+    JDOWN_ACTIVE="false"
+    if [ "$ISO_MODE" = "true" ] || systemctl is-active --quiet jdownloader.service 2>/dev/null || systemctl is-enabled --quiet jdownloader.service 2>/dev/null; then
+        JDOWN_ACTIVE="true"
+    fi
+    manage_service "jdownloader.service" "JDownloader 2 Headless" "$JDOWN_ACTIVE"
 fi
 
 # Beeper Bridge Manager (bbctl) Template Service & CLI

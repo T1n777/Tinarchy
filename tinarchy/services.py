@@ -24,8 +24,14 @@ def get_categories():
     return CATEGORIES
 
 def _is_unit_present(unit_name: str) -> bool:
-    """Check if a systemd unit file exists on the system."""
-    for base in ['/etc/systemd/system', '/usr/lib/systemd/system', '/lib/systemd/system']:
+    """Check if a systemd unit file exists on the system or repository configs."""
+    search_dirs = [
+        '/etc/systemd/system',
+        '/usr/lib/systemd/system',
+        '/lib/systemd/system',
+        os.path.join(BASE_DIR, 'configs', 'systemd')
+    ]
+    for base in search_dirs:
         if os.path.exists(os.path.join(base, unit_name)):
             return True
         if '@' in unit_name:
@@ -425,13 +431,52 @@ def toggle_syncyomi(action: str):
 
     # 2. Control systemd services
     if action == 'start':
+        subprocess.run(['sudo', 'systemctl', 'enable', 'syncyomi.service'], check=False)
         subprocess.run(['sudo', 'systemctl', 'start', 'syncyomi.service'], check=True)
+        subprocess.run(['sudo', 'systemctl', 'enable', 'syncyomi-suwayomi-bridge.service'], check=False)
         subprocess.run(['sudo', 'systemctl', 'start', 'syncyomi-suwayomi-bridge.service'], check=False)
         # Trigger initial sync once started
         trigger_suwayomi_sync_async(force=True)
     else:
+        subprocess.run(['sudo', 'systemctl', 'disable', 'syncyomi-suwayomi-bridge.service'], check=False)
         subprocess.run(['sudo', 'systemctl', 'stop', 'syncyomi-suwayomi-bridge.service'], check=False)
+        subprocess.run(['sudo', 'systemctl', 'disable', 'syncyomi.service'], check=False)
         subprocess.run(['sudo', 'systemctl', 'stop', 'syncyomi.service'], check=True)
+
+def toggle_beeper(action: str):
+    """
+    Controls Beeper bridge systemd instances (bbctl@*).
+    """
+    if action == 'stop':
+        res = subprocess.run(
+            ['systemctl', 'list-units', 'bbctl@*', '--state=active', '--no-legend', '--no-pager'],
+            capture_output=True, text=True, timeout=3
+        )
+        if res.returncode == 0:
+            for line in res.stdout.strip().splitlines():
+                parts = line.split()
+                if parts and parts[0].startswith('bbctl@'):
+                    unit = parts[0]
+                    subprocess.run(['sudo', 'systemctl', 'disable', '--now', unit], check=False)
+    else:
+        # action == 'start'
+        res = subprocess.run(
+            ['systemctl', 'list-unit-files', 'bbctl@*.service', '--state=enabled', '--no-legend', '--no-pager'],
+            capture_output=True, text=True, timeout=3
+        )
+        started_any = False
+        if res.returncode == 0:
+            for line in res.stdout.strip().splitlines():
+                parts = line.split()
+                if parts and parts[0].startswith('bbctl@'):
+                    unit = parts[0]
+                    subprocess.run(['sudo', 'systemctl', 'enable', '--now', unit], check=False)
+                    started_any = True
+        if not started_any:
+            for bridge in ['sh-whatsapp', 'sh-discord', 'sh-instagram']:
+                unit = f'bbctl@{bridge}.service'
+                if _is_unit_present(unit):
+                    subprocess.run(['sudo', 'systemctl', 'enable', '--now', unit], check=False)
 
 def toggle_service(service_id: str, action: str):
     service = next((s for s in SERVICES if s['id'] == service_id), None)
@@ -445,10 +490,46 @@ def toggle_service(service_id: str, action: str):
         subprocess.run(['tailscale', 'set', f'--ssh={ssh_val}', '--accept-risk=lose-ssh'], check=True, timeout=5)
     elif service_id == 'syncyomi':
         toggle_syncyomi(action)
+    elif service_id == 'beeper':
+        toggle_beeper(action)
     else:
-        subprocess.run(['sudo', 'systemctl', action, service['systemd']], check=True)
+        unit = service['systemd']
+        if action == 'start':
+            # Enable unit so it restarts automatically on boot, then start it
+            subprocess.run(['sudo', 'systemctl', 'enable', unit], check=False)
+            subprocess.run(['sudo', 'systemctl', 'start', unit], check=True)
+            if service_id == 'suwayomi':
+                subprocess.run(['sudo', 'systemctl', 'enable', '--now', 'suwayomi-precache.timer'], check=False)
+        else:
+            # Disable unit so it does NOT restart on boot, then stop it
+            subprocess.run(['sudo', 'systemctl', 'disable', unit], check=False)
+            subprocess.run(['sudo', 'systemctl', 'stop', unit], check=True)
+            if service_id == 'suwayomi':
+                subprocess.run(['sudo', 'systemctl', 'disable', '--now', 'suwayomi-precache.timer'], check=False)
 
     invalidate_services_cache()
+
+def sync_service_boot_states():
+    """
+    Synchronizes systemd enabled/disabled boot state with current active status.
+    Active services are enabled so they restart on boot.
+    Inactive/stopped services are disabled so they do NOT start on boot.
+    """
+    for s in SERVICES:
+        sid = s['id']
+        unit = s.get('systemd')
+        if not unit or unit.endswith('@'):
+            continue
+        chk = subprocess.run(['systemctl', 'is-active', unit], capture_output=True, text=True)
+        is_active = (chk.stdout.strip() == 'active')
+        if is_active:
+            subprocess.run(['sudo', 'systemctl', 'enable', unit], check=False)
+            if sid == 'suwayomi':
+                subprocess.run(['sudo', 'systemctl', 'enable', 'suwayomi-precache.timer'], check=False)
+        else:
+            subprocess.run(['sudo', 'systemctl', 'disable', unit], check=False)
+            if sid == 'suwayomi':
+                subprocess.run(['sudo', 'systemctl', 'disable', 'suwayomi-precache.timer'], check=False)
 
 def set_suwayomi_tor(enable: bool):
     val = 'true' if enable else 'false'

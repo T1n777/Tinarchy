@@ -770,6 +770,49 @@ def test_suwayomi_tabbed_widget():
 
 run_test("Suwayomi Tabbed Manga Shelf & Stacking Exclusion", test_suwayomi_tabbed_widget)
 
+# --- TEST 28: Headless Boot Autologin & Dashboard Active Service Reboot Persistence ---
+def test_boot_autologin_and_service_persistence():
+    # 1. Verify getty drop-in config
+    cfg_path = os.path.join(REPO_ROOT, "configs", "systemd", "getty-autologin.conf")
+    if not os.path.exists(cfg_path):
+        raise Exception(f"Missing {cfg_path}")
+    with open(cfg_path, "r", encoding="utf-8") as f:
+        cfg_content = f.read()
+    if "--autologin" not in cfg_content:
+        raise Exception("configs/systemd/getty-autologin.conf missing --autologin")
+
+    # 2. Verify deployed /etc drop-in if running on live system
+    deployed_dropin = "/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+    if os.path.exists(deployed_dropin):
+        with open(deployed_dropin, "r", encoding="utf-8") as f:
+            dep_content = f.read()
+        if "--autologin" not in dep_content:
+            raise Exception(f"{deployed_dropin} missing --autologin parameter")
+
+    # 3. Verify sync_service_boot_states exists and toggle_service handles enable/disable
+    import inspect
+    from tinarchy import services
+    if not hasattr(services, 'sync_service_boot_states'):
+        raise Exception("tinarchy.services missing sync_service_boot_states function")
+    toggle_src = inspect.getsource(services.toggle_service)
+    if "enable" not in toggle_src or "disable" not in toggle_src:
+        raise Exception("toggle_service does not synchronize enable/disable with systemd")
+
+    # 4. Verify systemd enablement matches current dashboard active state for key services
+    statuses = services.get_services_status()
+    for s in statuses:
+        unit = s.get('systemd')
+        if not unit or unit.endswith('@'):
+            continue
+        chk = subprocess.run(['systemctl', 'is-enabled', unit], capture_output=True, text=True)
+        enabled_state = chk.stdout.strip()
+        # If offline, it should NOT be enabled
+        if s['status'] == 'offline' and enabled_state == 'enabled':
+            raise Exception(f"Service {s['id']} ({unit}) is offline on dashboard but marked enabled in systemd!")
+
+run_test("Headless Boot Autologin & Dashboard Active Service Reboot Persistence", test_boot_autologin_and_service_persistence)
+
+
 
 passed = sum(1 for _, ok, _ in tests if ok)
 print(f"\n==========================================")
