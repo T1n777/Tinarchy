@@ -19,7 +19,7 @@ server:
         defaultEnabled: false
 
 auth:
-  tokenExpirationHours: 720
+  tokenExpirationHours: 876600
   methods:
     password:
       enabled: true
