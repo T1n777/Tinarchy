@@ -326,7 +326,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if any(s['id'] == 'filebrowser' for s in SERVICES):
                 if 'filebrowser' not in allowed_services:
                     return self.serve_access_denied('File Manager')
-                target_url = "/files/"
+                cookie_header = self.headers.get('Cookie', '')
+                if 'filebrowser_quantum_jwt' in cookie_header:
+                    target_url = "/files/"
+                else:
+                    target_url = "/files/login?redirect=/files/"
             else:
                 target_url = "/syncthing"
         elif clean_path in ['/obsidian', '/sync', '/livesync', '/couchdb']:

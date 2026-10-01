@@ -9,12 +9,8 @@ server:
   numImageProcessors: 4
   maxArchiveSize: 0
   sources:
-    - path: "/"
-      name: "root"
-      config:
-        defaultEnabled: true
-    - path: "/home/pineapple"
-      name: "home"
+    - path: "/home/tin"
+      name: "drive"
       config:
         defaultEnabled: true
     - path: "/var/lib/suwayomi/.local/share/Tachidesk/downloads"
@@ -23,11 +19,11 @@ server:
         defaultEnabled: false
 
 auth:
+  tokenExpirationHours: 720
   methods:
-    noauth: true
     password:
-      enabled: false
+      enabled: true
       minLength: 4
       signup: false
     passkey:
-      enabled: false
+      enabled: true
