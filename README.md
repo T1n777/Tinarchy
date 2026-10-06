@@ -270,6 +270,7 @@ Tinarchy/
 | **SyncYomi Server** *(Optional / Legacy)* | `8282` | `/syncyomi` & `:8282` | `syncyomi.service` | Standalone Tachiyomi/Mihon progress sync (optional; obsolete if using Suwayomi Tsurumi) |
 | **Obsidian LiveSync** *(Optional)* | `5984` | `/obsidian` & `/couchdb/` | `couchdb.service` | Real-time E2EE note synchronization (enable via `ENABLE_COUCHDB=true`) |
 | **Vaultwarden Password Vault** *(Optional)* | `8001` | `:8000`, `/vault`, `/vault-guide` | `vaultwarden.service` | Bitwarden zero-knowledge password vault, TOTP 2FA authenticator & client sync |
+| **AdGuard Home DNS Adblocker** *(Optional)* | `3000` | `:3000`, `/adguard`, `:53` (DNS) | `adguardhome.service` | Network-wide ad & tracker blocking DNS sinkhole with DoH upstream encryption |
 | **Resource Governor** | — | Telemetry `/api/reports/daily` | `tinarchy-resource-governor.service` | Autonomous closed-loop PID thermal & media workload governor |
 | **Dynamic Network Tuner** | — | Sysctl / RPS | `tinarchy-net-autotune.service` | Multicore RPS/RFS packet steering & TCP buffer autotuning |
 | **X Virtual Framebuffer (Xvfb)** | — | Display `:99` | `xvfb.service` | Headless X11 display for Suwayomi JCEF/Chromium extension engine |

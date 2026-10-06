@@ -242,6 +242,21 @@ if ENABLE_BEEPER:
         'category': 'network'
     })
 
+ENABLE_ADGUARD = _resolve_service_toggle('ENABLE_ADGUARD', 'auto', 'adguardhome.service')
+if ENABLE_ADGUARD:
+    adguard_port = int(os.environ.get('ADGUARD_PORT', 3000))
+    SERVICES.append({
+        'id': 'adguard',
+        'name': 'AdGuard Home',
+        'port': adguard_port,
+        'systemd': 'adguardhome',
+        'icon': '🛡️',
+        'description': 'Network-wide ad & tracker blocking DNS server',
+        'link': '/adguard',
+        'link_text': f':{adguard_port}',
+        'category': 'network'
+    })
+
 
 # Load optional machine-specific services
 if os.path.exists(LOCAL_SERVICES_FILE):
@@ -266,7 +281,7 @@ def get_all_service_ids():
     try:
         return [s['id'] for s in SERVICES]
     except Exception:
-        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader', 'vaultwarden', 'beeper']
+        return ['suwayomi', 'jellyfin', 'seerr', 'tor', 'tailscale-ssh', 'syncthing', 'syncyomi', 'filebrowser', 'couchdb', 'radarr', 'sonarr', 'prowlarr', 'qbittorrent', 'bazarr', 'navidrome', 'jdownloader', 'vaultwarden', 'beeper', 'adguard']
 
 def is_tailscale_ssh_active():
     try:

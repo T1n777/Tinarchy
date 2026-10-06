@@ -4,12 +4,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=pineapple
-Group=pineapple
-WorkingDirectory=/home/pineapple
-ExecStartPre=+/usr/bin/sh -c 'if [ -x /home/pineapple/.local/bin/filebrowser-quantum ] && [ ! -x /usr/local/bin/filebrowser-quantum ]; then ln -sfn /home/pineapple/.local/bin/filebrowser-quantum /usr/local/bin/filebrowser-quantum; fi'
+User=tin
+Group=tin
+WorkingDirectory=/home/tin
+ExecStartPre=+/usr/bin/ln -sfn /home/tin/.local/bin/filebrowser-quantum /usr/local/bin/filebrowser-quantum
 ExecStartPre=/usr/local/bin/tinarchy-drive-sync
-ExecStart=/usr/local/bin/filebrowser-quantum -c /etc/filebrowser/config.yaml
+ExecStart=/home/tin/.local/bin/filebrowser-quantum -c /etc/filebrowser/config.yaml
 Restart=always
 RestartSec=5
 

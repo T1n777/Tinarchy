@@ -3476,7 +3476,13 @@
             if (statsBar) statsBar.style.display = w.stats_bar?.enabled === false ? 'none' : 'grid';
 
             const torBanner = document.getElementById('tor-exit-banner');
-            if (torBanner) torBanner.style.display = w.tor_exit?.enabled === false ? 'none' : 'flex';
+            if (torBanner) {
+                if (window.HIDE_TOR_FOR_CURRENT_USER || (window.CURRENT_USER && CURRENT_USER.show_tor_exit === false)) {
+                    torBanner.style.display = 'none';
+                } else {
+                    torBanner.style.display = w.tor_exit?.enabled === false ? 'none' : 'flex';
+                }
+            }
 
             renderWidgetsLayout();
         }
@@ -3726,10 +3732,17 @@
                     }
                 }
 
-                // Guests (Kimi): Remove Tor exit banner
-                if (u.role === 'guest') {
+                // Guests / Viewers: Remove Tor exit banner if show_tor_exit is false or hide policy is active
+                const isGuestUser = (u.role === 'viewer' || u.role === 'guest') && !u.is_owner;
+                const shouldHideTorExit = (u.show_tor_exit === false) || (isGuestUser && (u.hide_tor_exit_for_guests !== false || !u.allowed_services?.includes('tor')));
+
+                if (shouldHideTorExit) {
+                    window.HIDE_TOR_FOR_CURRENT_USER = true;
                     const torBanner = document.getElementById('tor-exit-banner');
-                    if (torBanner) torBanner.remove();
+                    if (torBanner) {
+                        torBanner.style.setProperty('display', 'none', 'important');
+                        torBanner.remove();
+                    }
                 } else {
                     const torBtn = document.getElementById('tor-exit-btn');
                     if (torBtn && u.role === 'viewer') {
@@ -3749,6 +3762,7 @@
                         'qbittorrent': 'toggle-widget-qbit',
                         'jdownloader': 'toggle-widget-jd',
                         'manga_shelf': 'toggle-widget-manga',
+                        'tor_exit': 'toggle-widget-tor'
                     };
                     let restrictedAny = false;
                     Object.entries(widgetToggleMap).forEach(([widgetId, toggleId]) => {

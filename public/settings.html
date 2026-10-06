@@ -637,6 +637,30 @@
                         <div style="color: var(--text-muted); font-size: 0.85rem;">Discovering Tailscale peers…</div>
                     </div>
 
+                    <!-- Guest User Policies -->
+                    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                        <span>Guest User Policies</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 14px 18px; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 260px; flex: 1;">
+                            <span style="font-size: 1.5rem; line-height: 1;">🧅</span>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <strong style="font-size: 0.88rem; color: var(--text);">Remove Tor Exit Node for Guest Users</strong>
+                                    <span id="guest-tor-badge" style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;"></span>
+                                </div>
+                                <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 3px; line-height: 1.35;">
+                                    Completely hides and removes the Global Tor Exit Node card and controls from the dashboard for all guest and viewer accounts.
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="display: inline-flex; align-items: center; cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="toggle-guest-tor-exit" onchange="toggleGuestTorExitSetting(this.checked)" style="accent-color: var(--primary); width: 18px; height: 18px; cursor: pointer;">
+                            </label>
+                        </div>
+                    </div>
+
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 16px 20px; border-radius: 12px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
                         <strong style="color: var(--text);">Role Hierarchy & Access Rules:</strong><br>
                         • <strong>👑 Owner:</strong> Immutable full control. Has unrestricted access to all sites, services, user roles, site permissions, and server branding.<br>
@@ -1911,6 +1935,48 @@
             }
         }
 
+        function renderGuestTorExitPolicy(rolesConfig, canManage) {
+            const toggle = document.getElementById('toggle-guest-tor-exit');
+            const badge = document.getElementById('guest-tor-badge');
+            const isHidden = rolesConfig?.hide_tor_exit_for_guests !== false;
+
+            if (toggle) {
+                toggle.checked = isHidden;
+                toggle.disabled = !canManage;
+                toggle.title = canManage ? 'Toggle Tor exit card visibility for guest accounts' : 'Admin/Owner only';
+            }
+            if (badge) {
+                if (isHidden) {
+                    badge.textContent = 'Removed (Hidden)';
+                    badge.style.color = 'var(--text-muted)';
+                    badge.style.background = 'rgba(255,255,255,0.06)';
+                } else {
+                    badge.textContent = 'Visible to Guests';
+                    badge.style.color = 'var(--online)';
+                    badge.style.background = 'rgba(74,222,128,0.12)';
+                }
+            }
+        }
+
+        async function toggleGuestTorExitSetting(hide) {
+            try {
+                const res = await fetch('/api/users/guest-tor-exit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ hide: hide })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(hide ? 'Tor exit node card is now removed for guest users.' : 'Tor exit node card is now visible to guest users.', 'success');
+                    loadUsers();
+                } else {
+                    showToast(data.error || 'Failed to update policy', 'error');
+                }
+            } catch(e) {
+                showToast('Error updating policy: ' + e, 'error');
+            }
+        }
+
         async function loadUsers() {
             loadAppConfig();
             try {
@@ -1921,6 +1987,8 @@
                 
                 CACHED_USERS = data.tailscale_users || [];
                 CACHED_SERVICES = data.available_services || [];
+
+                renderGuestTorExitPolicy(data.roles_config, data.can_manage_roles || data.can_manage_site_access);
 
                 renderTailscaleUsers(
                     CACHED_USERS,

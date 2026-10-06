@@ -86,7 +86,8 @@ def get_roles_config():
         "roles": {},
         "default_role": "viewer",
         "user_permissions": {},
-        "default_permissions": get_all_service_ids()
+        "default_permissions": get_all_service_ids(),
+        "hide_tor_exit_for_guests": True
     }
     if os.path.exists(ROLES_CONFIG_FILE):
         try:
@@ -100,6 +101,8 @@ def get_roles_config():
                     cfg['user_permissions'] = {}
                 if 'default_permissions' not in cfg:
                     cfg['default_permissions'] = get_all_service_ids()
+                if 'hide_tor_exit_for_guests' not in cfg:
+                    cfg['hide_tor_exit_for_guests'] = True
                 return cfg
         except Exception:
             pass
@@ -355,3 +358,10 @@ def update_user_permissions(target_user: str, allowed_services: list):
     save_roles_config(cfg)
     WHOIS_CACHE.clear()
     return sanitized
+
+def update_guest_tor_exit_policy(hide: bool) -> bool:
+    cfg = get_roles_config()
+    cfg['hide_tor_exit_for_guests'] = bool(hide)
+    save_roles_config(cfg)
+    WHOIS_CACHE.clear()
+    return cfg['hide_tor_exit_for_guests']

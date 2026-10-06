@@ -413,6 +413,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if 'bazarr' not in allowed_services:
                 return self.serve_access_denied('Bazarr')
             target_url = "/bazarr/"
+        elif clean_path in ['/adguard', '/adguardhome', '/dns']:
+            if 'adguard' not in allowed_services:
+                return self.serve_access_denied('AdGuard Home')
+            svc = next((s for s in SERVICES if s.get('id') == 'adguard'), None)
+            port = svc.get('port', 3000) if svc else 3000
+            target_url = f"http://{host}:{port}/"
 
         if not target_url:
             svc_name = clean_path.lstrip('/')
@@ -925,13 +931,22 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             role = session.get('role', 'viewer')
             login_name = session.get('login_name', '')
             allowed_svcs = auth.get_user_allowed_services(login_name, role)
+            roles_cfg = auth.get_roles_config()
+            hide_tor_for_guests = roles_cfg.get('hide_tor_exit_for_guests', True)
+            is_guest = (role in ['viewer', 'guest']) and not session.get('is_owner', False)
+
             # Map service IDs to widget IDs for the frontend
             _widget_svc_map = {
                 'qbittorrent': 'qbittorrent',
                 'jdownloader': 'jdownloader',
                 'manga_shelf': 'suwayomi',
+                'tor_exit': 'tor',
             }
             allowed_widgets = [wid for wid, svc in _widget_svc_map.items() if svc in allowed_svcs]
+            show_tor_exit = not (is_guest and (hide_tor_for_guests or 'tor' not in allowed_svcs))
+            if not show_tor_exit and 'tor_exit' in allowed_widgets:
+                allowed_widgets.remove('tor_exit')
+
             self.send_compressed(json.dumps({
                 "role": role,
                 "display_name": session.get('display_name', 'User'),
@@ -941,13 +956,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 "is_owner": session.get('is_owner', False),
                 "device_name": session.get('device_name', ''),
                 "allowed_services": allowed_svcs,
-                "allowed_widgets": allowed_widgets
+                "allowed_widgets": allowed_widgets,
+                "hide_tor_exit_for_guests": hide_tor_for_guests,
+                "show_tor_exit": show_tor_exit
             }).encode(), "application/json")
 
 
         elif self.path == '/api/users':
             role = session.get('role', 'viewer')
-            ts_users = [] if role == 'guest' else auth.get_tailscale_users()
+            is_guest = (role in ['viewer', 'guest']) and not session.get('is_owner', False)
+            ts_users = [] if is_guest else auth.get_tailscale_users()
             self.send_compressed(json.dumps({
                 "current_user": session,
                 "tailscale_users": ts_users,
@@ -1014,7 +1032,9 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == '/api/system/tor-exit':
             role = session.get('role', 'viewer')
-            if role == 'guest':
+            is_guest = (role in ['viewer', 'guest']) and not session.get('is_owner', False)
+            roles_cfg = auth.get_roles_config()
+            if is_guest and (roles_cfg.get('hide_tor_exit_for_guests', True) or 'tor' not in auth.get_user_allowed_services(session.get('login_name', ''), role)):
                 self.send_response(403)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
@@ -1115,6 +1135,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(json.dumps({"success": True, "user": target_user, "allowed_services": sanitized}).encode())
             except ValueError as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode())
+            return
+
+        # ─── Guest Tor Exit Policy: OWNER & ADMIN ───
+        elif self.path == '/api/users/guest-tor-exit':
+            if session.get('role') not in ['owner', 'admin']:
+                self.send_response(403)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                return
+            hide = data.get('hide', True)
+            try:
+                updated_val = auth.update_guest_tor_exit_policy(hide)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "hide_tor_exit_for_guests": updated_val}).encode())
+            except Exception as e:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
@@ -1335,6 +1377,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             elif self.path == '/api/system/tor-exit':
+                if session.get('role') not in ['owner', 'admin']:
+                    self.send_response(403)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(b'{"error": "Forbidden: Admin or Owner permissions required"}')
+                    return
                 enable = data.get('enable', False)
                 try:
                     services.set_tor_exit(enable)

@@ -6,13 +6,13 @@ Wants=suwayomi-server.service
 
 [Service]
 Type=simple
+ExecStartPre=+/usr/bin/ln -sfn /home/tin/server-dashboard/configs/scripts/tinarchy-resource-governor.py /usr/local/bin/tinarchy-resource-governor
 ExecStart=/usr/bin/python3 /usr/local/bin/tinarchy-resource-governor
 Restart=always
 RestartSec=5
 KillMode=mixed
 TimeoutStopSec=10
 
-# High-priority scheduling to guarantee instant reaction to user wakeups
 User=root
 Group=root
 Nice=-5

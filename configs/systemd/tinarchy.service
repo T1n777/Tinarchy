@@ -1,18 +1,16 @@
 [Unit]
-Description=Tinarchy Server Management Control Center
-Documentation=https://github.com/T1n777/Tinarchy
+Description=Tinarchy Server Management Dashboard
 After=network.target tailscaled.service
 Wants=tailscaled.service
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/usr/share/tinarchy
-ExecStart=/usr/bin/python3 /usr/share/tinarchy/server.py
+User=tin
+WorkingDirectory=/home/tin/server-dashboard
+ExecStart=/usr/bin/python3 /home/tin/server-dashboard/server.py
 Restart=always
-RestartSec=3
-EnvironmentFile=-/etc/tinarchy/tinarchy.env
+RestartSec=5
+EnvironmentFile=-/home/tin/server-dashboard/.env
 
 [Install]
 WantedBy=multi-user.target
-Alias=server-dashboard.service
